@@ -1,0 +1,48 @@
+<?php
+
+use App\Models\LeaveRequest;
+use Laravel\Sanctum\Sanctum;
+
+it('supports attendance and leave workflows with supervisor decisions', function () {
+    $staff = apiUser('staff', ['email' => 'attendance-staff@fastlink.test']);
+    $supervisor = apiUser('supervisor', ['email' => 'attendance-supervisor@fastlink.test']);
+
+    Sanctum::actingAs($staff);
+
+    $this->postJson('/api/v1/attendance/sign-in', [
+        'note' => 'Starting shift',
+    ])->assertOk()->assertJsonPath('success', true);
+
+    $this->postJson('/api/v1/attendance/sign-out', [
+        'note' => 'Finished shift',
+    ])->assertOk()->assertJsonPath('success', true);
+
+    $leave = $this->postJson('/api/v1/leave-requests', [
+        'type' => 'annual',
+        'reason' => 'Family event',
+        'start_date' => now()->addDays(10)->toDateString(),
+        'end_date' => now()->addDays(12)->toDateString(),
+        'supervisor_id' => $supervisor->id,
+    ])->assertCreated()->json('data');
+
+    Sanctum::actingAs($supervisor);
+
+    $this->postJson('/api/v1/leave-requests/'.$leave['id'].'/decide', [
+        'status' => 'modified',
+        'supervisor_note' => 'Please shift by one day',
+        'modified_start_date' => now()->addDays(11)->toDateString(),
+        'modified_end_date' => now()->addDays(12)->toDateString(),
+    ])->assertOk();
+
+    Sanctum::actingAs($staff);
+
+    $this->postJson('/api/v1/leave-requests/'.$leave['id'].'/respond', [
+        'accept' => true,
+        'sender_response_note' => 'Accepted',
+    ])->assertOk()->assertJsonPath('data.status', 'sender_okay');
+
+    $calendar = $this->getJson('/api/v1/attendance/calendar?month='.now()->format('Y-m'));
+    $calendar->assertOk()->assertJsonPath('success', true);
+
+    expect(LeaveRequest::count())->toBe(1);
+});
