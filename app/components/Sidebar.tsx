@@ -66,16 +66,33 @@ interface SidebarProps {
 function Logo({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-        P
+      {/* Logo mark — chain-link icon on a teal→gold gradient */}
+      <div
+        className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
+        style={{ background: "linear-gradient(135deg, #1D6161 0%, #D4CA5C 100%)" }}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
       </div>
+
       {!collapsed && (
         <div className="flex flex-col leading-none">
-          <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">
-            P23
+          <span className="font-bold text-white text-base tracking-tight">
+            Fastlink
           </span>
-          <span className="text-[9px] font-semibold text-slate-400 dark:text-slate-500 tracking-[0.2em] uppercase">
-            Africa
+          <span className="text-[9px] font-semibold tracking-[0.2em] uppercase" style={{ color: "#D4CA5C" }}>
+            Platform
           </span>
         </div>
       )}
@@ -100,20 +117,20 @@ function NavLink({
         "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group",
         collapsed && "justify-center px-2",
         isActive
-          ? "bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400"
-          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200"
+          ? "bg-[#1A393A] text-white"
+          : "text-slate-300 dark:text-slate-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-slate-200"
       )}
     >
       {isActive && (
-        <span className="absolute left-0 top-2 bottom-2 w-0.75 bg-violet-600 dark:bg-violet-500 rounded-full" />
+        <span className="absolute left-0 top-2 bottom-2 w-0.75 bg-white rounded-full" />
       )}
       <Icon
         size={18}
         className={cn(
           "shrink-0 transition-colors",
           isActive
-            ? "text-violet-600 dark:text-violet-400"
-            : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+            ? "text-white"
+            : "text-slate-400 dark:text-slate-500 group-hover:text-slate-200 dark:group-hover:text-slate-300"
         )}
       />
       {!collapsed && <span className="truncate">{item.label}</span>}
@@ -142,7 +159,7 @@ function NavGroup({
   if (collapsed) {
     return (
       <button
-        className="relative flex w-full items-center justify-center px-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"
+        className="relative flex w-full items-center justify-center px-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group text-slate-400 hover:bg-white/10 dark:hover:bg-white/5"
         title={item.label}
       >
         <Icon size={18} className="shrink-0" />
@@ -160,8 +177,8 @@ function NavGroup({
         className={cn(
           "relative flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
           isChildActive
-            ? "text-violet-700 dark:text-violet-400"
-            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200"
+            ? "bg-[#1A393A] text-white"
+            : "text-slate-300 dark:text-slate-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-slate-200"
         )}
       >
         <Icon
@@ -169,7 +186,7 @@ function NavGroup({
           className={cn(
             "shrink-0",
             isChildActive
-              ? "text-violet-600 dark:text-violet-400"
+              ? "text-white"
               : "text-slate-400 dark:text-slate-500"
           )}
         />
@@ -190,8 +207,8 @@ function NavGroup({
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
                   childActive
-                    ? "text-violet-700 dark:text-violet-400 font-medium"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                    ? "bg-[#1A393A] text-white font-medium"
+                    : "text-slate-400 hover:text-white dark:hover:text-slate-200 hover:bg-white/10 dark:hover:bg-white/5"
                 )}
               >
                 <ChevronRightIcon size={12} className="shrink-0 opacity-50" />
@@ -222,7 +239,7 @@ function SidebarContent({
     <div className="flex flex-col h-full">
       <div
         className={cn(
-          "flex items-center py-5 px-4 border-b border-slate-200/60 dark:border-white/6",
+          "flex items-center py-5 px-4 border-b border-white/10",
           collapsed ? "justify-center" : "justify-between"
         )}
       >
@@ -230,7 +247,7 @@ function SidebarContent({
         {showCloseButton ? (
           <button
             onClick={onMobileClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             <XIcon size={16} />
           </button>
@@ -238,7 +255,7 @@ function SidebarContent({
           !collapsed && (
             <button
               onClick={onCollapse}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               title="Collapse sidebar"
             >
               <ChevronLeftIcon size={16} />
@@ -250,7 +267,7 @@ function SidebarContent({
       {collapsed && !showCloseButton && (
         <button
           onClick={onCollapse}
-          className="mx-auto mt-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          className="mx-auto mt-3 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           title="Expand sidebar"
         >
           <ChevronRightIcon size={16} />
@@ -259,7 +276,7 @@ function SidebarContent({
 
       <nav className="flex-1 overflow-y-auto sidebar-scroll px-3 py-4 space-y-1">
         {!collapsed && (
-          <p className="text-[10px] font-semibold tracking-widest text-slate-400 dark:text-slate-600 uppercase px-3 mb-3">
+          <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase px-3 mb-3">
             Navigation
           </p>
         )}
@@ -282,13 +299,13 @@ function SidebarContent({
 
       <div
         className={cn(
-          "border-t border-slate-200/60 dark:border-white/6 p-3",
+          "border-t border-white/10 p-3",
           collapsed && "flex justify-center"
         )}
       >
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer",
+            "flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/10 transition-colors cursor-pointer",
             collapsed && "px-1"
           )}
         >
@@ -297,8 +314,8 @@ function SidebarContent({
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">David</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">Staff</p>
+              <p className="text-sm font-semibold text-white truncate">David</p>
+              <p className="text-xs text-slate-400 truncate">Staff</p>
             </div>
           )}
         </div>
@@ -310,25 +327,46 @@ function SidebarContent({
 export function Sidebar({ collapsed, mobileOpen, onCollapse, onMobileClose }: SidebarProps) {
   return (
     <>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onMobileClose} />
-          <div className="relative z-10 w-64 bg-white dark:bg-[#0d1117] shadow-2xl">
-            <SidebarContent
-              collapsed={false}
-              onCollapse={onCollapse}
-              onMobileClose={onMobileClose}
-              showCloseButton
-            />
-          </div>
-        </div>
-      )}
+      {/* Mobile + tablet drawer (< lg) — always mounted, driven by CSS transitions */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden",
+          mobileOpen ? "pointer-events-auto" : "pointer-events-none"
+        )}
+      >
+        {/* Backdrop */}
+        <div
+          className={cn(
+            "absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out",
+            mobileOpen ? "opacity-100" : "opacity-0"
+          )}
+          onClick={onMobileClose}
+        />
 
+        {/* Drawer panel */}
+        <div
+          className={cn(
+            "relative z-10 w-72 h-full shadow-2xl",
+            "bg-[#021717] dark:bg-[#0d1117]",
+            "transition-transform duration-300 ease-in-out",
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <SidebarContent
+            collapsed={false}
+            onCollapse={onCollapse}
+            onMobileClose={onMobileClose}
+            showCloseButton
+          />
+        </div>
+      </div>
+
+      {/* Desktop sidebar (lg+) */}
       <aside
         className={cn(
-          "hidden md:flex flex-col h-full shrink-0",
-          "bg-white dark:bg-[#0d1117]",
-          "border-r border-slate-200/60 dark:border-white/6",
+          "hidden lg:flex flex-col h-full shrink-0",
+          "bg-[#021717] dark:bg-[#0d1117]",
+          "border-r border-white/10 dark:border-white/6",
           "transition-all duration-300 ease-in-out",
           collapsed ? "w-18" : "w-64"
         )}

@@ -15,6 +15,15 @@ body {
   box-sizing: border-box;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Smooth scrollbar for sidebar */
 .sidebar-scroll {
   scrollbar-width: thin;
