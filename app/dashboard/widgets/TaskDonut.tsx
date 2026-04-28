@@ -4,8 +4,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useTheme } from "../../components/ThemeProvider";
 
 const DATA = [
-  { name: "Completed", value: 18, color: "#22c55e" },
-  { name: "In Progress", value: 8,  color: "#6366f1" },
+  { name: "Completed", value: 18, color: "#1D6161" },
+  { name: "In Progress", value: 8,  color: "#021717" },
   { name: "Pending",     value: 12, color: "#f59e0b" },
   { name: "Overdue",     value: 3,  color: "#ef4444" },
 ];

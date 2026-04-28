@@ -1,14 +1,13 @@
+import Link from "next/link";
 import { StatsCard } from "../components/StatsCard";
-import { QuickLinkCard } from "../components/QuickLinkCard";
 import {
   FolderIcon,
-  ListIcon,
   ClockIcon,
   FilterIcon,
   KanbanIcon,
   GanttIcon,
   PipelineIcon,
-  SpreadsheetIcon,
+  ChevronRightIcon,
 } from "../components/icons";
 import { WeeklyActivity } from "./widgets/WeeklyActivity";
 import { TaskDonut } from "./widgets/TaskDonut";
@@ -18,22 +17,22 @@ import { RecentActivity } from "./widgets/RecentActivity";
 
 const STATS = [
   {
-    label: "Projects",
+    label: "Total Leads",
+    value: 31,
+    subtitle: "20 new",
+    icon: FilterIcon,
+    variant: "teal" as const,
+    trend: { value: 18, direction: "up" as const, label: "vs last mo." },
+    sparkData: [24, 25, 26, 25, 27, 29, 31],
+  },
+  {
+    label: "Total Projects",
     value: 3,
     subtitle: "1 active",
     icon: FolderIcon,
     variant: "purple" as const,
     trend: { value: 33, direction: "up" as const, label: "vs last mo." },
     sparkData: [1, 2, 2, 2, 3, 2, 3],
-  },
-  {
-    label: "Tasks",
-    value: 2,
-    subtitle: "0 completed",
-    icon: ListIcon,
-    variant: "blue" as const,
-    trend: { value: 50, direction: "down" as const, label: "vs last mo." },
-    sparkData: [4, 5, 4, 4, 3, 3, 2],
   },
   {
     label: "Pending Tasks",
@@ -44,15 +43,6 @@ const STATS = [
     trend: { value: 12, direction: "down" as const },
     sparkData: [3, 3, 4, 3, 3, 2, 2],
   },
-  {
-    label: "Total Leads",
-    value: 31,
-    subtitle: "20 new",
-    icon: FilterIcon,
-    variant: "teal" as const,
-    trend: { value: 18, direction: "up" as const, label: "vs last mo." },
-    sparkData: [24, 25, 26, 25, 27, 29, 31],
-  },
 ];
 
 const QUICK_LINKS = [
@@ -60,43 +50,29 @@ const QUICK_LINKS = [
     label: "All Projects",
     href: "/dashboard/projects",
     icon: FolderIcon,
-    iconBg: "bg-indigo-500/10 dark:bg-indigo-500/15",
-    iconColor: "text-indigo-500 dark:text-indigo-400",
+    accent: "#021717",
+    accentBg: "bg-[#021717]/10",
   },
   {
     label: "Kanban Board",
     href: "/dashboard/projects/kanban",
     icon: KanbanIcon,
-    iconBg: "bg-blue-500/10 dark:bg-blue-500/15",
-    iconColor: "text-blue-500 dark:text-blue-400",
-  },
-  {
-    label: "Task List",
-    href: "/dashboard/projects/tasks",
-    icon: ListIcon,
-    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/15",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
+    accent: "#3b82f6",
+    accentBg: "bg-blue-500/10",
   },
   {
     label: "Gantt Chart",
     href: "/dashboard/projects/gantt",
     icon: GanttIcon,
-    iconBg: "bg-amber-500/10 dark:bg-amber-500/15",
-    iconColor: "text-amber-500 dark:text-amber-400",
+    accent: "#f59e0b",
+    accentBg: "bg-amber-500/10",
   },
   {
     label: "CRM Pipeline",
     href: "/dashboard/crm",
     icon: PipelineIcon,
-    iconBg: "bg-cyan-500/10 dark:bg-cyan-500/15",
-    iconColor: "text-cyan-500 dark:text-cyan-400",
-  },
-  {
-    label: "Spreadsheets",
-    href: "/dashboard/spreadsheets",
-    icon: SpreadsheetIcon,
-    iconBg: "bg-teal-500/10 dark:bg-teal-500/15",
-    iconColor: "text-teal-500 dark:text-teal-400",
+    accent: "#06b6d4",
+    accentBg: "bg-cyan-500/10",
   },
 ] as const;
 
@@ -104,17 +80,42 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 max-w-360">
 
-      {/* ── Page header ── */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Welcome back,{" "}
-          <span className="font-semibold text-slate-700 dark:text-slate-300">David</span>
-        </p>
+      {/* ── Page header + quick links ── */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6 -mt-5">
+        {/* Title */}
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Welcome back,{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">David</span>
+          </p>
+        </div>
+
+        {/* Quick links — horizontally scrollable on mobile, natural wrap on md+ */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 md:pb-0 md:flex-wrap md:justify-end scrollbar-hide">
+          {QUICK_LINKS.map(({ label, href, icon: Icon, accent, accentBg }) => (
+            <Link
+              key={label}
+              href={href}
+              className="group flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-300/70 dark:border-white/10 bg-transparent hover:bg-white dark:hover:bg-white/5 hover:shadow-md hover:-translate-y-0.5 hover:border-slate-400/60 dark:hover:border-white/20 transition-all duration-150 shrink-0"
+            >
+              <span className={`w-5 h-5 rounded-md ${accentBg} flex items-center justify-center shrink-0`}>
+                <Icon size={11} style={{ color: accent }} />
+              </span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                {label}
+              </span>
+              <ChevronRightIcon
+                size={10}
+                className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 group-hover:translate-x-0.5 transition-all duration-150"
+              />
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* ── Stats row ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {STATS.map((stat) => (
           <StatsCard
             key={stat.label}
@@ -129,48 +130,21 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Primary charts ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7">
-          <WeeklyActivity />
-        </div>
+      {/* ── Row 1: Task Breakdown + Weekly Activity ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5">
           <TaskDonut />
         </div>
+        <div className="lg:col-span-7">
+          <WeeklyActivity />
+        </div>
       </div>
 
-      {/* ── Secondary widgets ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* ── Row 2: Project Health + CRM Pipeline + Recent Activity ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <ProjectHealth />
         <LeadPipeline />
         <RecentActivity />
-      </div>
-
-      {/* ── Quick navigation ── */}
-      <div className="bg-white dark:bg-[#1a2035] rounded-2xl border border-slate-200/60 dark:border-white/6 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 dark:border-white/[0.04]">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/15 flex items-center justify-center">
-            <FolderIcon size={16} className="text-indigo-500 dark:text-indigo-400" />
-          </div>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Project Management
-          </h2>
-          <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            Quick access
-          </span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-4">
-          {QUICK_LINKS.map((link) => (
-            <QuickLinkCard
-              key={link.label}
-              label={link.label}
-              href={link.href}
-              icon={link.icon}
-              iconBg={link.iconBg}
-              iconColor={link.iconColor}
-            />
-          ))}
-        </div>
       </div>
 
     </div>
