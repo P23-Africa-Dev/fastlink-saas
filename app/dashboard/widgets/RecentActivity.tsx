@@ -50,7 +50,7 @@ const ACTIVITY: ActivityItem[] = [
   {
     initial: "E",
     color: "#6366f1",
-    user: "Elijah",
+    user: "David E.",
     action: "created project",
     item: "Mobile App Dev",
     time: "3h ago",

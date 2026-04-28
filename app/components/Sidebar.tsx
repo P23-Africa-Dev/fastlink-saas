@@ -297,7 +297,7 @@ function SidebarContent({
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">Elijah</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">David</p>
               <p className="text-xs text-slate-400 dark:text-slate-500 truncate">Staff</p>
             </div>
           )}

@@ -68,7 +68,7 @@ export function TopBar({ onMobileMenuOpen }: TopBarProps) {
             E
           </div>
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200 hidden sm:block">
-            Elijah
+            David
           </span>
           <svg
             width="12"
