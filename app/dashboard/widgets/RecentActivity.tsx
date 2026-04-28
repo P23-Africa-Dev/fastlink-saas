@@ -13,7 +13,7 @@ interface ActivityItem {
 const ACTIVITY: ActivityItem[] = [
   {
     initial: "A",
-    color: "#6366f1",
+    color: "#021717",
     user: "Amara K.",
     action: "completed task",
     item: "Homepage mockups",
@@ -49,8 +49,8 @@ const ACTIVITY: ActivityItem[] = [
   },
   {
     initial: "E",
-    color: "#6366f1",
-    user: "Elijah",
+    color: "#021717",
+    user: "David",
     action: "created project",
     item: "Mobile App Dev",
     time: "3h ago",
@@ -59,9 +59,9 @@ const ACTIVITY: ActivityItem[] = [
 ];
 
 const TYPE_DOT: Record<ActivityItem["type"], string> = {
-  task:    "bg-emerald-500",
+  task:    "bg-[#1D6161]",
   comment: "bg-cyan-500",
-  lead:    "bg-indigo-500",
+  lead:    "bg-[#021717]",
   update:  "bg-amber-500",
   project: "bg-violet-500",
 };
@@ -74,7 +74,7 @@ export function RecentActivity() {
           <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Recent Activity</h3>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Latest team actions</p>
         </div>
-        <button className="text-[11px] font-medium text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+        <button className="text-[11px] font-medium transition-colors" style={{ color: "#021717" }}>
           View all →
         </button>
       </div>

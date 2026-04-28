@@ -16,7 +16,7 @@ const PROJECTS: Project[] = [
     status: "on-track",
     tasks: { total: 18, done: 13 },
     daysLeft: 8,
-    color: "#6366f1",
+    color: "#021717",
   },
   {
     name: "Mobile App Dev",
@@ -32,12 +32,12 @@ const PROJECTS: Project[] = [
     status: "on-track",
     tasks: { total: 12, done: 11 },
     daysLeft: 3,
-    color: "#22c55e",
+    color: "#1D6161",
   },
 ];
 
 const STATUS_STYLES = {
-  "on-track":  { label: "On Track",  className: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  "on-track":  { label: "On Track",  className: "bg-[#1D6161]/10 text-[#1D6161] dark:text-[#1D6161]" },
   "at-risk":   { label: "At Risk",   className: "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" },
   "completed": { label: "Completed", className: "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400" },
 };
@@ -109,7 +109,7 @@ export function ProjectHealth() {
         <span className="text-slate-400 dark:text-slate-500">3 active projects</span>
         <span className="text-slate-400 dark:text-slate-500">
           Avg{" "}
-          <span className="font-semibold text-indigo-500">
+          <span className="font-semibold" style={{ color: "#021717" }}>
             {Math.round(PROJECTS.reduce((s, p) => s + p.progress, 0) / PROJECTS.length)}%
           </span>{" "}
           complete

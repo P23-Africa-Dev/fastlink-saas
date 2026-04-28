@@ -23,7 +23,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("light");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -31,6 +31,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (stored && ["light", "dark", "system"].includes(stored)) {
       setThemeState(stored);
     }
+    // no stored value → stays "light" (the initial state)
   }, []);
 
   useEffect(() => {

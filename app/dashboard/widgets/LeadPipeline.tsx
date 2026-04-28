@@ -12,11 +12,11 @@ import {
 import { useTheme } from "../../components/ThemeProvider";
 
 const DATA = [
-  { stage: "New Leads",    count: 31, color: "#6366f1" },
+  { stage: "New Leads",    count: 31, color: "#021717" },
   { stage: "Contacted",   count: 18, color: "#8b5cf6" },
   { stage: "Qualified",   count: 11, color: "#06b6d4" },
   { stage: "Proposal",    count: 7,  color: "#10b981" },
-  { stage: "Closed Won",  count: 4,  color: "#22c55e" },
+  { stage: "Closed Won",  count: 4,  color: "#1D6161" },
 ];
 
 const MAX = DATA[0].count;
@@ -74,7 +74,7 @@ export function LeadPipeline() {
           <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium">
             Conversion
           </p>
-          <p className="text-lg font-bold text-indigo-500">{convRate}%</p>
+          <p className="text-lg font-bold" style={{ color: "#021717" }}>{convRate}%</p>
         </div>
       </div>
 
