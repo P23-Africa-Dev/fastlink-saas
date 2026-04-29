@@ -239,7 +239,13 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-function PipelineSelect({ value, onChange }: { value: StageKey; onChange: (v: StageKey) => void }) {
+function PipelineSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -256,14 +262,11 @@ function PipelineSelect({ value, onChange }: { value: StageKey; onChange: (v: St
   }, []);
 
   const q = search.toLowerCase();
-  const filtered = pipelineGroups
-    .map(g => ({ ...g, stages: g.stages.filter(s => s.toLowerCase().includes(q)) }))
-    .filter(g => g.stages.length > 0);
+  const filtered = pipelineGroups.filter((g) => g.label.toLowerCase().includes(q));
 
   return (
     <div className="crm-select-wrap" ref={ref}>
       <button className="crm-select-trigger" onClick={() => setOpen(v => !v)}>
-        <span className="crm-select-label">Pipeline</span>
         <span className="crm-select-value">{value}</span>
         <ChevronDown
           size={14}
@@ -278,33 +281,44 @@ function PipelineSelect({ value, onChange }: { value: StageKey; onChange: (v: St
             <Search size={13} />
             <input
               autoFocus
-              placeholder="Search stages…"
+              placeholder="Search pipelines…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
           <div className="crm-select-list">
             {filtered.length === 0 ? (
-              <div className="crm-select-empty">No stages found</div>
+              <div className="crm-select-empty">No pipelines found</div>
             ) : (
-              filtered.map(group => (
-                <div key={group.label}>
-                  <div className="crm-select-group-label" style={{ color: group.color }}>
+              <>
+                <button
+                  className={`crm-select-option ${value === "All Leads" ? "crm-select-option--active" : ""}`}
+                  onClick={() => {
+                    onChange("All Leads");
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <span className="crm-select-option-dot" style={{ background: "#33084E" }} />
+                  All Leads
+                  {value === "All Leads" && <Check size={13} className="crm-select-check" />}
+                </button>
+                {filtered.map((group) => (
+                  <button
+                    key={group.label}
+                    className={`crm-select-option ${group.label === value ? "crm-select-option--active" : ""}`}
+                    onClick={() => {
+                      onChange(group.label);
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <span className="crm-select-option-dot" style={{ background: group.color }} />
                     {group.label}
-                  </div>
-                  {group.stages.map(stage => (
-                    <button
-                      key={stage}
-                      className={`crm-select-option ${stage === value ? "crm-select-option--active" : ""}`}
-                      onClick={() => { onChange(stage); setOpen(false); setSearch(""); }}
-                    >
-                      <span className="crm-select-option-dot" style={{ background: stageColors[stage] }} />
-                      {stage}
-                      {stage === value && <Check size={13} className="crm-select-check" />}
-                    </button>
-                  ))}
-                </div>
-              ))
+                    {group.label === value && <Check size={13} className="crm-select-check" />}
+                  </button>
+                ))}
+              </>
             )}
           </div>
         </div>
@@ -316,13 +330,18 @@ function PipelineSelect({ value, onChange }: { value: StageKey; onChange: (v: St
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [activeStage, setActiveStage] = useState<StageKey>("Lead");
-
-  const leads = leadsData[activeStage];
-  const stageGroup = pipelineGroups.find(g => g.stages.includes(activeStage))!;
-  const avgScore = leads.length > 0
-    ? Math.round(leads.reduce((s, l) => s + l.score, 0) / leads.length)
-    : 0;
+  const [activePipeline, setActivePipeline] = useState<string>("All Leads");
+  const selectedGroup = pipelineGroups.find((g) => g.label === activePipeline);
+  const leads =
+    activePipeline === "All Leads"
+      ? Object.values(leadsData).flat()
+      : (selectedGroup?.stages ?? []).flatMap((stage) => leadsData[stage]);
+  const pipelineColor = selectedGroup?.color ?? "#33084E";
+  const totalAmount = leads.reduce((sum, lead) => {
+    const numeric = Number(lead.value.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(numeric) && numeric > 0 ? sum + numeric : sum;
+  }, 0);
+  const amountLabel = totalAmount > 0 ? `$${totalAmount.toLocaleString()}` : "--";
 
   // Single pass over attendanceData instead of three separate filters
   const { present: presentCount = 0, absent: absentCount = 0, late: lateCount = 0 } =
@@ -397,11 +416,11 @@ export default function DashboardPage() {
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize:12, fill:"#9ca3af" }} dx={-5}/>
               <Tooltip content={<TaskTooltip />} cursor={{ stroke:"rgba(51,8,78,0.15)", strokeWidth:10, fill:"none" }}/>
               <Area type="monotone" dataKey="Completed" stroke="#074616" strokeWidth={2}
-                fill="#074616" fillOpacity={0.12} dot={false} activeDot={{ r:4, fill:"#fff", stroke:"#074616", strokeWidth:2 }}/>
+                fill="transparent" fillOpacity={0} dot={false} activeDot={{ r:4, fill:"#fff", stroke:"#074616", strokeWidth:2 }}/>
               <Area type="monotone" dataKey="InProgress" stroke="#33084E" strokeWidth={2}
-                fill="#33084E" fillOpacity={0.1} dot={false} activeDot={{ r:4, fill:"#fff", stroke:"#33084E", strokeWidth:2 }}/>
+                fill="transparent" fillOpacity={0} dot={false} activeDot={{ r:4, fill:"#fff", stroke:"#33084E", strokeWidth:2 }}/>
               <Area type="monotone" dataKey="Pending" stroke="#AF580B" strokeWidth={1.5}
-                fill="#AF580B" fillOpacity={0.08} dot={false} strokeDasharray="4 4"/>
+                fill="transparent" fillOpacity={0} dot={false} strokeDasharray="4 4"/>
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -414,14 +433,14 @@ export default function DashboardPage() {
               <p className="crm-sub">
                 <span
                   className="crm-stage-indicator"
-                  style={{ background: `${stageColors[activeStage]}18`, color: stageColors[activeStage] }}
+                  style={{ background: `${pipelineColor}18`, color: pipelineColor }}
                 >
-                  <span className="crm-stage-dot" style={{ background: stageColors[activeStage] }} />
-                  {stageGroup.label} · {leads.length} lead{leads.length !== 1 ? "s" : ""}
+                  <span className="crm-stage-dot" style={{ background: pipelineColor }} />
+                  {activePipeline} · {leads.length} lead{leads.length !== 1 ? "s" : ""}
                 </span>
               </p>
             </div>
-            <PipelineSelect value={activeStage} onChange={setActiveStage} />
+            <PipelineSelect value={activePipeline} onChange={setActivePipeline} />
           </div>
 
           {/* Leads Table */}
@@ -473,19 +492,19 @@ export default function DashboardPage() {
 
           <div className="crm-footer">
             <div className="crm-footer-stat">
-              <span className="crm-footer-label">In stage</span>
+              <span className="crm-footer-label">Total leads</span>
               <span className="crm-footer-val">{leads.length}</span>
             </div>
             <div className="crm-footer-stat">
-              <span className="crm-footer-label">Avg score</span>
-              <span className="crm-footer-val" style={{ color: avgScore >= 80 ? "#074616" : avgScore >= 60 ? "#AF580B" : "#ef4444" }}>
-                {avgScore}
+              <span className="crm-footer-label">Amount</span>
+              <span className="crm-footer-val" style={{ color: pipelineColor }}>
+                {amountLabel}
               </span>
             </div>
             <div className="crm-footer-stat">
-              <span className="crm-footer-label">Category</span>
-              <span className="crm-footer-val" style={{ color: stageGroup.color, fontSize: 14 }}>
-                {stageGroup.label}
+              <span className="crm-footer-label">Pipeline</span>
+              <span className="crm-footer-val" style={{ color: pipelineColor, fontSize: 14 }}>
+                {activePipeline}
               </span>
             </div>
           </div>
