@@ -10,11 +10,11 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children }: DashboardShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-full bg-slate-100 dark:bg-[#111827]">
+    <div className="flex h-full bg-[#f5f5f5]">
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}

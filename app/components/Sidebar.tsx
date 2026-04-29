@@ -114,23 +114,23 @@ function NavLink({
     <Link
       href={item.href!}
       className={cn(
-        "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group",
-        collapsed && "justify-center px-2",
-        isActive
-          ? "bg-[#1A393A] text-white"
-          : "text-slate-300 dark:text-slate-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-slate-200"
+        "relative flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 group",
+        collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
+        isActive && collapsed  && "bg-white shadow-md text-gray-900",
+        isActive && !collapsed && "bg-white/10 text-white",
+        !isActive && "text-slate-300 hover:bg-white/10 hover:text-white"
       )}
     >
-      {isActive && (
+      {isActive && !collapsed && (
         <span className="absolute left-0 top-2 bottom-2 w-0.75 bg-white rounded-full" />
       )}
       <Icon
         size={18}
         className={cn(
           "shrink-0 transition-colors",
-          isActive
-            ? "text-white"
-            : "text-slate-400 dark:text-slate-500 group-hover:text-slate-200 dark:group-hover:text-slate-300"
+          isActive && collapsed  ? "text-gray-900" :
+          isActive              ? "text-white"     :
+          "text-slate-400 group-hover:text-slate-200"
         )}
       />
       {!collapsed && <span className="truncate">{item.label}</span>}
@@ -177,7 +177,7 @@ function NavGroup({
         className={cn(
           "relative flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
           isChildActive
-            ? "bg-[#1A393A] text-white"
+            ? "bg-white/10 text-white"
             : "text-slate-300 dark:text-slate-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-slate-200"
         )}
       >
@@ -207,7 +207,7 @@ function NavGroup({
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
                   childActive
-                    ? "bg-[#1A393A] text-white font-medium"
+                    ? "bg-white/10 text-white font-medium"
                     : "text-slate-400 hover:text-white dark:hover:text-slate-200 hover:bg-white/10 dark:hover:bg-white/5"
                 )}
               >
@@ -347,7 +347,7 @@ export function Sidebar({ collapsed, mobileOpen, onCollapse, onMobileClose }: Si
         <div
           className={cn(
             "relative z-10 w-72 h-full shadow-2xl",
-            "bg-[#021717] dark:bg-[#0d1117]",
+            "bg-[#0d0d0d]",
             "transition-transform duration-300 ease-in-out",
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           )}
@@ -365,7 +365,7 @@ export function Sidebar({ collapsed, mobileOpen, onCollapse, onMobileClose }: Si
       <aside
         className={cn(
           "hidden lg:flex flex-col h-full shrink-0",
-          "bg-[#021717] dark:bg-[#0d1117]",
+          "bg-[#0d0d0d]",
           "border-r border-white/10 dark:border-white/6",
           "transition-all duration-300 ease-in-out",
           collapsed ? "w-18" : "w-64"
