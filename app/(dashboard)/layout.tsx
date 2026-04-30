@@ -18,7 +18,7 @@ export default function DashboardLayout({
     >
       <Sidebar isExpanded={isExpanded} onToggle={() => setIsExpanded((v) => !v)} />
 
-      <div className="main-content">
+      <div className="main-content min-w-0">
         <Topbar />
         {children}
       </div>
