@@ -513,7 +513,7 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="flex-1 flex flex-col gap-1 min-w-0">
-                        <span className="text-[14px] font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
+                        <span className="text-[13px] font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
                           {task.title}
                         </span>
                         <span className="text-[12px] font-medium text-[var(--text-muted)] flex items-center gap-1.5">
