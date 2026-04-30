@@ -1,6 +1,6 @@
 import React from "react";
 
-type Variant = "primary" | "secondary";
+type Variant = "primary" | "secondary" | "danger";
 
 interface ModalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -9,9 +9,11 @@ interface ModalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-[var(--accent-purple)] text-white hover:opacity-90 shadow-[0_4px_14px_rgba(51,8,78,0.25)]",
+    "bg-(--accent-purple) text-white hover:opacity-90 shadow-[0_4px_14px_rgba(51,8,78,0.25)]",
   secondary:
-    "border border-[#f0f0f5] bg-white text-[var(--text-primary)] hover:bg-slate-50",
+    "border border-[#f0f0f5] bg-white text-(--text-primary) hover:bg-slate-50",
+  danger:
+    "bg-[#ef4444] text-white hover:opacity-90 shadow-[0_4px_14px_rgba(239,68,68,0.25)]",
 };
 
 export function ModalButton({
