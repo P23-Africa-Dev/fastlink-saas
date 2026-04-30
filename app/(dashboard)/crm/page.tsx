@@ -1,10 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Plus, Upload, Search, LayoutGrid, List, 
-  MoreVertical, DollarSign, Building2, Mail, Phone, Calendar
+import {
+  Plus, Upload, Search, LayoutGrid, List,
+  MoreVertical, DollarSign, Building2, Calendar
 } from "lucide-react";
+import { NewLeadModal } from "./components/NewLeadModal";
+import { ImportLeadsModal } from "./components/ImportLeadsModal";
+import { 
+  DndContext, DragOverlay, closestCorners, 
+  PointerSensor, useSensor, useSensors, 
+  DragStartEvent, DragEndEvent 
+} from '@dnd-kit/core';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
 
 // --- Mock Data based on API Specifications ---
 const drives = [
@@ -20,7 +28,7 @@ const statuses = [
   { id: 5, name: "Closed Won", slug: "won", color: "#074616" }
 ];
 
-const mockLeads = [
+const initialMockLeads = [
   { id: 101, first_name: "Alice", last_name: "Smith", company: "Globex Corp", email: "alice@globex.com", estimated_value: 15000, priority: "high", status_id: 1, drive_id: 1, date: "2026-04-30" },
   { id: 102, first_name: "Bob", last_name: "Johnson", company: "Acme Inc", email: "bob@acme.com", estimated_value: 8500, priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-28" },
   { id: 103, first_name: "Charlie", last_name: "Davis", company: "Initech", email: "cdavis@initech.com", estimated_value: 22000, priority: "high", status_id: 3, drive_id: 1, date: "2026-04-25" },
@@ -30,19 +38,139 @@ const mockLeads = [
   { id: 107, first_name: "George", last_name: "Costanza", company: "Vandelay", email: "art@vandelay.com", estimated_value: 1500, priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-29" },
 ];
 
+const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
+
+// --- DND Components ---
+function DroppableColumn({ status, children }: { status: any, children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status.id.toString(),
+  });
+  return (
+    <div 
+      ref={setNodeRef} 
+      className="flex-1 border border-[#f0f0f5] rounded-2xl flex flex-col overflow-y-auto" 
+      style={{ 
+        background: isOver ? "rgba(51,8,78,0.05)" : "rgba(255,255,255,0.6)", 
+        padding: "12px", 
+        gap: "12px",
+        transition: "background 0.2s ease"
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LeadCardContent({ lead, status }: { lead: any, status: any }) {
+  return (
+    <div className="bg-white rounded-xl border border-[#f0f0f5] shadow-sm hover:shadow-md hover:border-[var(--accent-purple)] transition-all cursor-pointer group flex flex-col w-full" style={{ padding: "16px", gap: "12px" }}>
+      <div className="flex items-start justify-between" style={{ gap: "8px" }}>
+        <div className="flex items-center" style={{ gap: "12px" }}>
+          <div className="rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ width: "32px", height: "32px", background: `${status.color}15`, color: status.color }}>
+            {lead.first_name[0]}{lead.last_name[0]}
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-[13px] font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
+              {lead.first_name} {lead.last_name}
+            </h4>
+            <div className="flex items-center text-[11px] font-medium text-[var(--text-muted)]" style={{ marginTop: "2px", gap: "4px" }}>
+              <Building2 size={10} />
+              <span className="truncate">{lead.company}</span>
+            </div>
+          </div>
+        </div>
+        <button className="text-[#9ca3af] hover:text-[var(--accent-purple)] transition-colors" style={{ padding: "4px", marginRight: "-4px" }}>
+          <MoreVertical size={14} />
+        </button>
+      </div>
+      
+      <div className="flex items-center justify-between" style={{ marginTop: "4px" }}>
+        <div className="flex items-center rounded-md bg-[#f8f8fc] border border-[#f0f0f5] text-[12px] font-semibold text-[var(--text-primary)]" style={{ padding: "4px 8px", gap: "6px" }}>
+          <DollarSign size={12} className="text-[#9ca3af]" />
+          {formatCurrency(lead.estimated_value)}
+        </div>
+        <span className="rounded-md text-[10px] font-bold uppercase tracking-wider" style={{
+          padding: "4px 8px",
+          background: lead.priority === 'high' ? '#AF580B15' : lead.priority === 'low' ? '#f0f0f5' : '#33084E15',
+          color: lead.priority === 'high' ? '#AF580B' : lead.priority === 'low' ? '#9ca3af' : '#33084E',
+        }}>
+          {lead.priority}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DraggableCard({ lead, status }: { lead: any, status: any }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id.toString(),
+    data: { lead, status }
+  });
+  
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 999 : undefined,
+  } : undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      <LeadCardContent lead={lead} status={status} />
+    </div>
+  );
+}
+
+
 export default function CrmPage() {
+  const [leads, setLeads] = useState(initialMockLeads);
   const [activeDrive, setActiveDrive] = useState(drives[0].id);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Modals state
+  const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  
+  // DND state
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px movement before drag starts so buttons are clickable
+      },
+    })
+  );
 
-  const filteredLeads = mockLeads.filter(l => 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id.toString());
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const newStatusId = parseInt(over.id.toString());
+      setLeads((prev) => 
+        prev.map((lead) => 
+          lead.id.toString() === active.id.toString() 
+            ? { ...lead, status_id: newStatusId } 
+            : lead
+        )
+      );
+    }
+  };
+
+  const filteredLeads = leads.filter(l => 
     l.drive_id === activeDrive && 
     (l.first_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
      l.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
      l.company.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
+  const activeDragLead = activeDragId ? leads.find(l => l.id.toString() === activeDragId) : null;
+  const activeDragStatus = activeDragLead ? statuses.find(s => s.id === activeDragLead.status_id) : null;
 
   return (
     <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
@@ -55,6 +183,7 @@ export default function CrmPage() {
         </div>
         <div className="flex items-center w-full sm:w-auto" style={{ gap: "12px" }}>
           <button 
+            onClick={() => setIsImportOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center border border-[#f0f0f5] text-[13px] font-bold text-[var(--text-primary)] hover:opacity-80 transition-all rounded-xl"
             style={{ padding: "10px 16px", gap: "8px", background: "white" }}
           >
@@ -62,6 +191,7 @@ export default function CrmPage() {
             Import Leads
           </button>
           <button 
+            onClick={() => setIsNewLeadOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center text-[13px] font-bold text-white hover:opacity-90 transition-all rounded-xl shadow-[0_4px_14px_rgba(51,8,78,0.25)]"
             style={{ padding: "10px 16px", gap: "8px", background: "var(--accent-purple)" }}
           >
@@ -122,73 +252,55 @@ export default function CrmPage() {
       {/* ── Main Content Area ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col" style={{ width: "100%", maxWidth: "100%", overflow: "hidden", boxSizing: "border-box" }}>
         {viewMode === "kanban" ? (
-          <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x" style={{ paddingBottom: "16px", paddingLeft: "4px", paddingRight: "4px" }}>
-            <div className="flex items-start h-full" style={{ gap: "24px", width: "max-content" }}>
-              {statuses.map(status => {
-                const columnLeads = filteredLeads.filter(l => l.status_id === status.id);
-                return (
-                  <div key={status.id} className="flex flex-col h-full snap-start shrink-0" style={{ width: "320px" }}>
-                    {/* Column Header */}
-                    <div className="flex items-center justify-between" style={{ marginBottom: "16px" }}>
-                      <div className="flex items-center" style={{ gap: "8px" }}>
-                        <span className="rounded-full" style={{ width: "10px", height: "10px", background: status.color }} />
-                        <h3 className="text-[14px] font-bold text-[var(--text-primary)]">{status.name}</h3>
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x" style={{ paddingBottom: "16px", paddingLeft: "4px", paddingRight: "4px" }}>
+              <div className="flex items-start h-full" style={{ gap: "24px", width: "max-content" }}>
+                {statuses.map(status => {
+                  const columnLeads = filteredLeads.filter(l => l.status_id === status.id);
+                  return (
+                    <div key={status.id} className="flex flex-col h-full snap-start shrink-0" style={{ width: "320px" }}>
+                      {/* Column Header */}
+                      <div className="flex items-center justify-between" style={{ marginBottom: "16px" }}>
+                        <div className="flex items-center" style={{ gap: "8px" }}>
+                          <span className="rounded-full" style={{ width: "10px", height: "10px", background: status.color }} />
+                          <h3 className="text-[14px] font-bold text-[var(--text-primary)]">{status.name}</h3>
+                        </div>
+                        <span className="rounded-full bg-[#f0f0f5] text-[11px] font-bold text-[var(--text-muted)]" style={{ padding: "2px 10px" }}>
+                          {columnLeads.length}
+                        </span>
                       </div>
-                      <span className="rounded-full bg-[#f0f0f5] text-[11px] font-bold text-[var(--text-muted)]" style={{ padding: "2px 10px" }}>
-                        {columnLeads.length}
-                      </span>
-                    </div>
 
-                    {/* Column Body / Dropzone */}
-                    <div className="flex-1 border border-[#f0f0f5] rounded-2xl flex flex-col overflow-y-auto" style={{ background: "rgba(255,255,255,0.6)", padding: "12px", gap: "12px" }}>
-                      {columnLeads.map(lead => (
-                        <div key={lead.id} className="bg-white rounded-xl border border-[#f0f0f5] shadow-sm hover:shadow-md hover:border-[var(--accent-purple)] transition-all cursor-pointer group flex flex-col" style={{ padding: "16px", gap: "12px" }}>
-                          <div className="flex items-start justify-between" style={{ gap: "8px" }}>
-                            <div className="flex items-center" style={{ gap: "12px" }}>
-                              <div className="rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ width: "32px", height: "32px", background: `${status.color}15`, color: status.color }}>
-                                {lead.first_name[0]}{lead.last_name[0]}
-                              </div>
-                              <div className="min-w-0">
-                                <h4 className="text-[13px] font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
-                                  {lead.first_name} {lead.last_name}
-                                </h4>
-                                <div className="flex items-center text-[11px] font-medium text-[var(--text-muted)]" style={{ marginTop: "2px", gap: "4px" }}>
-                                  <Building2 size={10} />
-                                  <span className="truncate">{lead.company}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <button className="text-[#9ca3af] hover:text-[var(--accent-purple)] transition-colors" style={{ padding: "4px", marginRight: "-4px" }}>
-                              <MoreVertical size={14} />
-                            </button>
+                      {/* Column Body / Dropzone */}
+                      <DroppableColumn status={status}>
+                        {columnLeads.map(lead => (
+                          <DraggableCard key={lead.id} lead={lead} status={status} />
+                        ))}
+                        {columnLeads.length === 0 && (
+                          <div className="flex-1 flex items-center justify-center border-2 border-dashed border-[#f0f0f5] rounded-xl text-[12px] font-medium text-[#9ca3af]">
+                            Drop leads here
                           </div>
-                          
-                          <div className="flex items-center justify-between" style={{ marginTop: "4px" }}>
-                            <div className="flex items-center rounded-md bg-[#f8f8fc] border border-[#f0f0f5] text-[12px] font-semibold text-[var(--text-primary)]" style={{ padding: "4px 8px", gap: "6px" }}>
-                              <DollarSign size={12} className="text-[#9ca3af]" />
-                              {lead.estimated_value.toLocaleString()}
-                            </div>
-                            <span className="rounded-md text-[10px] font-bold uppercase tracking-wider" style={{
-                              padding: "4px 8px",
-                              background: lead.priority === 'high' ? '#AF580B15' : lead.priority === 'low' ? '#f0f0f5' : '#33084E15',
-                              color: lead.priority === 'high' ? '#AF580B' : lead.priority === 'low' ? '#9ca3af' : '#33084E',
-                            }}>
-                              {lead.priority}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                      {columnLeads.length === 0 && (
-                        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-[#f0f0f5] rounded-xl text-[12px] font-medium text-[#9ca3af]">
-                          Drop leads here
-                        </div>
-                      )}
+                        )}
+                      </DroppableColumn>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+            
+            {/* Drag Overlay for smooth animation while dragging */}
+            <DragOverlay>
+              {activeDragLead && activeDragStatus ? (
+                <div style={{ width: "294px" }}>
+                  <LeadCardContent lead={activeDragLead} status={activeDragStatus} />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         ) : (
           <div className="bg-white rounded-2xl border border-[#f0f0f5] shadow-sm overflow-hidden flex-1 flex flex-col min-w-0">
             <div className="overflow-auto flex-1">
@@ -258,6 +370,15 @@ export default function CrmPage() {
           </div>
         )}
       </div>
+
+      {/* ── Modals ─────────────────────────────────────────────────────────── */}
+      {isNewLeadOpen && (
+        <NewLeadModal statuses={statuses} onClose={() => setIsNewLeadOpen(false)} />
+      )}
+      {isImportOpen && (
+        <ImportLeadsModal drives={drives} onClose={() => setIsImportOpen(false)} />
+      )}
+
     </div>
   );
 }
