@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Upload, MoreVertical, DollarSign, Building2, Calendar } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Plus, Upload, MoreVertical, DollarSign, Building2, Calendar, Pencil, Trash2 } from "lucide-react";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, useSensor, useSensors,
@@ -75,7 +75,16 @@ function DroppableColumn({ status, children }: { status: StatusItem; children: R
   );
 }
 
-function LeadCardContent({ lead, status, onClick }: { lead: Lead; status: StatusItem; onClick: () => void }) {
+interface MenuTrigger { lead: Lead; x: number; y: number; }
+
+function LeadCardContent({
+  lead, status, onClick, onMenuClick,
+}: {
+  lead: Lead;
+  status: StatusItem;
+  onClick: () => void;
+  onMenuClick: (e: React.MouseEvent<HTMLButtonElement>, lead: Lead) => void;
+}) {
   const priStyle: Record<string, { bg: string; color: string }> = {
     high:   { bg: "#AF580B15", color: "#AF580B" },
     normal: { bg: "#33084E15", color: "#33084E" },
@@ -104,7 +113,11 @@ function LeadCardContent({ lead, status, onClick }: { lead: Lead; status: Status
             </div>
           </div>
         </div>
-        <button className="text-[#9ca3af] hover:text-(--accent-purple) transition-colors" style={{ padding: "4px", marginRight: "-4px" }} onClick={e => e.stopPropagation()}>
+        <button
+          className="text-[#9ca3af] hover:text-(--accent-purple) hover:bg-[#f0f0f5] rounded-lg transition-all"
+          style={{ padding: "4px", marginRight: "-4px" }}
+          onClick={e => { e.stopPropagation(); onMenuClick(e, lead); }}
+        >
           <MoreVertical size={14} />
         </button>
       </div>
@@ -122,7 +135,14 @@ function LeadCardContent({ lead, status, onClick }: { lead: Lead; status: Status
   );
 }
 
-function DraggableCard({ lead, status, onCardClick }: { lead: Lead; status: StatusItem; onCardClick: () => void }) {
+function DraggableCard({
+  lead, status, onCardClick, onMenuClick,
+}: {
+  lead: Lead;
+  status: StatusItem;
+  onCardClick: () => void;
+  onMenuClick: (e: React.MouseEvent<HTMLButtonElement>, lead: Lead) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id.toString(),
     data: { lead, status },
@@ -131,7 +151,7 @@ function DraggableCard({ lead, status, onCardClick }: { lead: Lead; status: Stat
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <LeadCardContent lead={lead} status={status} onClick={onCardClick} />
+      <LeadCardContent lead={lead} status={status} onClick={onCardClick} onMenuClick={onMenuClick} />
     </div>
   );
 }
@@ -156,6 +176,27 @@ export default function CrmPage() {
   const [isDeleteLeadOpen,    setDeleteLeadOpen]     = useState(false);
   const [isLogActivityOpen,   setLogActivityOpen]    = useState(false);
   const [editingActivity,     setEditingActivity]    = useState<Activity | null>(null);
+
+  // Context menu
+  const [menu, setMenu] = useState<MenuTrigger | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menu]);
+
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, lead: Lead) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({ lead, x: rect.right, y: rect.bottom + 4 });
+  };
 
   // Filters & view
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
@@ -267,6 +308,7 @@ export default function CrmPage() {
                             lead={lead}
                             status={status}
                             onCardClick={() => setSelectedLead(lead)}
+                            onMenuClick={openMenu}
                           />
                         ))}
                         {columnLeads.length === 0 && (
@@ -283,7 +325,7 @@ export default function CrmPage() {
             <DragOverlay>
               {activeDragLead && activeDragStatus && (
                 <div style={{ width: "294px" }}>
-                  <LeadCardContent lead={activeDragLead} status={activeDragStatus} onClick={() => {}} />
+                  <LeadCardContent lead={activeDragLead} status={activeDragStatus} onClick={() => {}} onMenuClick={() => {}} />
                 </div>
               )}
             </DragOverlay>
@@ -342,9 +384,9 @@ export default function CrmPage() {
                         </td>
                         <td className="text-right" style={{ padding: "16px 24px" }}>
                           <button
-                            className="text-[#9ca3af] hover:text-(--accent-purple) transition-colors rounded-lg hover:bg-white border border-transparent hover:border-[#f0f0f5]"
+                            className="text-[#9ca3af] hover:text-(--accent-purple) transition-colors rounded-lg hover:bg-[#f0f0f5] border border-transparent"
                             style={{ padding: "8px" }}
-                            onClick={e => e.stopPropagation()}
+                            onClick={e => openMenu(e, lead)}
                           >
                             <MoreVertical size={16} />
                           </button>
@@ -365,6 +407,46 @@ export default function CrmPage() {
           </div>
         )}
       </div>
+
+      {/* ── Context Menu Dropdown ───────────────────────────────────────── */}
+      {menu && (
+        <div
+          ref={menuRef}
+          className="fixed z-9999 bg-white rounded-xl border border-[#f0f0f5] shadow-[0_8px_24px_rgba(0,0,0,0.12)] overflow-hidden"
+          style={{
+            top: menu.y,
+            left: menu.x,
+            transform: "translateX(-100%)",
+            minWidth: "148px",
+          }}
+        >
+          <button
+            className="w-full flex items-center text-[13px] font-bold text-(--text-primary) hover:bg-[#f8f8fc] transition-colors"
+            style={{ padding: "11px 16px", gap: "10px" }}
+            onClick={() => {
+              setSelectedLead(menu.lead);
+              setEditLeadOpen(true);
+              setMenu(null);
+            }}
+          >
+            <Pencil size={14} className="text-[#9ca3af]" />
+            Edit Lead
+          </button>
+          <div className="border-t border-[#f0f0f5]" />
+          <button
+            className="w-full flex items-center text-[13px] font-bold text-red-500 hover:bg-red-50 transition-colors"
+            style={{ padding: "11px 16px", gap: "10px" }}
+            onClick={() => {
+              setSelectedLead(menu.lead);
+              setDeleteLeadOpen(true);
+              setMenu(null);
+            }}
+          >
+            <Trash2 size={14} className="text-red-400" />
+            Delete Lead
+          </button>
+        </div>
+      )}
 
       {/* ── Lead Detail Drawer ───────────────────────────────────────────── */}
       {selectedLead && (
