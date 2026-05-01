@@ -22,7 +22,7 @@ export function RequestCard({ request, isAdmin, onClick, onApprove, onReject, on
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl border border-[#f0f0f5] cursor-pointer group transition-all hover:shadow-md hover:border-[#d1d5db] flex flex-col overflow-hidden"
+      className="bg-white rounded-2xl border border-[#f0f0f5] rounded-2xl border cursor-pointer group transition-all shadow-md border-[#d1d5db] hover:bg-[#f0f8ff] hover:border-[#d1d5db] flex flex-col overflow-hidden"
       style={{ borderLeft: `4px solid ${statusCfg.dot}` }}
     >
       {/* Attention banner — modified requests */}
