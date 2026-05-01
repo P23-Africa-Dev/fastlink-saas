@@ -1,12 +1,15 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\TaskAssignedNotification;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 
 it('supports project, task, kanban, gantt, assignee, and comment flows', function () {
     $admin = apiUser('admin');
     $staff = apiUser('staff', ['email' => 'staff1@fastlink.test']);
     Sanctum::actingAs($admin);
+    Notification::fake();
 
     $project = $this->postJson('/api/v1/projects', [
         'name' => 'Website Revamp',
@@ -25,6 +28,8 @@ it('supports project, task, kanban, gantt, assignee, and comment flows', functio
         'due_date' => now()->addDays(5)->toDateString(),
         'assignee_ids' => [$staff->id],
     ])->assertCreated()->json('data');
+
+    Notification::assertSentTo($staff, TaskAssignedNotification::class);
 
     $taskId = $task['id'];
 

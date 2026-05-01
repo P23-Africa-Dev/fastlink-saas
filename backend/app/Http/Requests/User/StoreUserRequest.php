@@ -19,8 +19,9 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            // Password is generated on the backend and emailed to the new user.
+            'password' => ['nullable', 'string', 'min:8', 'max:255'],
             'role' => ['required', 'string', Rule::in(['admin', 'supervisor', 'staff'])],
         ];
     }

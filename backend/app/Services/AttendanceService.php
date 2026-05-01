@@ -6,61 +6,79 @@ use App\Models\Attendance;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
     public function signIn(User $user, ?string $note, ?string $ip): Attendance
     {
-        $today = Carbon::today()->toDateString();
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+        $normalizedNote = $this->normalizeNote($note);
 
-        $attendance = Attendance::firstOrCreate(
-            ['user_id' => $user->id, 'date' => $today],
-            ['note' => $note]
-        );
+        return DB::transaction(function () use ($user, $today, $normalizedNote, $ip) {
+            $attendance = Attendance::query()
+                ->where('user_id', $user->id)
+                ->whereDate('date', $today)
+                ->lockForUpdate()
+                ->first();
 
-        if ($attendance->signed_in_at !== null) {
-            throw ValidationException::withMessages([
-                'attendance' => ['You are already signed in today.'],
+            if (!$attendance) {
+                $attendance = Attendance::create([
+                    'user_id' => $user->id,
+                    'date' => $today,
+                    'note' => $normalizedNote,
+                ]);
+            }
+
+            if ($attendance->signed_in_at !== null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You are already signed in today.'],
+                ]);
+            }
+
+            $attendance->update([
+                'signed_in_at' => now(),
+                'sign_in_ip' => $ip,
+                'note' => $normalizedNote,
             ]);
-        }
 
-        $attendance->update([
-            'signed_in_at' => now(),
-            'sign_in_ip' => $ip,
-            'note' => $note,
-        ]);
-
-        return $attendance->fresh();
+            return $attendance->fresh();
+        });
     }
 
     public function signOut(User $user, ?string $note, ?string $ip): Attendance
     {
-        $today = Carbon::today()->toDateString();
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+        $normalizedNote = $this->normalizeNote($note);
 
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
+        return DB::transaction(function () use ($user, $today, $normalizedNote, $ip) {
+            $attendance = Attendance::query()
+                ->where('user_id', $user->id)
+                ->whereDate('date', $today)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$attendance || $attendance->signed_in_at === null) {
-            throw ValidationException::withMessages([
-                'attendance' => ['You must sign in before signing out.'],
+            if (!$attendance || $attendance->signed_in_at === null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You must sign in before signing out.'],
+                ]);
+            }
+
+            if ($attendance->signed_out_at !== null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You are already signed out today.'],
+                ]);
+            }
+
+            $attendance->update([
+                'signed_out_at' => now(),
+                'sign_out_ip' => $ip,
+                'note' => $normalizedNote ?? $attendance->note,
             ]);
-        }
 
-        if ($attendance->signed_out_at !== null) {
-            throw ValidationException::withMessages([
-                'attendance' => ['You are already signed out today.'],
-            ]);
-        }
-
-        $attendance->update([
-            'signed_out_at' => now(),
-            'sign_out_ip' => $ip,
-            'note' => $note ?? $attendance->note,
-        ]);
-
-        return $attendance->fresh();
+            return $attendance->fresh();
+        });
     }
 
     public function calendar(Carbon $month, ?int $userId = null): array
@@ -92,5 +110,16 @@ class AttendanceService
             'attendances' => $attendanceQuery->orderBy('date')->get(),
             'leave_requests' => $leaveQuery->orderBy('start_date')->get(),
         ];
+    }
+
+    private function normalizeNote(?string $note): ?string
+    {
+        if ($note === null) {
+            return null;
+        }
+
+        $trimmed = trim($note);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

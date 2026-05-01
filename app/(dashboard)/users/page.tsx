@@ -137,7 +137,6 @@ export default function LeaveRequestsPage() {
   const [showModify, setShowModify] = useState(false);
   const [respondMode, setRespondMode] = useState<boolean | null>(null); // true=accept, false=decline
 
-
   // ── Filtered + paginated list ──────────────────────────────────────────────
   const source = view === "my"
     ? requests.filter(r => r.user_id === MY_USER_ID)
