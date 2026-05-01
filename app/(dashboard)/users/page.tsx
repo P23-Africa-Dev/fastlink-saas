@@ -60,13 +60,13 @@ function mapLeaveRequest(raw: ApiLeaveRequest): LeaveRequest {
     user_name: userName,
     user_initials: initialsFromName(userName),
     user_color: colorFromId(raw.user_id),
-    type: (raw.leave_type as LeaveType) || "other",
+    status: (raw.status as LeaveStatus) || "pending",
+    type: (raw.type || raw.leave_type) as LeaveType || "other",
     reason: raw.reason ?? "",
     supervisor_id: raw.supervisor_id ?? 0,
     supervisor_name: supervisorName,
     supervisor_initials: initialsFromName(supervisorName),
-    status: (raw.status as LeaveStatus) || "pending",
-    days: countDays(raw.start_date, raw.end_date),
+    days: raw.duration_days ? Math.round(Number(raw.duration_days)) : countDays(raw.start_date, raw.end_date),
   };
 }
 

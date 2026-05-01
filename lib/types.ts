@@ -166,9 +166,11 @@ export interface LeaveRequest {
   id: number;
   user_id: number;
   leave_type: string;
+  type?: string;
   start_date: string;
   end_date: string;
   reason: string | null;
+  duration_days?: string | number;
   status: "pending" | "approved" | "rejected" | "modified";
   created_at: string;
   updated_at: string;
