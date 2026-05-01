@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import {
-  ArrowUpRight, ChevronDown, Search, Check,
+  ArrowUpRight,
   MoreHorizontal, Target, TrendingUp, FolderUp,
   CheckCircle2, Clock, AlertCircle, ChevronRight,
   Calendar, ListTodo, Briefcase, Users,
 } from "lucide-react";
+import { CustomSelect, SelectOption } from "@/components/ui/CustomSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,93 +262,10 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-function PipelineSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const q = search.toLowerCase();
-  const filtered = pipelineGroups.filter((g) => g.label.toLowerCase().includes(q));
-
-  return (
-    <div className="crm-select-wrap" ref={ref}>
-      <button className="crm-select-trigger" onClick={() => setOpen(v => !v)}>
-        <span className="crm-select-value">{value}</span>
-        <ChevronDown
-          size={14}
-          className="crm-select-chevron"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}
-        />
-      </button>
-
-      {open && (
-        <div className="crm-select-dropdown">
-          <div className="crm-select-search">
-            <Search size={13} />
-            <input
-              autoFocus
-              placeholder="Search pipelines…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="crm-select-list">
-            {filtered.length === 0 ? (
-              <div className="crm-select-empty">No pipelines found</div>
-            ) : (
-              <>
-                <button
-                  className={`crm-select-option ${value === "All Leads" ? "crm-select-option--active" : ""}`}
-                  onClick={() => {
-                    onChange("All Leads");
-                    setOpen(false);
-                    setSearch("");
-                  }}
-                >
-                  <span className="crm-select-option-dot" style={{ background: "#33084E" }} />
-                  All Leads
-                  {value === "All Leads" && <Check size={13} className="crm-select-check" />}
-                </button>
-                {filtered.map((group) => (
-                  <button
-                    key={group.label}
-                    className={`crm-select-option ${group.label === value ? "crm-select-option--active" : ""}`}
-                    onClick={() => {
-                      onChange(group.label);
-                      setOpen(false);
-                      setSearch("");
-                    }}
-                  >
-                    <span className="crm-select-option-dot" style={{ background: group.color }} />
-                    {group.label}
-                    {group.label === value && <Check size={13} className="crm-select-check" />}
-                  </button>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+const pipelineSelectOptions: SelectOption[] = [
+  { value: "All Leads", label: "All Leads", color: "#33084E" },
+  ...pipelineGroups.map(g => ({ value: g.label, label: g.label, color: g.color })),
+];
 
 function DatePicker({
   value,
@@ -513,7 +431,7 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="flex-1 flex flex-col gap-1 min-w-0">
-                        <span className="text-[14px] font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
+                        <span className="text-[13px] font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
                           {task.title}
                         </span>
                         <span className="text-[12px] font-medium text-[var(--text-muted)] flex items-center gap-1.5">
@@ -548,7 +466,12 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="w-full sm:w-auto mt-3 sm:mt-0">
-              <PipelineSelect value={activePipeline} onChange={setActivePipeline} />
+              <CustomSelect
+                value={activePipeline}
+                onChange={setActivePipeline}
+                options={pipelineSelectOptions}
+                searchPlaceholder="Search pipelines…"
+              />
             </div>
           </div>
 

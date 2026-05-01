@@ -1,0 +1,130 @@
+"use client";
+
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import { ModalButton } from "./ModalButton";
+import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
+import { CustomSelect } from "@/components/ui/CustomSelect";
+
+interface EditTaskModalProps {
+  task:     Task;
+  projects: Project[];
+  onClose:  () => void;
+  onSave:   (data: Partial<Task>) => void;
+}
+
+const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
+const PRIORITIES: Priority[]      = ["low", "normal", "high"];
+const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
+const labelCls = "text-[13px] font-bold text-(--text-primary)";
+
+export function EditTaskModal({ task, projects, onClose, onSave }: EditTaskModalProps) {
+  const [title,       setTitle]     = useState(task.title);
+  const [description, setDesc]      = useState(task.description ?? "");
+  const [projectId,   setProjectId] = useState(task.project_id);
+  const [status,      setStatus]    = useState<TaskStatus>(task.status);
+  const [priority,    setPriority]  = useState<Priority>(task.priority);
+  const [startDate,   setStartDate] = useState(task.start_date);
+  const [dueDate,     setDueDate]   = useState(task.due_date);
+  const [assignees,   setAssignees] = useState<number[]>(task.assignee_ids);
+
+  const toggleAssignee = (id: number) =>
+    setAssignees(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+    onSave({ title: title.trim(), description, project_id: projectId, status, priority, start_date: startDate, due_date: dueDate, assignee_ids: assignees });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style={{ padding: "16px" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl w-full max-w-xl flex flex-col shadow-2xl overflow-hidden">
+
+        <div className="flex items-center justify-between border-b border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "20px 24px" }}>
+          <div>
+            <h2 className="text-lg font-bold text-(--text-primary)">Edit Task</h2>
+            <p className="text-[12px] text-[#9ca3af]" style={{ marginTop: "2px" }}>{task.title}</p>
+          </div>
+          <button onClick={onClose} className="text-[#9ca3af] hover:text-(--text-primary) transition-colors"><X size={20} /></button>
+        </div>
+
+        <div className="overflow-y-auto" style={{ padding: "24px", maxHeight: "72vh", display: "flex", flexDirection: "column", gap: "18px" }}>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Task Title <span className="text-red-500">*</span></label>
+            <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Description</label>
+            <textarea rows={3} value={description} onChange={e => setDesc(e.target.value)} className={`${inputCls} resize-none`} style={{ padding: "12px 16px" }} />
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Project</label>
+            <CustomSelect
+              fullWidth
+              value={projectId.toString()}
+              onChange={v => setProjectId(Number(v))}
+              options={projects.map(p => ({ value: p.id.toString(), label: p.name }))}
+              searchPlaceholder="Search projects…"
+            />
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Status</label>
+            <div className="flex flex-wrap" style={{ gap: "8px" }}>
+              {TASK_STATUSES.map(s => {
+                const cfg = TASK_STATUS_CONFIG[s]; const active = status === s;
+                return <button key={s} type="button" onClick={() => setStatus(s)} style={{ padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer", border: `1.5px solid ${active ? cfg.color : "#f0f0f5"}`, background: active ? cfg.bg : "white", color: active ? cfg.color : "#9ca3af", transition: "all 0.15s" }}>{cfg.label}</button>;
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Priority</label>
+            <div className="flex items-center" style={{ gap: "8px" }}>
+              {PRIORITIES.map(p => {
+                const cfg = PRIORITY_CONFIG[p]; const active = priority === p;
+                return <button key={p} type="button" onClick={() => setPriority(p)} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer", border: `1.5px solid ${active ? cfg.border : "#f0f0f5"}`, background: active ? cfg.bg : "white", color: active ? cfg.color : "#9ca3af", transition: "all 0.15s" }}>{cfg.label}</button>;
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "16px" }}>
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <label className={labelCls}>Start Date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
+            </div>
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <label className={labelCls}>Due Date</label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
+            </div>
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "10px" }}>
+            <label className={labelCls}>Assignees</label>
+            <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
+              {MOCK_TEAM.map((m, i) => (
+                <label key={m.id} className="flex items-center gap-3 cursor-pointer hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}>
+                  <input type="checkbox" checked={assignees.includes(m.id)} onChange={() => toggleAssignee(m.id)} className="rounded" />
+                  <div className="rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ width: "28px", height: "28px", background: m.color }}>
+                    {m.initials}
+                  </div>
+                  <span className="text-[13px] font-semibold text-(--text-primary)">{m.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
+          <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
+          <ModalButton variant="primary" disabled={!title.trim()} onClick={handleSave}>Save Changes</ModalButton>
+        </div>
+      </div>
+    </div>
+  );
+}

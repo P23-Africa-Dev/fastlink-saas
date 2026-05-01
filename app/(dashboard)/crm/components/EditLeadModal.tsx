@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Lead } from "./LeadDetailDrawer";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Status { id: number; name: string; }
 interface Drive  { id: number; name: string; }
@@ -26,12 +27,20 @@ const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string;
   high:   { activeBg: "#AF580B15", activeColor: "#AF580B", activeBorder: "#AF580B" },
 };
 
-const inputCls  = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
-const labelCls  = "text-[13px] font-bold text-(--text-primary)";
-const selectCls = `${inputCls} font-medium`;
+const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
+const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditLeadModalProps) {
-  const [priority, setPriority] = useState<Priority>(lead.priority as Priority);
+  const [priority,   setPriority]   = useState<Priority>(lead.priority as Priority);
+  const [driveId,    setDriveId]    = useState(lead.drive_id.toString());
+  const [statusId,   setStatusId]   = useState(lead.status_id.toString());
+  const [assignedTo, setAssignedTo] = useState("");
+  const [currency,   setCurrency]   = useState(lead.currency ?? "USD");
+
+  const driveOptions    = drives.map(d => ({ value: d.id.toString(), label: d.name }));
+  const statusOptions   = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
+  const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
+  const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
 
   const handleSave = () => {
     onSave({ priority });
@@ -89,25 +98,18 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Pipeline</label>
-              <select defaultValue={lead.drive_id} className={selectCls} style={{ padding: "12px 16px" }}>
-                {drives.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <CustomSelect fullWidth value={driveId} onChange={setDriveId} options={driveOptions} searchPlaceholder="Search pipelines…" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Status</label>
-              <select defaultValue={lead.status_id} className={selectCls} style={{ padding: "12px 16px" }}>
-                {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <CustomSelect fullWidth value={statusId} onChange={setStatusId} options={statusOptions} searchPlaceholder="Search statuses…" />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Assigned To</label>
-              <select className={selectCls} style={{ padding: "12px 16px" }}>
-                <option value="">Unassigned</option>
-                <option value="1">Me</option>
-              </select>
+              <CustomSelect fullWidth value={assignedTo} onChange={setAssignedTo} options={assigneeOptions} searchPlaceholder="Search…" />
             </div>
           </div>
 
@@ -118,9 +120,7 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Currency</label>
-              <select defaultValue={lead.currency ?? "USD"} className={selectCls} style={{ padding: "12px 16px" }}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <CustomSelect fullWidth value={currency} onChange={setCurrency} options={currencyOptions} searchPlaceholder="Search currency…" />
             </div>
           </div>
 
