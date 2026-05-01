@@ -17,12 +17,19 @@ import { toast } from "sonner";
 
 const COLORS = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#ef4444"];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayloadItem {
+  name?: string;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadItem[]; label?: string }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-xl">
         <p className="text-[12px] font-bold text-slate-400 mb-2">{label}</p>
-        {payload.map((p: any, i: number) => (
+        {payload.map((p: TooltipPayloadItem, i: number) => (
           <div key={i} className="flex items-center gap-2 text-[13px]">
             <div className="w-2 h-2 rounded-full" style={{ background: p.color || p.fill }} />
             <span className="font-medium text-slate-700">{p.name}:</span>
@@ -267,14 +274,14 @@ export default function AnalyticsPage() {
 }
 
 // Additional icons for the UI
-const CheckCircle2 = ({ size, ...props }: any) => (
+const CheckCircle2 = ({ size, ...props }: { size?: number } & React.SVGProps<SVGSVGElement>) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     <circle cx="12" cy="12" r="10" />
     <path d="m9 12 2 2 4-4" />
   </svg>
 );
 
-const Clock = ({ size, ...props }: any) => (
+const Clock = ({ size, ...props }: { size?: number } & React.SVGProps<SVGSVGElement>) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     <circle cx="12" cy="12" r="10" />
     <polyline points="12 6 12 12 16 14" />

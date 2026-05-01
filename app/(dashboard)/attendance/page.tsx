@@ -189,7 +189,7 @@ export default function AttendancePage() {
         setShowSignIn(false);
         toast.success("Clocked in successfully");
       },
-      onError: (err: any) => toast.error(err.response?.data?.message || "Clock in failed")
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Clock in failed")
     });
   };
 
@@ -200,7 +200,7 @@ export default function AttendancePage() {
         setShowSignOut(false);
         toast.success("Clocked out successfully");
       },
-      onError: (err: any) => toast.error(err.response?.data?.message || "Clock out failed")
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Clock out failed")
     });
   };
 

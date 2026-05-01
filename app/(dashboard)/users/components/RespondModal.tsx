@@ -50,13 +50,13 @@ export function RespondModal({ request, accept, onClose, onSubmit }: RespondModa
           <div className="rounded-xl border border-[#f0f0f5]" style={{ padding: "14px 16px" }}>
             <div className="flex items-center" style={{ gap: "6px", marginBottom: "8px" }}>
               <CalendarDays size={13} style={{ color: "#2563eb" }} />
-              <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Supervisor's Proposed Dates</span>
+              <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Supervisor&apos;s Proposed Dates</span>
             </div>
             <p className="text-[14px] font-bold" style={{ color: "#1d4ed8" }}>
               {fmtDateRange(request.modified_start_date!, request.modified_end_date!)}
             </p>
             {request.supervisor_note && (
-              <p className="text-[12px] text-[#6b7280]" style={{ marginTop: "6px" }}>"{request.supervisor_note}"</p>
+              <p className="text-[12px] text-[#6b7280]" style={{ marginTop: "6px" }}>&quot;{request.supervisor_note}&quot;</p>
             )}
           </div>
 

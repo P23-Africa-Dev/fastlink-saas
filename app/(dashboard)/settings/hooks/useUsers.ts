@@ -15,7 +15,7 @@ export function useUsers() {
           params: { per_page: 100, page },
         });
         all.push(...res.data.data);
-        const pagination = (res.data.meta as any)?.pagination;
+        const pagination = (res.data.meta as { pagination?: { last_page?: number } })?.pagination;
         lastPage = pagination?.last_page ?? 1;
         page += 1;
       }

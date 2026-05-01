@@ -27,10 +27,15 @@ import { DeleteTaskModal } from "./components/DeleteTaskModal";
 import { TaskDetailDrawer } from "./components/TaskDetailDrawer";
 import { GanttChart } from "./components/GanttChart";
 import {
-  Project, Task, Comment, TaskStatus,
+  Project, Task, Comment, TaskStatus, ProjectStatus, Priority,
 } from "./components/types";
 import { ProjectSkeleton } from "@/components/ProjectSkeleton";
 import { toast } from "sonner";
+
+type ApiError = { response?: { data?: { message?: string } } };
+function errMsg(err: unknown, fallback: string) {
+  return (err as ApiError)?.response?.data?.message || fallback;
+}
 
 
 const mapPriorityToUi = (priority?: ApiTask["priority"] | ApiProject["priority"]) => {
@@ -49,7 +54,7 @@ function mapProject(raw: ApiProject): Project {
     id: raw.id,
     name: raw.name,
     description: raw.description ?? "",
-    status: raw.status === "planning" ? "planning" : raw.status as any,
+    status: raw.status === "planning" ? "planning" : raw.status as ProjectStatus,
     priority: mapPriorityToUi(raw.priority),
     start_date: raw.start_date ?? "",
     due_date: raw.end_date ?? "",
@@ -62,8 +67,8 @@ function mapTask(raw: ApiTask): Task {
     title: raw.title,
     description: raw.description ?? "",
     project_id: raw.project_id,
-    status: raw.status as any,
-    priority: mapPriorityToUi(raw.priority as any),
+    status: raw.status as TaskStatus,
+    priority: mapPriorityToUi(raw.priority as Priority),
     start_date: raw.created_at?.split("T")[0] ?? "",
     due_date: raw.due_date ?? "",
     assignee_ids: raw.assigned_to ? [raw.assigned_to] : [],
@@ -144,16 +149,14 @@ const VIEWS: { id: ActiveView; label: string; icon: React.ReactNode }[] = [
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectPage() {
-  const [activeView, setActiveView] = useState<ActiveView>("projects");
-
-  // Sync tab with URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab") as ActiveView | null;
-    if (tab && ["projects", "kanban", "gantt"].includes(tab)) {
-      setActiveView(tab);
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as ActiveView | null;
+      if (tab && ["projects", "kanban", "gantt"].includes(tab)) return tab;
     }
-  }, []);
+    return "projects";
+  });
 
   const handleViewChange = (view: ActiveView) => {
     setActiveView(view);
@@ -217,7 +220,7 @@ export default function ProjectPage() {
       try {
         const res = await api.get<ApiResponse<ApiTask>>(`/tasks/${selectedTask.id}`);
         const mappedTask = mapTask(res.data.data);
-        const mappedComments = [] as any; // Temporary fix for comments if not in core Task type yet
+        const mappedComments: Comment[] = []; // Temporary: comments not yet in core Task type
 
         if (!mounted) return;
 
@@ -249,7 +252,7 @@ export default function ProjectPage() {
 
   // Task handlers
   const handleTaskMove = (taskId: number, newStatus: TaskStatus) => {
-    updateTaskMutation.mutate({ id: taskId, payload: { status: newStatus } as any });
+    updateTaskMutation.mutate({ id: taskId, payload: { status: newStatus } as Partial<ApiTask> });
   };
 
   const handleTaskClick = (task: Task) => {
@@ -274,7 +277,7 @@ export default function ProjectPage() {
   };
 
   const handleAssign = (taskId: number, ids: number[]) => {
-    updateTaskMutation.mutate({ id: taskId, payload: { assigned_to: ids[0] } as any });
+    updateTaskMutation.mutate({ id: taskId, payload: { assigned_to: ids[0] } as Partial<ApiTask> });
   };
 
   const projectName = selectedProject?.name ?? "";
@@ -476,13 +479,13 @@ export default function ProjectPage() {
           onSave={(data) => {
             createProjectMutation.mutate({
               ...data,
-              priority: mapPriorityToApi(data.priority as any),
-            } as any, {
+              priority: mapPriorityToApi(data.priority as Priority),
+            } as Partial<ApiProject>, {
               onSuccess: () => {
                 setNewProjectOpen(false);
                 toast.success("Project created successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create project")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to create project"))
             });
           }}
         />
@@ -495,15 +498,15 @@ export default function ProjectPage() {
           onSave={(data) => {
             const payload = {
               ...data,
-              priority: data.priority ? mapPriorityToApi(data.priority as any) : undefined,
+              priority: data.priority ? mapPriorityToApi(data.priority as Priority) : undefined,
             };
-            updateProjectMutation.mutate({ id: selectedProject.id, payload: payload as any }, {
+            updateProjectMutation.mutate({ id: selectedProject.id, payload: payload as Partial<ApiProject> }, {
               onSuccess: () => {
                 setEditProjectOpen(false);
                 setSelectedProject(null);
                 toast.success("Project updated successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update project")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to update project"))
             });
           }}
         />
@@ -520,7 +523,7 @@ export default function ProjectPage() {
                 setSelectedProject(null);
                 toast.success("Project deleted successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete project")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete project"))
             });
           }}
         />
@@ -536,13 +539,13 @@ export default function ProjectPage() {
           onSave={(data) => {
             createTaskMutation.mutate({
               ...data,
-              priority: mapPriorityToApi(data.priority as any),
-            } as any, {
+              priority: mapPriorityToApi(data.priority as Priority),
+            } as Partial<ApiTask>, {
               onSuccess: () => {
                 setNewTaskOpen(false);
                 toast.success("Task created successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create task")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to create task"))
             });
           }}
         />
@@ -556,16 +559,16 @@ export default function ProjectPage() {
           onSave={(data) => {
             const payload = {
               ...data,
-              priority: data.priority ? mapPriorityToApi(data.priority as any) : undefined,
+              priority: data.priority ? mapPriorityToApi(data.priority as Priority) : undefined,
             };
-            updateTaskMutation.mutate({ id: selectedTask.id, payload: payload as any }, {
+            updateTaskMutation.mutate({ id: selectedTask.id, payload: payload as Partial<ApiTask> }, {
               onSuccess: (res) => {
-                const updated = mapTask(res as any);
+                const updated = mapTask(res as ApiTask);
                 setSelectedTask(updated);
                 setEditTaskOpen(false);
                 toast.success("Task updated successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update task")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to update task"))
             });
           }}
         />
@@ -582,7 +585,7 @@ export default function ProjectPage() {
                 setDeleteTaskOpen(false);
                 toast.success("Task deleted successfully");
               },
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete task")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete task"))
             });
           }}
         />
