@@ -143,7 +143,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 3, user_id: 1, user_name: "Alex Morgan", user_initials: "AM", user_color: "#33084E",
-    type: "study", reason: "Professional certification exam preparation — AWS Solutions Architect.",
+    type: "personal", reason: "Professional certification exam preparation — AWS Solutions Architect.",
     start_date: future(20), end_date: future(21), supervisor_id: 3,
     supervisor_name: "Sam Rivera", supervisor_initials: "SR",
     status: "modified", decision_note: null,
@@ -171,7 +171,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 6, user_id: 3, user_name: "Sam Rivera", user_initials: "SR", user_color: "#074616",
-    type: "compassionate", reason: "Bereavement — passing of a family member.",
+    type: "bereavement", reason: "Bereavement — passing of a family member.",
     start_date: past(3), end_date: past(1), supervisor_id: 4,
     supervisor_name: "Taylor Brooks", supervisor_initials: "TB",
     status: "approved", decision_note: "Our deepest condolences. Approved immediately.", supervisor_note: null,
@@ -189,7 +189,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 8, user_id: 2, user_name: "Jordan Lee", user_initials: "JL", user_color: "#AF580B",
-    type: "unpaid", reason: "Personal project sabbatical.",
+    type: "other", reason: "Personal project sabbatical.",
     start_date: future(60), end_date: future(74), supervisor_id: 3,
     supervisor_name: "Sam Rivera", supervisor_initials: "SR",
     status: "pending", decision_note: null, supervisor_note: null,

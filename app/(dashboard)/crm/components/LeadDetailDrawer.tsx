@@ -48,7 +48,7 @@ const PRIORITY_STYLE: Record<string, { bg: string; color: string }> = {
 const formatCurrency = (val: number, currency = "USD") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(val);
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string }) {
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | number }) {
   return (
     <div className="flex items-start" style={{ gap: "10px", paddingTop: "12px", paddingBottom: "12px", borderBottom: "1px solid #f0f0f5" }}>
       <div className="shrink-0 text-[#9ca3af]" style={{ marginTop: "1px" }}>{icon}</div>
