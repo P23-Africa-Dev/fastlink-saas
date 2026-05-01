@@ -140,7 +140,7 @@ export default function AttendancePage() {
 
   return (
     <div
-      className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden"
+      className="flex flex-col w-full bg-white overflow-hidden"
       style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}
     >
 

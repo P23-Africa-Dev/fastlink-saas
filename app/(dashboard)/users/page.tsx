@@ -43,6 +43,8 @@ type DecideMode  = "approve" | "reject";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none text-(--text-primary) focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af]";
+
 export default function LeaveRequestsPage() {
   const [requests,  setRequests]  = useState<LeaveRequest[]>(MOCK_REQUESTS);
   const [view,      setView]      = useState<View>("my");
@@ -163,7 +165,7 @@ export default function LeaveRequestsPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
+    <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
 
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between shrink-0" style={{ gap: "12px" }}>

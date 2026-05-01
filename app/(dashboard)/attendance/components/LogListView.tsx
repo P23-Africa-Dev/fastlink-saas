@@ -18,6 +18,8 @@ function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", weekday: "short" });
 }
 
+const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none text-(--text-primary) focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af]";
+
 export function LogListView({ logs }: LogListViewProps) {
   const [from,      setFrom]      = useState("");
   const [to,        setTo]        = useState("");
