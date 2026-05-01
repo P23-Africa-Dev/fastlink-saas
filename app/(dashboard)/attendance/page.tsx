@@ -13,6 +13,8 @@ import { LogListView } from "./components/LogListView";
 import { DayDetailDrawer } from "./components/DayDetailDrawer";
 import { SignInModal } from "./components/SignInModal";
 import { SignOutModal } from "./components/SignOutModal";
+import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
+import { toast } from "sonner";
 
 import {
   AttendanceLog,
@@ -195,8 +197,9 @@ export default function AttendancePage() {
         } else {
           setTodayState("idle");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load attendance", error);
+        toast.error(error?.response?.data?.message || "Failed to load attendance data.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -227,8 +230,9 @@ export default function AttendancePage() {
           return [mapped, ...prev];
         });
         setShowSignIn(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Sign-in failed", error);
+        toast.error(error?.response?.data?.message || "Clock in failed.");
       }
     })();
   };
@@ -243,11 +247,16 @@ export default function AttendancePage() {
         setTodayState("signed_out");
         setLogs((prev) => prev.map((l) => (l.id === mapped.id ? mapped : l)));
         setShowSignOut(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Sign-out failed", error);
+        toast.error(error?.response?.data?.message || "Clock out failed.");
       }
     })();
   };
+
+  if (loading) {
+    return <AttendanceSkeleton />;
+  }
 
   return (
     <div
@@ -315,10 +324,6 @@ export default function AttendancePage() {
           <LogListView logs={logs} teamMembers={teamMembers} />
         )}
       </div>
-
-      {loading && (
-        <div className="text-[12px] text-[#9ca3af]">Loading attendance data...</div>
-      )}
 
       {/* ── Modals & drawers ─────────────────────────────────────────────── */}
       {selectedDay && (

@@ -25,6 +25,8 @@ import { Activity } from "./components/ActivityFeed";
 import { Lead } from "./components/LeadDetailDrawer";
 import { DriveItem } from "./components/ManagePipelinesModal";
 import { StatusItem } from "./components/ManageStatusesModal";
+import { CrmSkeleton } from "@/components/CrmSkeleton";
+import { toast } from "sonner";
 
 interface BackendUser {
   id: number;
@@ -338,8 +340,9 @@ export default function CrmPage() {
         setStatuses(statusRes.data.data.map(mapStatus));
         setLeads(leadRes.data.data.map(mapLead));
         setFilters((prev) => ({ ...prev, driveId: mappedDrives[0]?.id ?? 0 }));
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load CRM data", error);
+        toast.error(error?.response?.data?.message || "Failed to load CRM data.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -412,6 +415,10 @@ export default function CrmPage() {
 
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
 
+  if (loading) {
+    return <CrmSkeleton />;
+  }
+
   return (
     <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
 
@@ -455,9 +462,7 @@ export default function CrmPage() {
 
       {/* ── Main Content ─────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col" style={{ overflow: "hidden" }}>
-        {loading ? (
-          <div className="flex items-center justify-center h-full text-[14px] text-[#9ca3af] font-medium">Loading CRM data...</div>
-        ) : viewMode === "kanban" ? (
+        {viewMode === "kanban" ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}

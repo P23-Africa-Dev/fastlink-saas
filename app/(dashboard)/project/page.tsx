@@ -19,6 +19,8 @@ import { GanttChart } from "./components/GanttChart";
 import {
   Project, Task, Comment, TaskStatus,
 } from "./components/types";
+import { ProjectSkeleton } from "@/components/ProjectSkeleton";
+import { toast } from "sonner";
 
 interface BackendUser {
   id: number;
@@ -219,8 +221,9 @@ export default function ProjectPage() {
 
         setProjects(projectRes.data.data.map(mapProject));
         setTasks(taskRes.data.data.map(mapTask));
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load project data", error);
+        toast.error(error?.response?.data?.message || "Failed to load project data.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -313,6 +316,10 @@ export default function ProjectPage() {
 
   const projectName = selectedProject?.name ?? "";
 
+  if (loading) {
+    return <ProjectSkeleton />;
+  }
+
   return (
     <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
 
@@ -383,11 +390,7 @@ export default function ProjectPage() {
         {/* Projects grid */}
         {activeView === "projects" && (
           <div className="overflow-y-auto flex-1" style={{ paddingRight: "4px" }}>
-            {loading ? (
-              <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
-                <p className="text-[15px] font-bold text-(--text-primary)">Loading projects...</p>
-              </div>
-            ) : projects.length === 0 ? (
+            {projects.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
                 <div className="w-16 h-16 rounded-2xl bg-[#f0f0f5] flex items-center justify-center text-[#9ca3af]">
                   <FolderOpen size={28} />

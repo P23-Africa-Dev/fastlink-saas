@@ -14,6 +14,8 @@ import { DecisionModal } from "./components/DecisionModal";
 import { ModifyModal } from "./components/ModifyModal";
 import { RespondModal } from "./components/RespondModal";
 import { LeaveCalendar } from "./components/LeaveCalendar";
+import { LeaveSkeleton } from "@/components/LeaveSkeleton";
+import { toast } from "sonner";
 
 import {
   LeaveRequest, LeaveStatus, LeaveType,
@@ -175,8 +177,9 @@ export default function LeaveRequestsPage() {
 
         setRequests(mapped);
         setSupervisors(supOptions);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load leave data", error);
+        toast.error(error?.response?.data?.message || "Failed to load leave requests.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -227,8 +230,10 @@ export default function LeaveRequestsPage() {
         const res = await api.post<ApiResponse<BackendLeaveRequest>>("/leave-requests", data);
         setRequests((prev) => [mapLeaveRequest(res.data.data), ...prev]);
         setShowNew(false);
-      } catch (error) {
+        toast.success("Leave request submitted successfully");
+      } catch (error: any) {
         console.error("Failed to create leave request", error);
+        toast.error(error?.response?.data?.message || "Failed to submit request.");
       }
     })();
   };
@@ -246,8 +251,10 @@ export default function LeaveRequestsPage() {
         setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
         setSelected(null);
         setDecideMode(null);
-      } catch (error) {
+        toast.success("Action completed successfully");
+      } catch (error: any) {
         console.error("Failed to decide leave request", error);
+        toast.error(error?.response?.data?.message || "Action failed.");
       }
     })();
   };
@@ -267,8 +274,10 @@ export default function LeaveRequestsPage() {
         setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
         setSelected(null);
         setShowModify(false);
-      } catch (error) {
+        toast.success("Request modified successfully");
+      } catch (error: any) {
         console.error("Failed to modify leave request", error);
+        toast.error(error?.response?.data?.message || "Modification failed.");
       }
     })();
   };
@@ -286,13 +295,19 @@ export default function LeaveRequestsPage() {
         setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
         setSelected(null);
         setRespondMode(null);
-      } catch (error) {
+        toast.success("Response recorded successfully");
+      } catch (error: any) {
         console.error("Failed to respond to leave request", error);
+        toast.error(error?.response?.data?.message || "Response failed.");
       }
     })();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return <LeaveSkeleton />;
+  }
 
   return (
     <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
@@ -409,11 +424,7 @@ export default function LeaveRequestsPage() {
           <>
             {/* Cards grid */}
             <div className="flex-1 overflow-y-auto" style={{ minHeight: "0" }}>
-              {loading ? (
-                <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
-                  <p className="text-[15px] font-bold text-(--text-primary)">Loading leave requests...</p>
-                </div>
-              ) : paginated.length === 0 ? (
+              {paginated.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "#f3f4f6" }}>
                     <ListFilter size={24} className="text-[#9ca3af]" />

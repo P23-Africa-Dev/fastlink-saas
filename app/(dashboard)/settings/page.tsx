@@ -5,6 +5,8 @@ import { Plus, Search, LayoutGrid, List, RotateCcw, ChevronLeft, ChevronRight, U
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import api from "@/lib/api";
 import type { ApiResponse } from "@/lib/types";
+import { SettingsSkeleton } from "@/components/SettingsSkeleton";
+import { toast } from "sonner";
 
 import { UserCard } from "./components/UserCard";
 import { UserDetailDrawer } from "./components/UserDetailDrawer";
@@ -125,8 +127,9 @@ export default function SettingsPage() {
       try {
         const allUsers = await fetchAllUsers();
         if (mounted) setUsers(allUsers);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load users", error);
+        toast.error(error?.response?.data?.message || "Failed to load users.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -177,8 +180,9 @@ export default function SettingsPage() {
         const created = mapUser(res.data.data);
         setUsers((prev) => [created, ...prev]);
         setShowCreate(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to create user", error);
+        toast.error(error?.response?.data?.message || "Failed to create user.");
       }
     })();
   };
@@ -197,8 +201,10 @@ export default function SettingsPage() {
         setUsers((prev) => prev.map((u) => (u.id === editing.id ? updated : u)));
         if (selected?.id === editing.id) setSelected(updated);
         setEditing(null);
-      } catch (error) {
+        toast.success("User updated successfully");
+      } catch (error: any) {
         console.error("Failed to update user", error);
+        toast.error(error?.response?.data?.message || "Failed to update user.");
       }
     })();
   };
@@ -211,8 +217,10 @@ export default function SettingsPage() {
         setUsers((prev) => prev.filter((u) => u.id !== deleting.id));
         if (selected?.id === deleting.id) setSelected(null);
         setDeleting(null);
-      } catch (error) {
+        toast.success("User deleted successfully");
+      } catch (error: any) {
         console.error("Failed to delete user", error);
+        toast.error(error?.response?.data?.message || "Failed to delete user.");
       }
     })();
   };
@@ -227,8 +235,10 @@ export default function SettingsPage() {
         const updated = mapUser(res.data.data);
         setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
         if (selected?.id === user.id) setSelected(updated);
-      } catch (error) {
+        toast.success(`User ${updated.suspended ? "suspended" : "activated"} successfully`);
+      } catch (error: any) {
         console.error("Failed to toggle suspend", error);
+        toast.error(error?.response?.data?.message || "Action failed.");
       } finally {
         setOpenMenu(null);
       }
@@ -236,6 +246,10 @@ export default function SettingsPage() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return <SettingsSkeleton />;
+  }
 
   return (
     <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
@@ -338,11 +352,7 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: "0", gap: "14px" }}>
 
         <div className="flex-1 overflow-y-auto" style={{ minHeight: "0" }}>
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
-              <p className="text-[15px] font-bold text-(--text-primary)">Loading users...</p>
-            </div>
-          ) : paginated.length === 0 ? (
+          {paginated.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "#f3f4f6" }}>
                 <Users size={24} className="text-[#9ca3af]" />

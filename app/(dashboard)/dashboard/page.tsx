@@ -16,6 +16,8 @@ import {
   Calendar, ListTodo, Briefcase, Users,
 } from "lucide-react";
 import { CustomSelect, SelectOption } from "@/components/ui/CustomSelect";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -356,11 +358,12 @@ function DatePicker({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: stats } = useDashboardStats();
-  const [weeklyData, setWeeklyData] = useState(weeklyTaskData);
-  const [dailyData, setDailyData] = useState(dailyTaskData);
-  const [attendanceList, setAttendanceList] = useState(attendanceData);
-  const [crmLeadList, setCrmLeadList] = useState<Lead[]>(Object.values(leadsData).flat());
+  const { data: stats, isLoading: isStatsLoading, error: statsError } = useDashboardStats();
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [attendanceList, setAttendanceList] = useState<{ name: string; initials: string; role: string; status: Status }[]>([]);
+  const [crmLeadList, setCrmLeadList] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [crmStatuses, setCrmStatuses] = useState<BackendStatus[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>("All Leads");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -392,6 +395,7 @@ export default function DashboardPage() {
     let mounted = true;
 
     const load = async () => {
+      setLoading(true);
       try {
         const [taskRes, leadRes, statusRes, attRes] = await Promise.all([
           api.get<ApiResponse<BackendTask[]>>("/tasks", { params: { per_page: 300 } }),
@@ -479,8 +483,11 @@ export default function DashboardPage() {
             };
           })
         );
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load dashboard data", error);
+        toast.error(error?.response?.data?.message || "Failed to load dashboard data. Please try again.");
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
@@ -513,6 +520,10 @@ export default function DashboardPage() {
     : taskBreakdownData;
 
   const livePresentCount = stats?.overview.attendance_today ?? presentCount;
+
+  if (loading || isStatsLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="content-area">
