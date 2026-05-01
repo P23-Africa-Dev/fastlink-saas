@@ -143,7 +143,7 @@ export default function SettingsPage() {
           { label: "Suspended",      value: suspendedCount, icon: <UserX size={15} />,     bg: "#fee2e2", color: "#991b1b", iconBg: "#fff5f5" },
           { label: "Admins",         value: adminCount,     icon: <Shield size={15} />,    bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
         ].map(s => (
-          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 130px" }}>
+          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 130px" }}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.iconBg }}>
               <span style={{ color: s.color }}>{s.icon}</span>
             </div>

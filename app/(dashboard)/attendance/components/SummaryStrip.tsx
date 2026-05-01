@@ -19,7 +19,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, iconBg, iconColor, accent }: StatCardProps) {
   return (
-    <div className="flex-1 bg-white rounded-2xl border border-[#f0f0f5] flex items-center" style={{ padding: "16px 20px", gap: "14px", minWidth: "140px" }}>
+    <div className="flex-1 bg-white rounded-2xl border border-[#f0f0f5] flex items-center transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "16px 20px", gap: "14px", minWidth: "140px" }}>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: iconBg }}>
         <span style={{ color: iconColor }}>{icon}</span>
       </div>
