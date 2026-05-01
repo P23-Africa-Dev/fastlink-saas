@@ -13,7 +13,7 @@ A modern SaaS dashboard built with Next.js, Tailwind CSS, and Recharts.
 
 - **Responsive layout** — mobile drawer, tablet overlay, collapsible desktop sidebar
 - **Dark / Light / System theme** — defaults to light, persisted in `localStorage`
-- **Dashboard widgets** — Task Breakdown (donut), Weekly Task Activity (composed chart), Project Health, CRM Pipeline, Recent Activity
+- **Dashboard widgets** — Project Breakdown (donut), Weekly Task Activity (composed chart), Project Health, CRM Pipeline, Recent Activity
 - **Stats cards** — Total Leads, Total Projects, Pending Tasks with sparklines and trend indicators
 - **Quick-access links** — All Projects, Kanban Board, Gantt Chart, CRM Pipeline inline with the page header
 - **Brand design system** — `#021717` primary, `#1D6161` / `#D4CA5C` accents throughout

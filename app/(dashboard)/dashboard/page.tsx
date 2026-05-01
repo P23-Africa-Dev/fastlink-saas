@@ -561,10 +561,10 @@ export default function DashboardPage() {
       {/* ══ RIGHT COLUMN ══════════════════════════════════════════════════════ */}
       <div className="content-sidebar">
 
-        {/* Task Breakdown */}
+        {/* Project Breakdown */}
         <div className="tbd-card">
           <div className="tbd-header">
-            <h3 className="tbd-title">Task Breakdown</h3>
+            <h3 className="tbd-title">Project Breakdown</h3>
             <button className="more-btn"><MoreHorizontal size={18} /></button>
           </div>
 
