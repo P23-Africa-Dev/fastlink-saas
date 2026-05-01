@@ -137,48 +137,6 @@ export default function LeaveRequestsPage() {
   const [showModify, setShowModify] = useState(false);
   const [respondMode, setRespondMode] = useState<boolean | null>(null); // true=accept, false=decline
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [reqRes, supervisorsRes] = await Promise.allSettled([
-          api.get<ApiResponse<BackendLeaveRequest[]>>("/leave-requests", { params: { per_page: 200 } }),
-          api.get<ApiResponse<BackendUser[]>>("/users/supervisors", { params: { exclude_self: true } }),
-        ]);
-
-        if (!mounted) return;
-
-        const mapped = reqRes.status === "fulfilled"
-          ? reqRes.value.data.data.map(mapLeaveRequest)
-          : [];
-
-        const supOptions = supervisorsRes.status === "fulfilled"
-          ? supervisorsRes.value.data.data.map((u) => ({
-            id: u.id,
-            name: u.name,
-            initials: initialsFromName(u.name),
-            color: colorFromId(u.id),
-          }))
-          : [];
-
-        setRequests(mapped);
-        setSupervisors(supOptions);
-      } catch (error) {
-        console.error("Failed to load leave data", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // ── Filtered + paginated list ──────────────────────────────────────────────
   const source = view === "my"
     ? requests.filter(r => r.user_id === MY_USER_ID)
