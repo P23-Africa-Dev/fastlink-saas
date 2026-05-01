@@ -145,6 +145,22 @@ const VIEWS: { id: ActiveView; label: string; icon: React.ReactNode }[] = [
 
 export default function ProjectPage() {
   const [activeView, setActiveView] = useState<ActiveView>("projects");
+
+  // Sync tab with URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") as ActiveView | null;
+    if (tab && ["projects", "kanban", "gantt"].includes(tab)) {
+      setActiveView(tab);
+    }
+  }, []);
+
+  const handleViewChange = (view: ActiveView) => {
+    setActiveView(view);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", view);
+    window.history.replaceState({}, "", url.toString());
+  };
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // Queries
@@ -228,7 +244,7 @@ export default function ProjectPage() {
   // Project handlers
   const handleOpenProject = (project: Project) => {
     setSelectedProjectId(project.id);
-    setActiveView("kanban");
+    handleViewChange("kanban");
   };
 
   // Task handlers
@@ -282,19 +298,21 @@ export default function ProjectPage() {
           {activeView === "kanban" && (
             <button
               onClick={() => { setNewTaskOpen(true); setDefaultTaskStatus("todo"); }}
-              className="flex items-center border border-[#f0f0f5] text-[13px] font-bold text-(--text-primary) hover:opacity-80 transition-all rounded-xl"
-              style={{ padding: "10px 16px", gap: "8px", background: "white" }}
+              className="flex items-center text-[13px] font-bold text-white hover:opacity-90 transition-all rounded-xl shadow-[0_4px_14px_rgba(51,8,78,0.25)]"
+              style={{ padding: "10px 16px", gap: "8px", background: "#33084E" }}
             >
               <Plus size={15} /> New Task
             </button>
           )}
-          <button
-            onClick={() => setNewProjectOpen(true)}
-            className="flex items-center text-[13px] font-bold text-white hover:opacity-90 transition-all rounded-xl shadow-[0_4px_14px_rgba(51,8,78,0.25)]"
-            style={{ padding: "10px 16px", gap: "8px", background: "#33084E" }}
-          >
-            <Plus size={15} /> New Project
-          </button>
+          {activeView === "projects" && (
+            <button
+              onClick={() => setNewProjectOpen(true)}
+              className="flex items-center text-[13px] font-bold text-white hover:opacity-90 transition-all rounded-xl shadow-[0_4px_14px_rgba(51,8,78,0.25)]"
+              style={{ padding: "10px 16px", gap: "8px", background: "#33084E" }}
+            >
+              <Plus size={15} /> New Project
+            </button>
+          )}
         </div>
       </div>
 
@@ -305,7 +323,7 @@ export default function ProjectPage() {
           {VIEWS.map(v => (
             <button
               key={v.id}
-              onClick={() => setActiveView(v.id)}
+              onClick={() => handleViewChange(v.id)}
               className="inline-flex items-center gap-2 rounded-lg text-[13px] font-bold transition-all"
               style={{
                 padding: "8px 14px",
