@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { X, CalendarDays, ChevronRight } from "lucide-react";
 import { ModalButton } from "../../crm/components/ModalButton";
-import { LeaveType, LEAVE_TYPES, TYPE_CONFIG, SUPERVISORS, SupervisorOption, countDays } from "./types";
+import { LeaveType, LEAVE_TYPES, TYPE_CONFIG, SupervisorOption, countDays } from "./types";
 
 interface NewLeaveRequestModalProps {
   onClose: () => void;
@@ -15,12 +15,14 @@ interface NewLeaveRequestModalProps {
 }
 
 export function NewLeaveRequestModal({ onClose, supervisors, onCreate }: NewLeaveRequestModalProps) {
-  const supervisorOptions = (supervisors && supervisors.length > 0) ? supervisors : SUPERVISORS;
+  const supervisorOptions = supervisors || [];
   const [type, setType] = useState<LeaveType>("annual");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [supId, setSupId] = useState<number>(supervisorOptions[0]?.id ?? 0);
+  const [selectedSupId, setSelectedSupId] = useState<number | null>(null);
+
+  const supId = selectedSupId ?? supervisorOptions[0]?.id ?? 0;
 
   const days = useMemo(() => (startDate && endDate ? countDays(startDate, endDate) : 0), [startDate, endDate]);
   const valid = reason.trim() && startDate && endDate && endDate >= startDate;
@@ -130,31 +132,37 @@ export function NewLeaveRequestModal({ onClose, supervisors, onCreate }: NewLeav
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Supervisor</label>
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-                {supervisorOptions.map((s, i) => {
-                  const active = supId === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => setSupId(s.id)}
-                      className="flex items-center justify-between hover:bg-[#f8f8fc] transition-colors text-left"
-                      style={{ padding: "11px 16px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}
-                    >
-                      <div className="flex items-center" style={{ gap: "10px" }}>
-                        <div className="rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                          style={{ width: "28px", height: "28px", background: s.color }}>
-                          {s.initials}
-                        </div>
-                        <span className="text-[13px] font-semibold text-(--text-primary)">{s.name}</span>
-                      </div>
-                      <div
-                        className="rounded-full flex items-center justify-center transition-all shrink-0"
-                        style={{ width: "18px", height: "18px", background: active ? "#33084E" : "#f0f0f5", border: `1.5px solid ${active ? "#33084E" : "#d1d5db"}` }}
+                {supervisorOptions.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-[12px] text-[#9ca3af] italic">
+                    Loading supervisors…
+                  </div>
+                ) : (
+                  supervisorOptions.map((s, i) => {
+                    const active = supId === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSupId(s.id)}
+                        className="flex items-center justify-between hover:bg-[#f8f8fc] transition-colors text-left"
+                        style={{ padding: "11px 16px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}
                       >
-                        {active && <div className="rounded-full bg-white" style={{ width: "6px", height: "6px" }} />}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="flex items-center" style={{ gap: "10px" }}>
+                          <div className="rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                            style={{ width: "28px", height: "28px", background: s.color }}>
+                            {s.initials}
+                          </div>
+                          <span className="text-[13px] font-semibold text-(--text-primary)">{s.name}</span>
+                        </div>
+                        <div
+                          className="rounded-full flex items-center justify-center transition-all shrink-0"
+                          style={{ width: "18px", height: "18px", background: active ? "#33084E" : "#f0f0f5", border: `1.5px solid ${active ? "#33084E" : "#d1d5db"}` }}
+                        >
+                          {active && <div className="rounded-full bg-white" style={{ width: "6px", height: "6px" }} />}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

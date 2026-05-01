@@ -118,7 +118,7 @@ export default function LoginPage() {
           <span className="font-bold text-[15px]" style={{ color: "#33084E" }}>FastLink</span>
         </div>
         <div className="hidden lg:block">
-          <span className="font-bold text-[15px]" style={{ color: "#33084E" }}>FastLink</span>
+          {/* <span className="font-bold text-[15px]" style={{ color: "#33084E" }}>FastLink</span> */}
         </div>
 
         {/* Form area */}

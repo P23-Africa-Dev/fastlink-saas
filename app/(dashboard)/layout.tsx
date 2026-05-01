@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ export default function DashboardLayout({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" richColors />
       <div
         className="dashboard-layout"
         data-sidebar-expanded={isExpanded ? "true" : "false"}

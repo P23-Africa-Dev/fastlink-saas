@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Bell, LogOut } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 interface TopbarProps {
   isMobileOpen?: boolean;
@@ -13,13 +14,19 @@ interface TopbarProps {
 
 export default function Topbar({ isMobileOpen = false, onMenuToggle }: TopbarProps) {
   const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
+  const { user: storedUser, clearAuth } = useAuthStore();
+  const { data: liveUser } = useCurrentUser();
   const [searchFocused, setSearchFocused] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Prefer live data from /auth/me, fall back to the value stored at login
+  const user = liveUser ?? storedUser;
 
   const initials = user?.name
     ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "FL";
+
+  const role = user?.roles?.[0]?.name ?? "";
 
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -64,7 +71,21 @@ export default function Topbar({ isMobileOpen = false, onMenuToggle }: TopbarPro
           <span className="notification-dot" />
         </button>
 
-        <div className="topbar-avatar" title={user?.name ?? ""}>{initials}</div>
+        {/* User info + avatar */}
+        <div className="hidden sm:flex flex-col items-end leading-tight" style={{ gap: "1px" }}>
+          <span className="text-[12px] font-bold text-(--text-primary)">{user?.name ?? "—"}</span>
+          {role && (
+            <span className="text-[11px] font-medium capitalize" style={{ color: "#9ca3af" }}>{role}</span>
+          )}
+        </div>
+
+        <div
+          className="topbar-avatar"
+          title={user?.name ?? ""}
+          style={{ background: "#33084E", color: "white", fontWeight: 700 }}
+        >
+          {initials}
+        </div>
 
         <button
           onClick={handleLogout}

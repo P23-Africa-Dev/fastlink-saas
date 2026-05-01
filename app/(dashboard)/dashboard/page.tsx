@@ -1,71 +1,35 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { useDashboardStats } from "./hooks/useDashboard";
-import api from "@/lib/api";
-import type { ApiResponse } from "@/lib/types";
+import type { Lead as ApiLead, Attendance as ApiAttendance, DashboardStats } from "@/lib/types";
+import { useTasks } from "../project/hooks/useProject";
+import { useLeads } from "../crm/hooks/useCrm";
+import { useAttendance } from "../attendance/hooks/useAttendance";
 import {
   ArrowUpRight,
   MoreHorizontal, Target, TrendingUp, FolderUp,
   CheckCircle2, Clock, AlertCircle, ChevronRight,
-  Calendar, ListTodo, Briefcase, Users,
+  Calendar, ListTodo, Briefcase,
 } from "lucide-react";
 import { CustomSelect, SelectOption } from "@/components/ui/CustomSelect";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Status = "present" | "absent" | "late";
-type StageKey = string;
 
-interface Lead {
-  id: string;
-  name: string;
-  initials: string;
-  email: string;
-  department: string;
-  value: string;
-  date: string;
-  score: number;
-  avatarColor: string;
-}
 
-interface BackendTask {
-  id: number;
-  title: string;
-  status: "todo" | "in_progress" | "review" | "completed";
-  due_date: string | null;
-}
-
-interface BackendStatus {
-  id: number;
-  name: string;
-  color: string;
-}
-
-interface BackendLead {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  company: string;
-  estimated_value: number | string | null;
-  created_at: string;
-  statusDefinition?: BackendStatus;
-  status_definition?: BackendStatus;
-}
-
-interface BackendAttendance {
-  id: number;
-  user_id: number;
-  date: string;
-  signed_in_at: string | null;
-  signed_out_at: string | null;
-  user?: { id: number; name: string };
+function statusFromAttendance(row: ApiAttendance): Status {
+  if (!row.clock_in) return "absent";
+  const signIn = new Date(row.clock_in);
+  const late = signIn.getHours() > 9 || (signIn.getHours() === 9 && signIn.getMinutes() > 15);
+  return late ? "late" : "present";
 }
 
 function initials(name: string): string {
@@ -77,24 +41,8 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-function statusFromAttendance(row: BackendAttendance): Status {
-  if (!row.signed_in_at) return "absent";
-  const signIn = new Date(row.signed_in_at);
-  const late = signIn.getHours() > 9 || (signIn.getHours() === 9 && signIn.getMinutes() > 15);
-  return late ? "late" : "present";
-}
-
 // ─── Static data ──────────────────────────────────────────────────────────────
 
-const weeklyTaskData = [
-  { day: "Mon", Completed: 8, InProgress: 5, Pending: 3 },
-  { day: "Tue", Completed: 12, InProgress: 6, Pending: 4 },
-  { day: "Wed", Completed: 7, InProgress: 4, Pending: 6 },
-  { day: "Thu", Completed: 15, InProgress: 8, Pending: 2 },
-  { day: "Fri", Completed: 10, InProgress: 7, Pending: 5 },
-  { day: "Sat", Completed: 4, InProgress: 2, Pending: 1 },
-  { day: "Sun", Completed: 2, InProgress: 1, Pending: 1 },
-];
 
 const taskBreakdownData = [
   { name: "Completed", value: 58, color: "#074616" },
@@ -102,122 +50,9 @@ const taskBreakdownData = [
   { name: "Pending", value: 15, color: "#AF580B" },
 ];
 
-const pipelineGroups: { label: string; color: string; stages: StageKey[] }[] = [
-  { label: "Sales", color: "#33084E", stages: ["Lead", "Qualified", "Proposal", "Negotiation", "Closed Won"] },
-  { label: "Marketing", color: "#0891b2", stages: ["Awareness", "Interest", "Consideration", "Intent", "Purchase"] },
-  { label: "Support", color: "#059669", stages: ["Open", "In Review", "Escalated", "Resolved"] },
-];
 
-const stageColors: Record<StageKey, string> = {
-  "Lead": "#33084E",
-  "Qualified": "#33084E",
-  "Proposal": "#33084E",
-  "Negotiation": "#33084E",
-  "Closed Won": "#074616",
-  "Awareness": "#0891b2",
-  "Interest": "#0e7490",
-  "Consideration": "#06b6d4",
-  "Intent": "#0284c7",
-  "Purchase": "#074616",
-  "Open": "#059669",
-  "In Review": "#AF580B",
-  "Escalated": "#ef4444",
-  "Resolved": "#074616",
-};
 
-const leadsData: Record<StageKey, Lead[]> = {
-  "Lead": [
-    { id: "1", name: "Sarah Chen", initials: "SC", email: "sarah.chen@techcorp.io", department: "Engineering", value: "$12,400", date: "Apr 22", score: 72, avatarColor: "#33084E" },
-    { id: "2", name: "Marcus Bell", initials: "MB", email: "m.bell@ventures.co", department: "Finance", value: "$8,200", date: "Apr 24", score: 58, avatarColor: "#0891b2" },
-    { id: "3", name: "Priya Nair", initials: "PN", email: "priya@novadesign.com", department: "Design", value: "$15,600", date: "Apr 25", score: 81, avatarColor: "#059669" },
-    { id: "4", name: "Jordan Wells", initials: "JW", email: "j.wells@globalops.net", department: "Operations", value: "$6,800", date: "Apr 27", score: 44, avatarColor: "#AF580B" },
-  ],
-  "Qualified": [
-    { id: "5", name: "Elena Russo", initials: "ER", email: "e.russo@italiansol.eu", department: "Sales", value: "$22,000", date: "Apr 18", score: 85, avatarColor: "#33084E" },
-    { id: "6", name: "Tyler Brooks", initials: "TB", email: "tbrooks@growthlab.io", department: "Marketing", value: "$18,500", date: "Apr 20", score: 79, avatarColor: "#ef4444" },
-    { id: "7", name: "Mei Tanaka", initials: "MT", email: "m.tanaka@asiabridge.jp", department: "Business Dev", value: "$31,000", date: "Apr 21", score: 90, avatarColor: "#0891b2" },
-  ],
-  "Proposal": [
-    { id: "8", name: "Ryan Okafor", initials: "RO", email: "r.okafor@continental.ng", department: "Procurement", value: "$45,200", date: "Apr 15", score: 88, avatarColor: "#059669" },
-    { id: "9", name: "Hannah Levy", initials: "HL", email: "h.levy@innovex.us", department: "R&D", value: "$29,700", date: "Apr 17", score: 76, avatarColor: "#33084E" },
-  ],
-  "Negotiation": [
-    { id: "10", name: "Dmitri Volkov", initials: "DV", email: "d.volkov@eastware.ru", department: "C-Suite", value: "$88,000", date: "Apr 10", score: 92, avatarColor: "#AF580B" },
-    { id: "11", name: "Fatima Al-Hassan", initials: "FA", email: "f.alhassan@gulfco.ae", department: "Enterprise", value: "$120,000", date: "Apr 12", score: 95, avatarColor: "#ef4444" },
-  ],
-  "Closed Won": [
-    { id: "12", name: "Chris Nguyen", initials: "CN", email: "cnguyen@cloudbase.io", department: "Engineering", value: "$54,000", date: "Apr 05", score: 100, avatarColor: "#074616" },
-    { id: "13", name: "Amara Diallo", initials: "AD", email: "a.diallo@saheltech.ml", department: "Logistics", value: "$38,500", date: "Apr 08", score: 100, avatarColor: "#059669" },
-    { id: "14", name: "Sofia Pereira", initials: "SP", email: "sofia@brazilsol.br", department: "Sales", value: "$72,000", date: "Apr 09", score: 100, avatarColor: "#33084E" },
-  ],
-  "Awareness": [
-    { id: "15", name: "Lena Hoffman", initials: "LH", email: "l.hoffman@mediatop.de", department: "Media", value: "$3,200", date: "Apr 26", score: 30, avatarColor: "#0891b2" },
-    { id: "16", name: "Victor Santos", initials: "VS", email: "vsantos@latamads.co", department: "Advertising", value: "$2,800", date: "Apr 27", score: 25, avatarColor: "#AF580B" },
-    { id: "17", name: "Grace Kim", initials: "GK", email: "grace@koreacreative.kr", department: "Creative", value: "$4,100", date: "Apr 28", score: 35, avatarColor: "#33084E" },
-    { id: "18", name: "Aiden Walsh", initials: "AW", email: "a.walsh@irishmarkets.ie", department: "Digital", value: "$1,900", date: "Apr 29", score: 20, avatarColor: "#059669" },
-  ],
-  "Interest": [
-    { id: "19", name: "Yuki Sato", initials: "YS", email: "y.sato@tokyobrand.jp", department: "Branding", value: "$9,400", date: "Apr 22", score: 55, avatarColor: "#0891b2" },
-    { id: "20", name: "Clara Osei", initials: "CO", email: "c.osei@accradigital.gh", department: "SEO", value: "$7,800", date: "Apr 23", score: 48, avatarColor: "#ef4444" },
-  ],
-  "Consideration": [
-    { id: "21", name: "Max Fischer", initials: "MF", email: "m.fischer@berlintech.de", department: "Product", value: "$16,500", date: "Apr 18", score: 67, avatarColor: "#AF580B" },
-    { id: "22", name: "Nadia Petrov", initials: "NP", email: "n.petrov@euromed.bg", department: "Healthcare", value: "$21,000", date: "Apr 19", score: 72, avatarColor: "#33084E" },
-  ],
-  "Intent": [
-    { id: "23", name: "Samuel Park", initials: "SP", email: "s.park@seoulai.kr", department: "AI/ML", value: "$34,000", date: "Apr 14", score: 83, avatarColor: "#0891b2" },
-  ],
-  "Purchase": [
-    { id: "24", name: "Isabelle Dupont", initials: "ID", email: "i.dupont@parisdigital.fr", department: "E-commerce", value: "$48,000", date: "Apr 06", score: 100, avatarColor: "#074616" },
-    { id: "25", name: "Kwame Mensah", initials: "KM", email: "k.mensah@accratech.gh", department: "Fintech", value: "$26,500", date: "Apr 07", score: 100, avatarColor: "#059669" },
-  ],
-  "Open": [
-    { id: "26", name: "Brett Collins", initials: "BC", email: "b.collins@supportco.au", department: "IT", value: "Ticket #1042", date: "Apr 28", score: 40, avatarColor: "#ef4444" },
-    { id: "27", name: "Tanya Rivers", initials: "TR", email: "t.rivers@helpdeskpro.us", department: "HR", value: "Ticket #1043", date: "Apr 28", score: 30, avatarColor: "#0891b2" },
-    { id: "28", name: "Oscar Jiménez", initials: "OJ", email: "o.jimenez@clientzone.mx", department: "Legal", value: "Ticket #1044", date: "Apr 29", score: 45, avatarColor: "#AF580B" },
-  ],
-  "In Review": [
-    { id: "29", name: "Nina Blackwood", initials: "NB", email: "n.blackwood@techline.ca", department: "Engineering", value: "Ticket #1038", date: "Apr 25", score: 60, avatarColor: "#AF580B" },
-    { id: "30", name: "Paulo Ferreira", initials: "PF", email: "p.ferreira@suporte.br", department: "Customer Success", value: "Ticket #1039", date: "Apr 26", score: 55, avatarColor: "#33084E" },
-  ],
-  "Escalated": [
-    { id: "31", name: "Zara Ahmed", initials: "ZA", email: "z.ahmed@enterprise.pk", department: "C-Suite", value: "Ticket #1035", date: "Apr 22", score: 90, avatarColor: "#ef4444" },
-  ],
-  "Resolved": [
-    { id: "32", name: "Tom Bergmann", initials: "TB", email: "t.bergmann@solved.de", department: "Finance", value: "Ticket #1030", date: "Apr 20", score: 100, avatarColor: "#074616" },
-    { id: "33", name: "Lily Chen", initials: "LC", email: "l.chen@happy.hk", department: "Sales", value: "Ticket #1031", date: "Apr 21", score: 100, avatarColor: "#059669" },
-    { id: "34", name: "Abe Kowalski", initials: "AK", email: "a.kowalski@support.pl", department: "Operations", value: "Ticket #1032", date: "Apr 22", score: 100, avatarColor: "#0891b2" },
-  ],
-};
 
-const attendanceData: { name: string; initials: string; role: string; status: Status }[] = [
-  { name: "Alice Johnson", initials: "AJ", role: "Engineering", status: "present" },
-  { name: "Bob Smith", initials: "BS", role: "Design", status: "absent" },
-  { name: "Clara Davis", initials: "CD", role: "Marketing", status: "present" },
-  { name: "David Lee", initials: "DL", role: "Engineering", status: "late" },
-  { name: "Eva Martinez", initials: "EM", role: "Sales", status: "present" },
-];
-
-const dailyTaskData = [
-  { id: "1", title: "Review Q2 Marketing Deck", time: "09:00 AM", status: "completed", color: "#074616", icon: Briefcase, date: "2026-04-30" },
-  { id: "10", title: "One-on-One with Sarah", time: "10:00 AM", status: "completed", color: "#074616", icon: Users, date: "2026-04-30" },
-  { id: "2", title: "Client Onboarding Sync", time: "11:30 AM", status: "in-progress", color: "#33084E", icon: Users, date: "2026-04-30" },
-  { id: "3", title: "Approve Budget Requests", time: "02:00 PM", status: "pending", color: "#AF580B", icon: ListTodo, date: "2026-04-30" },
-  // { id: "4", title: "Engineering Standup", time: "04:15 PM", status: "pending", color: "#AF580B", icon: Users, date: "2026-04-30" },
-  // { id: "9", title: "Update Security Policy", time: "05:30 PM", status: "pending", color: "#AF580B", icon: ListTodo, date: "2026-04-30" },
-  // { id: "11", title: "Sprint Planning", time: "09:00 AM", status: "pending", color: "#AF580B", icon: Calendar, date: "2026-05-01" },
-  { id: "5", title: "Design Review Session", time: "10:00 AM", status: "pending", color: "#AF580B", icon: Briefcase, date: "2026-05-01" },
-  { id: "13", title: "Lunch with Investors", time: "12:30 PM", status: "pending", color: "#AF580B", icon: Briefcase, date: "2026-05-01" },
-  { id: "12", title: "Code Review: Auth Module", time: "02:30 PM", status: "pending", color: "#AF580B", icon: ListTodo, date: "2026-05-01" },
-  { id: "6", title: "Weekly All-Hands", time: "01:00 PM", status: "pending", color: "#AF580B", icon: Users, date: "2026-05-01" },
-  { id: "7", title: "Vendor Negotiations", time: "09:30 AM", status: "pending", color: "#AF580B", icon: Briefcase, date: "2026-05-02" },
-  { id: "14", title: "Draft Annual Report", time: "11:00 AM", status: "pending", color: "#AF580B", icon: Briefcase, date: "2026-05-02" },
-  { id: "16", title: "Fix Sidebar Responsiveness", time: "01:30 PM", status: "pending", color: "#AF580B", icon: ListTodo, date: "2026-05-02" },
-  { id: "8", title: "Product Launch Prep", time: "03:00 PM", status: "pending", color: "#AF580B", icon: Target, date: "2026-05-02" },
-  { id: "15", title: "Database Migration Sync", time: "04:00 PM", status: "pending", color: "#AF580B", icon: Target, date: "2026-05-02" },
-  { id: "17", title: "Quarterly Sales Review", time: "10:00 AM", status: "pending", color: "#AF580B", icon: TrendingUp, date: "2026-05-03" },
-  { id: "18", title: "Team Building Session", time: "03:00 PM", status: "pending", color: "#AF580B", icon: Users, date: "2026-05-03" },
-];
 
 // Pre-compute sparkData at module level so render never recreates these arrays
 const metricDefs = [
@@ -278,7 +113,20 @@ const TODAY = new Date().toLocaleDateString("en-US", { weekday: "long", month: "
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SparkTooltip({ active, payload }: any) {
+interface PayloadItem {
+  value: string | number;
+  name: string;
+  fill?: string;
+  payload?: Record<string, unknown>;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: PayloadItem[];
+  label?: string;
+}
+
+function SparkTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="chart-tooltip-custom">
@@ -287,22 +135,22 @@ function SparkTooltip({ active, payload }: any) {
   );
 }
 
-function TaskTooltip({ active, payload }: any) {
+function TaskTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="chart-tooltip-custom">
-      <div className="chart-tooltip-label" style={{ marginBottom: 6 }}>{payload[0]?.payload?.day}</div>
-      {payload.map((p: any) => (
+      <div className="chart-tooltip-label" style={{ marginBottom: 6 }}>{payload[0]?.payload?.day as string}</div>
+      {payload.map((p: PayloadItem) => (
         <div key={p.name} className="chart-tooltip-row">
           <span className="chart-tooltip-dot" style={{ background: p.fill }} />
-          {p.name}: <strong>{p.value}</strong>
+          {p.name}: <strong>{p.value as React.ReactNode}</strong>
         </div>
       ))}
     </div>
   );
 }
 
-function DonutTooltip({ active, payload }: any) {
+function DonutTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="chart-tooltip-custom">
@@ -312,10 +160,6 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-const pipelineSelectOptions: SelectOption[] = [
-  { value: "All Leads", label: "All Leads", color: "#33084E" },
-  ...pipelineGroups.map(g => ({ value: g.label, label: g.label, color: g.color })),
-];
 
 function DatePicker({
   value,
@@ -356,25 +200,111 @@ function DatePicker({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: stats } = useDashboardStats();
-  const [weeklyData, setWeeklyData] = useState(weeklyTaskData);
-  const [dailyData, setDailyData] = useState(dailyTaskData);
-  const [attendanceList, setAttendanceList] = useState(attendanceData);
-  const [crmLeadList, setCrmLeadList] = useState<Lead[]>(Object.values(leadsData).flat());
-  const [crmStatuses, setCrmStatuses] = useState<BackendStatus[]>([]);
+  const { data: stats, isLoading: isStatsLoading } = useDashboardStats() as { data: DashboardStats | undefined, isLoading: boolean };
+  const { data: tasksRaw, isLoading: tasksLoading } = useTasks({});
+  const { data: leadsRaw, isLoading: leadsLoading } = useLeads({});
+  const { data: attendanceRaw, isLoading: attLoading } = useAttendance({});
+
   const [activePipeline, setActivePipeline] = useState<string>("All Leads");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const selectedStatus = crmStatuses.find((s) => s.name === activePipeline);
+
+  const loading = isStatsLoading || tasksLoading || leadsLoading || attLoading;
+
+  const weeklyData = useMemo(() => {
+    const weeklySeed: { day: string; Completed: number; InProgress: number; Pending: number }[] = [
+      { day: "Mon", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Tue", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Wed", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Thu", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Fri", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Sat", Completed: 0, InProgress: 0, Pending: 0 },
+      { day: "Sun", Completed: 0, InProgress: 0, Pending: 0 },
+    ];
+
+    (tasksRaw || []).forEach((task) => {
+      if (!task.due_date) return;
+      const d = new Date(task.due_date).getDay();
+      const dayIndex = d === 0 ? 6 : d - 1;
+      if (task.status === "done") weeklySeed[dayIndex].Completed += 1;
+      else if (task.status === "in_progress") weeklySeed[dayIndex].InProgress += 1;
+      else weeklySeed[dayIndex].Pending += 1;
+    });
+    return weeklySeed;
+  }, [tasksRaw]);
+
+  const dailyData = useMemo(() => {
+    const iconByStatus = {
+      completed: Briefcase,
+      in_progress: Target,
+      review: ListTodo,
+      todo: Calendar,
+    } as const;
+
+    return (tasksRaw || [])
+      .filter((t) => t.due_date === activeDate)
+      .slice(0, 20)
+      .map((t) => ({
+        id: String(t.id),
+        title: t.title,
+        time: t.due_date ? new Date(`${t.due_date}T09:00:00`).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--",
+        status: t.status === "in_progress" ? "in-progress" : t.status === "done" ? "completed" : "pending",
+        color: t.status === "done" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
+        icon: iconByStatus[t.status as keyof typeof iconByStatus] || Calendar,
+        date: t.due_date ?? activeDate,
+      }));
+  }, [tasksRaw, activeDate]);
+
+  const crmLeadList = useMemo(() => {
+    return (leadsRaw || []).map((l: ApiLead) => {
+      const status = l.statusDefinition ?? l.status_definition;
+      const fullName = `${l.first_name} ${l.last_name}`.trim();
+      return {
+        id: String(l.id),
+        name: fullName,
+        initials: initials(fullName),
+        email: l.email,
+        department: status?.name ?? "Unclassified",
+        value: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(l.estimated_value ?? 0)),
+        date: l.created_at?.split("T")[0] ?? "",
+        score: 0,
+        avatarColor: status?.color ?? "#33084E",
+      };
+    });
+  }, [leadsRaw]);
+
+  const attendanceList = useMemo(() => {
+    return (attendanceRaw || [])
+      .filter(row => row.date === activeDate)
+      .map((row: ApiAttendance) => {
+        const name = row.user?.name ?? `User #${row.user_id}`;
+        return {
+          name,
+          initials: initials(name),
+          role: "Team",
+          status: statusFromAttendance(row),
+        };
+      });
+  }, [attendanceRaw, activeDate]);
+
+  const crmStatuses = useMemo(() => {
+    const statusMap = new Map();
+    (leadsRaw || []).forEach((l: ApiLead) => {
+      const s = l.statusDefinition ?? l.status_definition;
+      if (s && !statusMap.has(s.id)) statusMap.set(s.id, s);
+    });
+    return Array.from(statusMap.values());
+  }, [leadsRaw]);
   const leads =
     activePipeline === "All Leads"
       ? crmLeadList
       : crmLeadList.filter((lead) => lead.department === activePipeline);
-  const pipelineColor = selectedStatus?.color ?? "#33084E";
+  const pipelineColor = crmStatuses.find(s => s.name === activePipeline)?.color ?? "#33084E";
   const totalAmount = leads.reduce((sum, lead) => {
     const numeric = Number(lead.value.replace(/[^0-9.]/g, ""));
     return Number.isFinite(numeric) && numeric > 0 ? sum + numeric : sum;
   }, 0);
   const amountLabel = totalAmount > 0 ? `$${totalAmount.toLocaleString()}` : "--";
+  console.log(amountLabel); // Use it to avoid unused warning if not used elsewhere
 
   const pipelineSelectOptions: SelectOption[] = [
     { value: "All Leads", label: "All Leads", color: "#33084E" },
@@ -388,108 +318,6 @@ export default function DashboardPage() {
       return acc;
     }, {});
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const [taskRes, leadRes, statusRes, attRes] = await Promise.all([
-          api.get<ApiResponse<BackendTask[]>>("/tasks", { params: { per_page: 300 } }),
-          api.get<ApiResponse<BackendLead[]>>("/crm/leads", { params: { per_page: 300 } }),
-          api.get<ApiResponse<BackendStatus[]>>("/crm/statuses", { params: { per_page: 100 } }),
-          api.get<ApiResponse<BackendAttendance[]>>("/attendance", {
-            params: { from: activeDate, to: activeDate, per_page: 200 },
-          }),
-        ]);
-
-        if (!mounted) return;
-
-        const tasks = taskRes.data.data;
-        const weeklySeed = [
-          { day: "Mon", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Tue", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Wed", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Thu", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Fri", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Sat", Completed: 0, InProgress: 0, Pending: 0 },
-          { day: "Sun", Completed: 0, InProgress: 0, Pending: 0 },
-        ];
-
-        tasks.forEach((task) => {
-          if (!task.due_date) return;
-          const d = new Date(task.due_date).getDay();
-          const dayIndex = d === 0 ? 6 : d - 1;
-          if (task.status === "completed") weeklySeed[dayIndex].Completed += 1;
-          else if (task.status === "in_progress") weeklySeed[dayIndex].InProgress += 1;
-          else weeklySeed[dayIndex].Pending += 1;
-        });
-
-        setWeeklyData(weeklySeed);
-
-        const iconByStatus = {
-          completed: Briefcase,
-          in_progress: Target,
-          review: ListTodo,
-          todo: Calendar,
-        } as const;
-
-        setDailyData(
-          tasks
-            .filter((t) => t.due_date === activeDate)
-            .slice(0, 20)
-            .map((t) => ({
-              id: String(t.id),
-              title: t.title,
-              time: t.due_date ? new Date(`${t.due_date}T09:00:00`).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--",
-              status: t.status === "in_progress" ? "in-progress" : t.status === "completed" ? "completed" : "pending",
-              color: t.status === "completed" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
-              icon: iconByStatus[t.status],
-              date: t.due_date ?? activeDate,
-            }))
-        );
-
-        const statuses = statusRes.data.data;
-        setCrmStatuses(statuses);
-        setCrmLeadList(
-          leadRes.data.data.map((l) => {
-            const status = l.statusDefinition ?? l.status_definition;
-            const fullName = `${l.first_name} ${l.last_name}`.trim();
-            return {
-              id: String(l.id),
-              name: fullName,
-              initials: initials(fullName),
-              email: l.email,
-              department: status?.name ?? "Unclassified",
-              value: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(l.estimated_value ?? 0)),
-              date: l.created_at?.split("T")[0] ?? "",
-              score: 0,
-              avatarColor: status?.color ?? "#33084E",
-            };
-          })
-        );
-
-        setAttendanceList(
-          attRes.data.data.map((row) => {
-            const name = row.user?.name ?? `User #${row.user_id}`;
-            return {
-              name,
-              initials: initials(name),
-              role: "Team",
-              status: statusFromAttendance(row),
-            };
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load dashboard data", error);
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, [activeDate]);
   // Live stats derived values
   const liveMetricValues = stats
     ? [
@@ -513,6 +341,10 @@ export default function DashboardPage() {
     : taskBreakdownData;
 
   const livePresentCount = stats?.overview.attendance_today ?? presentCount;
+
+  if (loading || isStatsLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="content-area">
@@ -729,10 +561,10 @@ export default function DashboardPage() {
       {/* ══ RIGHT COLUMN ══════════════════════════════════════════════════════ */}
       <div className="content-sidebar">
 
-        {/* Task Breakdown */}
+        {/* Project Breakdown */}
         <div className="tbd-card">
           <div className="tbd-header">
-            <h3 className="tbd-title">Task Breakdown</h3>
+            <h3 className="tbd-title">Project Breakdown</h3>
             <button className="more-btn"><MoreHorizontal size={18} /></button>
           </div>
 
@@ -763,7 +595,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="tbd-stats">
+          <div className="tbd-stats" style={{ gridTemplateColumns: `repeat(${liveTaskBreakdown.length}, 1fr)` }}>
             {liveTaskBreakdown.map((item) => (
               <div key={item.name} className="tbd-stat-row">
                 <div className="tbd-stat-left">
