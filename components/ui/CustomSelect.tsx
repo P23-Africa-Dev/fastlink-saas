@@ -36,13 +36,31 @@ export function CustomSelect({
   const computePosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setDropdownStyle({
+    const viewportWidth = window.innerWidth;
+    const dropdownMaxWidth = 280;
+    const margin = 16;
+    
+    const style: React.CSSProperties = {
       position: "fixed",
       top: rect.bottom + 8,
-      right: window.innerWidth - rect.right,
       minWidth: Math.max(rect.width, 200),
-      maxWidth: 280,
-    });
+      maxWidth: dropdownMaxWidth,
+    };
+
+    // Check if there's enough space to the right of the trigger's left edge
+    const spaceOnRight = viewportWidth - rect.left;
+    
+    if (spaceOnRight >= dropdownMaxWidth + margin) {
+      // Align left edge of dropdown with left edge of trigger
+      style.left = Math.max(margin, rect.left);
+      style.right = "auto";
+    } else {
+      // Align right edge of dropdown with right edge of trigger
+      style.right = Math.max(margin, viewportWidth - rect.right);
+      style.left = "auto";
+    }
+
+    setDropdownStyle(style);
   };
 
   useEffect(() => {

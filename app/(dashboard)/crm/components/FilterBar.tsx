@@ -67,7 +67,7 @@ export function FilterBar({
             <button
               onClick={onManagePipelines}
               title="Manage Pipelines"
-              className="w-8 h-8 flex items-center justify-center rounded-xl text-[#9ca3af] border border-[#f0f0f5] bg-[#f8f8fc] hover:text-(--accent-purple) hover:border-(--accent-purple) transition-all"
+              className="w-8 h-8 flex items-center justify-center rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-(--accent-purple) hover:border-(--accent-purple) transition-all"
             >
               <Settings2 size={14} />
             </button>
@@ -117,7 +117,7 @@ export function FilterBar({
             <button
               onClick={onManageStatuses}
               title="Manage Columns"
-              className="flex items-center gap-1.5 rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[12px] font-bold text-[#9ca3af] hover:text-(--accent-purple) hover:border-(--accent-purple) transition-all"
+              className="flex items-center gap-1.5 rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[12px] font-bold text-(--accent-purple) hover:border-(--accent-purple) transition-all"
               style={{ padding: "9px 13px" }}
             >
               <Settings2 size={14} />
