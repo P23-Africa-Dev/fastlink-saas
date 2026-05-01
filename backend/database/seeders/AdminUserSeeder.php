@@ -13,18 +13,19 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        $email = env('FASTLINK_ADMIN_EMAIL', 'admin@fastlink.test');
-        $password = env('FASTLINK_ADMIN_PASSWORD', 'password123');
+        $email = env('FASTLINK_ADMIN_EMAIL', 'admin@fastlink.dev');
+        $password = env('FASTLINK_ADMIN_PASSWORD', 'TempAdminPass123!');
 
-        $admin = User::query()->updateOrCreate(
+        User::updateOrCreate(
             ['email' => $email],
             [
-                'name' => 'Fastlink Admin',
+                'name' => 'Admin',
+                'email' => $email,
                 'password' => Hash::make($password),
                 'email_verified_at' => now(),
             ]
         );
 
-        $admin->syncRoles(['admin']);
+        $this->command->info("Admin account created: {$email}");
     }
 }
