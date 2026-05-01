@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, Upload, MoreVertical, DollarSign, Building2, Calendar, Pencil, Trash2 } from "lucide-react";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/types";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, useSensor, useSensors,
@@ -9,51 +11,163 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 
-import { NewLeadModal }          from "./components/NewLeadModal";
-import { ImportLeadsModal }      from "./components/ImportLeadsModal";
-import { LeadDetailDrawer }      from "./components/LeadDetailDrawer";
-import { EditLeadModal }         from "./components/EditLeadModal";
-import { DeleteLeadModal }       from "./components/DeleteLeadModal";
-import { LogActivityModal }      from "./components/LogActivityModal";
-import { EditActivityModal }     from "./components/EditActivityModal";
-import { ManagePipelinesModal }  from "./components/ManagePipelinesModal";
-import { ManageStatusesModal }   from "./components/ManageStatusesModal";
+import { NewLeadModal } from "./components/NewLeadModal";
+import { ImportLeadsModal } from "./components/ImportLeadsModal";
+import { LeadDetailDrawer } from "./components/LeadDetailDrawer";
+import { EditLeadModal } from "./components/EditLeadModal";
+import { DeleteLeadModal } from "./components/DeleteLeadModal";
+import { LogActivityModal } from "./components/LogActivityModal";
+import { EditActivityModal } from "./components/EditActivityModal";
+import { ManagePipelinesModal } from "./components/ManagePipelinesModal";
+import { ManageStatusesModal } from "./components/ManageStatusesModal";
 import { FilterBar, FilterState } from "./components/FilterBar";
-import { Activity }              from "./components/ActivityFeed";
-import { Lead }                  from "./components/LeadDetailDrawer";
-import { DriveItem }             from "./components/ManagePipelinesModal";
-import { StatusItem }            from "./components/ManageStatusesModal";
+import { Activity } from "./components/ActivityFeed";
+import { Lead } from "./components/LeadDetailDrawer";
+import { DriveItem } from "./components/ManagePipelinesModal";
+import { StatusItem } from "./components/ManageStatusesModal";
+
+interface BackendUser {
+  id: number;
+  name: string;
+}
+
+interface BackendDrive {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  color: string;
+  position: number;
+  is_default: boolean;
+}
+
+interface BackendStatus {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  position: number;
+  is_default: boolean;
+  is_won: boolean;
+  is_lost: boolean;
+}
+
+interface BackendLead {
+  id: number;
+  first_name: string;
+  last_name: string;
+  company: string;
+  email: string;
+  phone?: string | null;
+  estimated_value?: number | string | null;
+  currency?: string | null;
+  priority?: "low" | "medium" | "high" | "urgent";
+  status_id: number;
+  drive_id: number;
+  notes?: string | null;
+  assigned_to?: number | null;
+  assigned_user?: BackendUser;
+  assignedUser?: BackendUser;
+  created_at: string;
+}
+
+interface BackendActivity {
+  id: number;
+  type: Activity["type"];
+  title: string;
+  description?: string | null;
+  scheduled_at: string;
+  is_completed: boolean;
+}
+
+const mapPriorityToUi = (priority?: BackendLead["priority"]) => {
+  if (priority === "high" || priority === "urgent") return "high" as const;
+  if (priority === "low") return "low" as const;
+  return "normal" as const;
+};
+
+const mapPriorityToApi = (priority: "low" | "normal" | "high") => {
+  if (priority === "normal") return "medium";
+  return priority;
+};
+
+const mapLead = (raw: BackendLead): Lead => ({
+  id: raw.id,
+  first_name: raw.first_name,
+  last_name: raw.last_name,
+  company: raw.company,
+  email: raw.email,
+  phone: raw.phone ?? "",
+  estimated_value: Number(raw.estimated_value ?? 0),
+  currency: raw.currency ?? "USD",
+  priority: mapPriorityToUi(raw.priority),
+  status_id: raw.status_id,
+  drive_id: raw.drive_id,
+  date: raw.created_at?.split("T")[0] ?? "",
+  notes: raw.notes ?? "",
+  assigned_to: raw.assigned_to ?? undefined,
+});
+
+const mapDrive = (raw: BackendDrive): DriveItem => ({
+  id: raw.id,
+  name: raw.name,
+  slug: raw.slug,
+  description: raw.description ?? "",
+  color: raw.color,
+  position: raw.position,
+  is_default: raw.is_default,
+});
+
+const mapStatus = (raw: BackendStatus): StatusItem => ({
+  id: raw.id,
+  name: raw.name,
+  slug: raw.slug,
+  color: raw.color,
+  position: raw.position,
+  is_default: raw.is_default,
+  is_won: raw.is_won,
+  is_lost: raw.is_lost,
+});
+
+const mapActivity = (raw: BackendActivity): Activity => ({
+  id: raw.id,
+  type: raw.type,
+  title: raw.title,
+  description: raw.description ?? undefined,
+  scheduled_at: raw.scheduled_at,
+  is_completed: raw.is_completed,
+});
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 
 const initialDrives: DriveItem[] = [
-  { id: 1, name: "Enterprise Sales", slug: "enterprise", description: "Large account pipeline", color: "#33084E", position: 1, is_default: true  },
-  { id: 2, name: "SMB Outreach",     slug: "smb",        description: "Small business leads",  color: "#AF580B", position: 2, is_default: false },
+  { id: 1, name: "Enterprise Sales", slug: "enterprise", description: "Large account pipeline", color: "#33084E", position: 1, is_default: true },
+  { id: 2, name: "SMB Outreach", slug: "smb", description: "Small business leads", color: "#AF580B", position: 2, is_default: false },
 ];
 
 const initialStatuses: StatusItem[] = [
-  { id: 1, name: "New Lead",     slug: "new",         color: "#33084E", position: 1, is_default: true,  is_won: false, is_lost: false },
-  { id: 2, name: "Qualified",    slug: "qualified",   color: "#AF580B", position: 2, is_default: false, is_won: false, is_lost: false },
-  { id: 3, name: "Proposal",     slug: "proposal",    color: "#1d4ed8", position: 3, is_default: false, is_won: false, is_lost: false },
-  { id: 4, name: "Negotiation",  slug: "negotiation", color: "#be185d", position: 4, is_default: false, is_won: false, is_lost: false },
-  { id: 5, name: "Closed Won",   slug: "won",         color: "#074616", position: 5, is_default: false, is_won: true,  is_lost: false },
+  { id: 1, name: "New Lead", slug: "new", color: "#33084E", position: 1, is_default: true, is_won: false, is_lost: false },
+  { id: 2, name: "Qualified", slug: "qualified", color: "#AF580B", position: 2, is_default: false, is_won: false, is_lost: false },
+  { id: 3, name: "Proposal", slug: "proposal", color: "#1d4ed8", position: 3, is_default: false, is_won: false, is_lost: false },
+  { id: 4, name: "Negotiation", slug: "negotiation", color: "#be185d", position: 4, is_default: false, is_won: false, is_lost: false },
+  { id: 5, name: "Closed Won", slug: "won", color: "#074616", position: 5, is_default: false, is_won: true, is_lost: false },
 ];
 
 const initialLeads: Lead[] = [
-  { id: 101, first_name: "Alice",   last_name: "Smith",    company: "Globex Corp",  email: "alice@globex.com",   phone: "+1 555 0101", estimated_value: 15000, currency: "USD", priority: "high",   status_id: 1, drive_id: 1, date: "2026-04-30", notes: "Warm lead from referral." },
-  { id: 102, first_name: "Bob",     last_name: "Johnson",  company: "Acme Inc",     email: "bob@acme.com",       phone: "+1 555 0102", estimated_value: 8500,  currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-28" },
-  { id: 103, first_name: "Charlie", last_name: "Davis",    company: "Initech",      email: "cdavis@initech.com", phone: "+1 555 0103", estimated_value: 22000, currency: "USD", priority: "high",   status_id: 3, drive_id: 1, date: "2026-04-25" },
-  { id: 104, first_name: "Diana",   last_name: "Prince",   company: "Themyscira",   email: "diana@amazon.com",                         estimated_value: 50000, currency: "USD", priority: "high",   status_id: 4, drive_id: 1, date: "2026-04-20" },
-  { id: 105, first_name: "Evan",    last_name: "Wright",   company: "Stark Ind",    email: "evan@stark.com",                           estimated_value: 12000, currency: "USD", priority: "normal", status_id: 5, drive_id: 1, date: "2026-04-15" },
-  { id: 106, first_name: "Fiona",   last_name: "Gallagher", company: "Southside",   email: "fiona@south.com",                          estimated_value: 5000,  currency: "USD", priority: "low",    status_id: 1, drive_id: 1, date: "2026-04-30" },
-  { id: 107, first_name: "George",  last_name: "Costanza", company: "Vandelay",     email: "art@vandelay.com",                         estimated_value: 1500,  currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-29" },
+  { id: 101, first_name: "Alice", last_name: "Smith", company: "Globex Corp", email: "alice@globex.com", phone: "+1 555 0101", estimated_value: 15000, currency: "USD", priority: "high", status_id: 1, drive_id: 1, date: "2026-04-30", notes: "Warm lead from referral." },
+  { id: 102, first_name: "Bob", last_name: "Johnson", company: "Acme Inc", email: "bob@acme.com", phone: "+1 555 0102", estimated_value: 8500, currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-28" },
+  { id: 103, first_name: "Charlie", last_name: "Davis", company: "Initech", email: "cdavis@initech.com", phone: "+1 555 0103", estimated_value: 22000, currency: "USD", priority: "high", status_id: 3, drive_id: 1, date: "2026-04-25" },
+  { id: 104, first_name: "Diana", last_name: "Prince", company: "Themyscira", email: "diana@amazon.com", estimated_value: 50000, currency: "USD", priority: "high", status_id: 4, drive_id: 1, date: "2026-04-20" },
+  { id: 105, first_name: "Evan", last_name: "Wright", company: "Stark Ind", email: "evan@stark.com", estimated_value: 12000, currency: "USD", priority: "normal", status_id: 5, drive_id: 1, date: "2026-04-15" },
+  { id: 106, first_name: "Fiona", last_name: "Gallagher", company: "Southside", email: "fiona@south.com", estimated_value: 5000, currency: "USD", priority: "low", status_id: 1, drive_id: 1, date: "2026-04-30" },
+  { id: 107, first_name: "George", last_name: "Costanza", company: "Vandelay", email: "art@vandelay.com", estimated_value: 1500, currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-29" },
 ];
 
 const mockActivities: Record<number, Activity[]> = {
   101: [
-    { id: 1, type: "call",    title: "Discovery Call",      description: "Discussed requirements and budget.",  scheduled_at: "2026-04-28T10:00:00", is_completed: true  },
-    { id: 2, type: "email",   title: "Sent proposal deck",  description: "Attached pricing breakdown.",          scheduled_at: "2026-04-29T09:00:00", is_completed: true  },
-    { id: 3, type: "meeting", title: "Follow-up meeting",                                                        scheduled_at: "2026-05-05T14:00:00", is_completed: false },
+    { id: 1, type: "call", title: "Discovery Call", description: "Discussed requirements and budget.", scheduled_at: "2026-04-28T10:00:00", is_completed: true },
+    { id: 2, type: "email", title: "Sent proposal deck", description: "Attached pricing breakdown.", scheduled_at: "2026-04-29T09:00:00", is_completed: true },
+    { id: 3, type: "meeting", title: "Follow-up meeting", scheduled_at: "2026-05-05T14:00:00", is_completed: false },
   ],
 };
 
@@ -86,9 +200,9 @@ function LeadCardContent({
   onMenuClick: (e: React.MouseEvent<HTMLButtonElement>, lead: Lead) => void;
 }) {
   const priStyle: Record<string, { bg: string; color: string }> = {
-    high:   { bg: "#AF580B15", color: "#AF580B" },
+    high: { bg: "#AF580B15", color: "#AF580B" },
     normal: { bg: "#33084E15", color: "#33084E" },
-    low:    { bg: "#f0f0f5",   color: "#9ca3af" },
+    low: { bg: "#f0f0f5", color: "#9ca3af" },
   };
   const p = priStyle[lead.priority] ?? priStyle.normal;
 
@@ -159,23 +273,24 @@ function DraggableCard({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CrmPage() {
-  const [leads,    setLeads]    = useState(initialLeads);
-  const [drives,   setDrives]   = useState(initialDrives);
-  const [statuses, setStatuses] = useState(initialStatuses);
-  const [activities, setActivities] = useState(mockActivities);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [drives, setDrives] = useState<DriveItem[]>([]);
+  const [statuses, setStatuses] = useState<StatusItem[]>([]);
+  const [activities, setActivities] = useState<Record<number, Activity[]>>({});
+  const [loading, setLoading] = useState(true);
 
   // Modal flags
-  const [isNewLeadOpen,       setNewLeadOpen]       = useState(false);
-  const [isImportOpen,        setImportOpen]         = useState(false);
-  const [isPipelinesOpen,     setPipelinesOpen]      = useState(false);
-  const [isStatusesOpen,      setStatusesOpen]       = useState(false);
+  const [isNewLeadOpen, setNewLeadOpen] = useState(false);
+  const [isImportOpen, setImportOpen] = useState(false);
+  const [isPipelinesOpen, setPipelinesOpen] = useState(false);
+  const [isStatusesOpen, setStatusesOpen] = useState(false);
 
   // Drawer + nested modals
-  const [selectedLead,        setSelectedLead]       = useState<Lead | null>(null);
-  const [isEditLeadOpen,      setEditLeadOpen]       = useState(false);
-  const [isDeleteLeadOpen,    setDeleteLeadOpen]     = useState(false);
-  const [isLogActivityOpen,   setLogActivityOpen]    = useState(false);
-  const [editingActivity,     setEditingActivity]    = useState<Activity | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isEditLeadOpen, setEditLeadOpen] = useState(false);
+  const [isDeleteLeadOpen, setDeleteLeadOpen] = useState(false);
+  const [isLogActivityOpen, setLogActivityOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
   // Context menu
   const [menu, setMenu] = useState<MenuTrigger | null>(null);
@@ -200,9 +315,64 @@ export default function CrmPage() {
 
   // Filters & view
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [filters,  setFilters]  = useState<FilterState>({
-    driveId: drives[0].id, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
+  const [filters, setFilters] = useState<FilterState>({
+    driveId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [driveRes, statusRes, leadRes] = await Promise.all([
+          api.get<ApiResponse<BackendDrive[]>>("/crm/drives", { params: { per_page: 100 } }),
+          api.get<ApiResponse<BackendStatus[]>>("/crm/statuses", { params: { per_page: 100 } }),
+          api.get<ApiResponse<BackendLead[]>>("/crm/leads", { params: { per_page: 300 } }),
+        ]);
+
+        if (!mounted) return;
+
+        const mappedDrives = driveRes.data.data.map(mapDrive);
+        setDrives(mappedDrives);
+        setStatuses(statusRes.data.data.map(mapStatus));
+        setLeads(leadRes.data.data.map(mapLead));
+        setFilters((prev) => ({ ...prev, driveId: mappedDrives[0]?.id ?? 0 }));
+      } catch (error) {
+        console.error("Failed to load CRM data", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedLead) return;
+
+    let mounted = true;
+
+    const loadActivities = async () => {
+      try {
+        const res = await api.get<ApiResponse<BackendActivity[]>>(`/crm/leads/${selectedLead.id}/activities`, { params: { per_page: 100 } });
+        if (!mounted) return;
+        setActivities((prev) => ({ ...prev, [selectedLead.id]: res.data.data.map(mapActivity) }));
+      } catch (error) {
+        console.error("Failed to load lead activities", error);
+      }
+    };
+
+    void loadActivities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedLead?.id]);
 
   // DND
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -214,13 +384,19 @@ export default function CrmPage() {
     if (over && active.id !== over.id) {
       const newStatusId = parseInt(over.id.toString());
       setLeads(prev => prev.map(l => l.id.toString() === active.id.toString() ? { ...l, status_id: newStatusId } : l));
+      const movedLead = leads.find((l) => l.id.toString() === active.id.toString());
+      if (movedLead) {
+        void api.patch(`/crm/leads/${movedLead.id}`, { status_id: newStatusId }).catch((error) => {
+          console.error("Failed to move lead", error);
+        });
+      }
     }
   };
 
   const updateFilters = (next: Partial<FilterState>) => setFilters(f => ({ ...f, ...next }));
 
   const filteredLeads = leads.filter(l => {
-    if (l.drive_id !== filters.driveId) return false;
+    if (filters.driveId && l.drive_id !== filters.driveId) return false;
     if (filters.priority && l.priority !== filters.priority) return false;
     if (filters.query) {
       const q = filters.query.toLowerCase();
@@ -229,7 +405,7 @@ export default function CrmPage() {
     return true;
   });
 
-  const activeDragLead   = activeDragId ? leads.find(l => l.id.toString() === activeDragId) : null;
+  const activeDragLead = activeDragId ? leads.find(l => l.id.toString() === activeDragId) : null;
   const activeDragStatus = activeDragLead ? statuses.find(s => s.id === activeDragLead.status_id) : null;
 
   const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
@@ -279,7 +455,9 @@ export default function CrmPage() {
 
       {/* ── Main Content ─────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col" style={{ overflow: "hidden" }}>
-        {viewMode === "kanban" ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-[14px] text-[#9ca3af] font-medium">Loading CRM data...</div>
+        ) : viewMode === "kanban" ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
@@ -325,7 +503,7 @@ export default function CrmPage() {
             <DragOverlay>
               {activeDragLead && activeDragStatus && (
                 <div style={{ width: "294px" }}>
-                  <LeadCardContent lead={activeDragLead} status={activeDragStatus} onClick={() => {}} onMenuClick={() => {}} />
+                  <LeadCardContent lead={activeDragLead} status={activeDragStatus} onClick={() => { }} onMenuClick={() => { }} />
                 </div>
               )}
             </DragOverlay>
@@ -465,7 +643,21 @@ export default function CrmPage() {
 
       {/* ── Modals ───────────────────────────────────────────────────────── */}
       {isNewLeadOpen && (
-        <NewLeadModal statuses={statuses} drives={drives} onClose={() => setNewLeadOpen(false)} />
+        <NewLeadModal
+          statuses={statuses}
+          drives={drives}
+          onClose={() => setNewLeadOpen(false)}
+          onSave={(payload) => {
+            void (async () => {
+              try {
+                const res = await api.post<ApiResponse<BackendLead>>("/crm/leads", payload);
+                setLeads((prev) => [mapLead(res.data.data), ...prev]);
+              } catch (error) {
+                console.error("Failed to create lead", error);
+              }
+            })();
+          }}
+        />
       )}
 
       {isImportOpen && (
@@ -479,9 +671,21 @@ export default function CrmPage() {
           drives={drives}
           onClose={() => setEditLeadOpen(false)}
           onSave={(updated) => {
-            setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, ...updated } : l));
-            setSelectedLead(prev => prev ? { ...prev, ...updated } : null);
-            setEditLeadOpen(false);
+            void (async () => {
+              try {
+                const payload = {
+                  ...updated,
+                  priority: updated.priority ? mapPriorityToApi(updated.priority) : undefined,
+                };
+                const res = await api.patch<ApiResponse<BackendLead>>(`/crm/leads/${selectedLead.id}`, payload);
+                const mapped = mapLead(res.data.data);
+                setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? mapped : l)));
+                setSelectedLead(mapped);
+                setEditLeadOpen(false);
+              } catch (error) {
+                console.error("Failed to update lead", error);
+              }
+            })();
           }}
         />
       )}
@@ -491,9 +695,16 @@ export default function CrmPage() {
           leadName={leadName}
           onClose={() => setDeleteLeadOpen(false)}
           onConfirm={() => {
-            setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
-            setSelectedLead(null);
-            setDeleteLeadOpen(false);
+            void (async () => {
+              try {
+                await api.delete(`/crm/leads/${selectedLead.id}`);
+                setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
+                setSelectedLead(null);
+                setDeleteLeadOpen(false);
+              } catch (error) {
+                console.error("Failed to delete lead", error);
+              }
+            })();
           }}
         />
       )}
@@ -503,11 +714,18 @@ export default function CrmPage() {
           leadName={leadName}
           onClose={() => setLogActivityOpen(false)}
           onSave={(data) => {
-            const newAct: Activity = { ...data, id: Date.now() };
-            setActivities(prev => ({
-              ...prev,
-              [selectedLead.id]: [...(prev[selectedLead.id] ?? []), newAct],
-            }));
+            void (async () => {
+              try {
+                const res = await api.post<ApiResponse<BackendActivity>>(`/crm/leads/${selectedLead.id}/activities`, data);
+                const newAct = mapActivity(res.data.data);
+                setActivities(prev => ({
+                  ...prev,
+                  [selectedLead.id]: [...(prev[selectedLead.id] ?? []), newAct],
+                }));
+              } catch (error) {
+                console.error("Failed to create activity", error);
+              }
+            })();
           }}
         />
       )}
@@ -518,12 +736,20 @@ export default function CrmPage() {
           leadName={leadName}
           onClose={() => setEditingActivity(null)}
           onSave={(updated) => {
-            setActivities(prev => ({
-              ...prev,
-              [selectedLead.id]: (prev[selectedLead.id] ?? []).map(a =>
-                a.id === editingActivity.id ? { ...a, ...updated } : a
-              ),
-            }));
+            void (async () => {
+              try {
+                const res = await api.patch<ApiResponse<BackendActivity>>(`/crm/activities/${editingActivity.id}`, updated);
+                const mapped = mapActivity(res.data.data);
+                setActivities(prev => ({
+                  ...prev,
+                  [selectedLead.id]: (prev[selectedLead.id] ?? []).map(a =>
+                    a.id === editingActivity.id ? mapped : a
+                  ),
+                }));
+              } catch (error) {
+                console.error("Failed to update activity", error);
+              }
+            })();
           }}
         />
       )}
@@ -532,9 +758,37 @@ export default function CrmPage() {
         <ManagePipelinesModal
           drives={drives}
           onClose={() => setPipelinesOpen(false)}
-          onCreate={(data) => setDrives(prev => [...prev, { ...data, id: Date.now() }])}
-          onUpdate={(id, data) => setDrives(prev => prev.map(d => d.id === id ? { ...d, ...data } : d))}
-          onDelete={(id) => setDrives(prev => prev.filter(d => d.id !== id))}
+          onCreate={(data) => {
+            void (async () => {
+              try {
+                const res = await api.post<ApiResponse<BackendDrive>>("/crm/drives", data);
+                setDrives(prev => [...prev, mapDrive(res.data.data)]);
+              } catch (error) {
+                console.error("Failed to create pipeline", error);
+              }
+            })();
+          }}
+          onUpdate={(id, data) => {
+            void (async () => {
+              try {
+                const res = await api.patch<ApiResponse<BackendDrive>>(`/crm/drives/${id}`, data);
+                const mapped = mapDrive(res.data.data);
+                setDrives(prev => prev.map(d => d.id === id ? mapped : d));
+              } catch (error) {
+                console.error("Failed to update pipeline", error);
+              }
+            })();
+          }}
+          onDelete={(id) => {
+            void (async () => {
+              try {
+                await api.delete(`/crm/drives/${id}`);
+                setDrives(prev => prev.filter(d => d.id !== id));
+              } catch (error) {
+                console.error("Failed to delete pipeline", error);
+              }
+            })();
+          }}
         />
       )}
 
@@ -542,9 +796,37 @@ export default function CrmPage() {
         <ManageStatusesModal
           statuses={statuses}
           onClose={() => setStatusesOpen(false)}
-          onCreate={(data) => setStatuses(prev => [...prev, { ...data, id: Date.now() }])}
-          onUpdate={(id, data) => setStatuses(prev => prev.map(s => s.id === id ? { ...s, ...data } : s))}
-          onDelete={(id) => setStatuses(prev => prev.filter(s => s.id !== id))}
+          onCreate={(data) => {
+            void (async () => {
+              try {
+                const res = await api.post<ApiResponse<BackendStatus>>("/crm/statuses", data);
+                setStatuses(prev => [...prev, mapStatus(res.data.data)]);
+              } catch (error) {
+                console.error("Failed to create status", error);
+              }
+            })();
+          }}
+          onUpdate={(id, data) => {
+            void (async () => {
+              try {
+                const res = await api.patch<ApiResponse<BackendStatus>>(`/crm/statuses/${id}`, data);
+                const mapped = mapStatus(res.data.data);
+                setStatuses(prev => prev.map(s => s.id === id ? mapped : s));
+              } catch (error) {
+                console.error("Failed to update status", error);
+              }
+            })();
+          }}
+          onDelete={(id) => {
+            void (async () => {
+              try {
+                await api.delete(`/crm/statuses/${id}`);
+                setStatuses(prev => prev.filter(s => s.id !== id));
+              } catch (error) {
+                console.error("Failed to delete status", error);
+              }
+            })();
+          }}
         />
       )}
     </div>

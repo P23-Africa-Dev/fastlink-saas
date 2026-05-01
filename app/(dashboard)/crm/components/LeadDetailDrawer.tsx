@@ -21,28 +21,28 @@ export interface Lead {
   drive_id: number;
   date: string;
   notes?: string;
-  assigned_to?: string;
+  assigned_to?: string | number;
 }
 
 interface Status { id: number; name: string; color: string; }
-interface Drive  { id: number; name: string; }
+interface Drive { id: number; name: string; }
 
 interface LeadDetailDrawerProps {
-  lead:       Lead;
-  statuses:   Status[];
-  drives:     Drive[];
+  lead: Lead;
+  statuses: Status[];
+  drives: Drive[];
   activities: Activity[];
-  onClose:    () => void;
-  onEdit:     () => void;
-  onDelete:   () => void;
-  onLogActivity:  () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onLogActivity: () => void;
   onEditActivity: (a: Activity) => void;
 }
 
 const PRIORITY_STYLE: Record<string, { bg: string; color: string }> = {
-  high:   { bg: "#AF580B15", color: "#AF580B" },
+  high: { bg: "#AF580B15", color: "#AF580B" },
   normal: { bg: "#33084E15", color: "#33084E" },
-  low:    { bg: "#f0f0f5",   color: "#9ca3af" },
+  low: { bg: "#f0f0f5", color: "#9ca3af" },
 };
 
 const formatCurrency = (val: number, currency = "USD") =>
@@ -64,8 +64,8 @@ export function LeadDetailDrawer({
   lead, statuses, drives, activities,
   onClose, onEdit, onDelete, onLogActivity, onEditActivity,
 }: LeadDetailDrawerProps) {
-  const status   = statuses.find(s => s.id === lead.status_id);
-  const drive    = drives.find(d => d.id === lead.drive_id);
+  const status = statuses.find(s => s.id === lead.status_id);
+  const drive = drives.find(d => d.id === lead.drive_id);
   const priStyle = PRIORITY_STYLE[lead.priority] ?? PRIORITY_STYLE.normal;
   const initials = `${lead.first_name[0]}${lead.last_name[0]}`.toUpperCase();
 
@@ -161,11 +161,11 @@ export function LeadDetailDrawer({
 
           {/* Info grid */}
           <div className="rounded-2xl border border-[#f0f0f5] overflow-hidden" style={{ padding: "0 16px" }}>
-            <InfoRow icon={<Mail size={15} />}     label="Email"    value={lead.email} />
-            <InfoRow icon={<Phone size={15} />}    label="Phone"    value={lead.phone} />
+            <InfoRow icon={<Mail size={15} />} label="Email" value={lead.email} />
+            <InfoRow icon={<Phone size={15} />} label="Phone" value={lead.phone} />
             <InfoRow icon={<LayoutGrid size={15} />} label="Pipeline" value={drive?.name} />
-            <InfoRow icon={<User size={15} />}     label="Assigned To" value={lead.assigned_to} />
-            <InfoRow icon={<Calendar size={15} />} label="Created"  value={lead.date} />
+            <InfoRow icon={<User size={15} />} label="Assigned To" value={lead.assigned_to} />
+            <InfoRow icon={<Calendar size={15} />} label="Created" value={lead.date} />
           </div>
 
           {/* Notes */}

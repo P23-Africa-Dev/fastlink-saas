@@ -3,39 +3,106 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, LayoutGrid, List, RotateCcw, ChevronLeft, ChevronRight, Users, Shield, UserCheck, UserX } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/types";
 
-import { UserCard }          from "./components/UserCard";
-import { UserDetailDrawer }  from "./components/UserDetailDrawer";
-import { CreateUserModal }   from "./components/CreateUserModal";
-import { EditUserModal }     from "./components/EditUserModal";
-import { DeleteUserModal }   from "./components/DeleteUserModal";
+import { UserCard } from "./components/UserCard";
+import { UserDetailDrawer } from "./components/UserDetailDrawer";
+import { CreateUserModal } from "./components/CreateUserModal";
+import { EditUserModal } from "./components/EditUserModal";
+import { DeleteUserModal } from "./components/DeleteUserModal";
 
 import {
   User, UserRole, ROLE_CONFIG, USER_ROLES,
-  MOCK_USERS, fmtDate,
+  fmtDate,
 } from "./components/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Layout   = "grid" | "list";
+type Layout = "grid" | "list";
 type OpenMenu = number | null;
+
+interface BackendRole {
+  id: number;
+  name: string;
+}
+
+interface BackendUser {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+  suspended_at: string | null;
+  roles?: BackendRole[];
+}
+
+function colorFromId(id: number): string {
+  const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#0f766e", "#7c3aed"];
+  return colors[id % colors.length];
+}
+
+function initialsFromName(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function mapUser(raw: BackendUser): User {
+  const roleName = (raw.roles?.[0]?.name ?? "staff") as UserRole;
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    email: raw.email,
+    role: roleName,
+    suspended: Boolean(raw.suspended_at),
+    created_at: raw.created_at,
+    initials: initialsFromName(raw.name),
+    color: colorFromId(raw.id),
+    last_active: raw.updated_at,
+  };
+}
+
+async function fetchAllUsers(): Promise<User[]> {
+  let page = 1;
+  let lastPage = 1;
+  const all: User[] = [];
+
+  while (page <= lastPage) {
+    const res = await api.get<ApiResponse<BackendUser[]>>("/users", {
+      params: { per_page: 100, page },
+    });
+
+    all.push(...res.data.data.map(mapUser));
+    const pagination = (res.data.meta as { pagination?: { last_page?: number } })?.pagination;
+    lastPage = pagination?.last_page ?? 1;
+    page += 1;
+  }
+
+  return all;
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [users,      setUsers]      = useState<User[]>(MOCK_USERS);
-  const [search,     setSearch]     = useState("");
-  const [roleF,      setRoleF]      = useState<UserRole | "all">("all");
-  const [layout,     setLayout]     = useState<Layout>("list");
-  const [perPage,    setPerPage]    = useState(9);
-  const [page,       setPage]       = useState(1);
+  const [users, setUsers] = useState<User[]>([]);
+  const [search, setSearch] = useState("");
+  const [roleF, setRoleF] = useState<UserRole | "all">("all");
+  const [layout, setLayout] = useState<Layout>("list");
+  const [perPage, setPerPage] = useState(9);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   // Drawer / modal state
-  const [selected,   setSelected]   = useState<User | null>(null);
-  const [editing,    setEditing]    = useState<User | null>(null);
-  const [deleting,   setDeleting]   = useState<User | null>(null);
+  const [selected, setSelected] = useState<User | null>(null);
+  const [editing, setEditing] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState<User | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [openMenu,   setOpenMenu]   = useState<OpenMenu>(null);
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +117,28 @@ export default function SettingsPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const allUsers = await fetchAllUsers();
+        if (mounted) setUsers(allUsers);
+      } catch (error) {
+        console.error("Failed to load users", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // ── Filtered + paginated ───────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
@@ -62,57 +151,88 @@ export default function SettingsPage() {
   }, [users, search, roleF]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const paginated  = filtered.slice((page - 1) * perPage, page * perPage);
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const resetFilters = () => { setSearch(""); setRoleF("all"); setPage(1); };
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
-  const totalUsers     = users.length;
-  const activeCount    = users.filter(u => !u.suspended).length;
+  const totalUsers = users.length;
+  const activeCount = users.filter(u => !u.suspended).length;
   const suspendedCount = users.filter(u => u.suspended).length;
-  const adminCount     = users.filter(u => u.role === "admin").length;
+  const adminCount = users.filter(u => u.role === "admin").length;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleCreate = (data: { name: string; email: string; password: string; role: UserRole; department?: string }) => {
-    const initials = data.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
-    const colors   = ["#33084E","#AF580B","#074616","#1d4ed8","#be185d","#0f766e","#7c3aed"];
-    const newUser: User = {
-      id:         Date.now(),
-      name:       data.name,
-      email:      data.email,
-      role:       data.role,
-      suspended:  false,
-      created_at: new Date().toISOString(),
-      initials,
-      color:      colors[users.length % colors.length],
-      department: data.department,
-      last_active: new Date().toISOString(),
-    };
-    setUsers(prev => [newUser, ...prev]);
-    setShowCreate(false);
+    void (async () => {
+      try {
+        const res = await api.post<ApiResponse<BackendUser>>("/users", {
+          name: data.name,
+          email: data.email,
+          password: data.password,
+          role: data.role,
+        });
+
+        const created = mapUser(res.data.data);
+        setUsers((prev) => [created, ...prev]);
+        setShowCreate(false);
+      } catch (error) {
+        console.error("Failed to create user", error);
+      }
+    })();
   };
 
   const handleEdit = (data: { name: string; role: UserRole; suspended: boolean; department?: string }) => {
     if (!editing) return;
-    setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, ...data } : u));
-    // Sync selected drawer if open on this user
-    if (selected?.id === editing.id) setSelected(prev => prev ? { ...prev, ...data } : prev);
-    setEditing(null);
+    void (async () => {
+      try {
+        const res = await api.patch<ApiResponse<BackendUser>>(`/users/${editing.id}`, {
+          name: data.name,
+          role: data.role,
+          suspended: data.suspended,
+        });
+
+        const updated = mapUser(res.data.data);
+        setUsers((prev) => prev.map((u) => (u.id === editing.id ? updated : u)));
+        if (selected?.id === editing.id) setSelected(updated);
+        setEditing(null);
+      } catch (error) {
+        console.error("Failed to update user", error);
+      }
+    })();
   };
 
   const handleDelete = () => {
     if (!deleting) return;
-    setUsers(prev => prev.filter(u => u.id !== deleting.id));
-    if (selected?.id === deleting.id) setSelected(null);
-    setDeleting(null);
+    void (async () => {
+      try {
+        await api.delete(`/users/${deleting.id}`);
+        setUsers((prev) => prev.filter((u) => u.id !== deleting.id));
+        if (selected?.id === deleting.id) setSelected(null);
+        setDeleting(null);
+      } catch (error) {
+        console.error("Failed to delete user", error);
+      }
+    })();
   };
 
   const handleToggleSuspend = (user: User) => {
-    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, suspended: !u.suspended } : u));
-    if (selected?.id === user.id) setSelected(prev => prev ? { ...prev, suspended: !prev.suspended } : prev);
-    setOpenMenu(null);
+    void (async () => {
+      try {
+        const res = await api.patch<ApiResponse<BackendUser>>(`/users/${user.id}`, {
+          suspended: !user.suspended,
+        });
+
+        const updated = mapUser(res.data.data);
+        setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+        if (selected?.id === user.id) setSelected(updated);
+      } catch (error) {
+        console.error("Failed to toggle suspend", error);
+      } finally {
+        setOpenMenu(null);
+      }
+    })();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -138,10 +258,10 @@ export default function SettingsPage() {
       {/* ── Stats strip ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap shrink-0" style={{ gap: "10px" }}>
         {[
-          { label: "Total Members",  value: totalUsers,     icon: <Users size={15} />,     bg: "#f3e8ff", color: "#33084E", iconBg: "#ede9fe" },
-          { label: "Active",         value: activeCount,    icon: <UserCheck size={15} />, bg: "#dcfce7", color: "#074616", iconBg: "#f0fdf4" },
-          { label: "Suspended",      value: suspendedCount, icon: <UserX size={15} />,     bg: "#fee2e2", color: "#991b1b", iconBg: "#fff5f5" },
-          { label: "Admins",         value: adminCount,     icon: <Shield size={15} />,    bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
+          { label: "Total Members", value: totalUsers, icon: <Users size={15} />, bg: "#f3e8ff", color: "#33084E", iconBg: "#ede9fe" },
+          { label: "Active", value: activeCount, icon: <UserCheck size={15} />, bg: "#dcfce7", color: "#074616", iconBg: "#f0fdf4" },
+          { label: "Suspended", value: suspendedCount, icon: <UserX size={15} />, bg: "#fee2e2", color: "#991b1b", iconBg: "#fff5f5" },
+          { label: "Admins", value: adminCount, icon: <Shield size={15} />, bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
         ].map(s => (
           <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 130px" }}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.iconBg }}>
@@ -218,7 +338,11 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: "0", gap: "14px" }}>
 
         <div className="flex-1 overflow-y-auto" style={{ minHeight: "0" }}>
-          {paginated.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
+              <p className="text-[15px] font-bold text-(--text-primary)">Loading users...</p>
+            </div>
+          ) : paginated.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "#f3f4f6" }}>
                 <Users size={24} className="text-[#9ca3af]" />

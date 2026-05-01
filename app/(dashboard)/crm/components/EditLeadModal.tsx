@@ -7,14 +7,14 @@ import { Lead } from "./LeadDetailDrawer";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Status { id: number; name: string; }
-interface Drive  { id: number; name: string; }
+interface Drive { id: number; name: string; }
 
 interface EditLeadModalProps {
-  lead:     Lead;
+  lead: Lead;
   statuses: Status[];
-  drives:   Drive[];
-  onClose:  () => void;
-  onSave:   (updated: Partial<Lead>) => void;
+  drives: Drive[];
+  onClose: () => void;
+  onSave: (updated: Partial<Lead>) => void;
 }
 
 const PRIORITIES = ["low", "normal", "high"] as const;
@@ -22,28 +22,48 @@ type Priority = typeof PRIORITIES[number];
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN"] as const;
 
 const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string; activeBorder: string }> = {
-  low:    { activeBg: "#f0f0f5",   activeColor: "#9ca3af", activeBorder: "#9ca3af" },
+  low: { activeBg: "#f0f0f5", activeColor: "#9ca3af", activeBorder: "#9ca3af" },
   normal: { activeBg: "#33084E15", activeColor: "#33084E", activeBorder: "#33084E" },
-  high:   { activeBg: "#AF580B15", activeColor: "#AF580B", activeBorder: "#AF580B" },
+  high: { activeBg: "#AF580B15", activeColor: "#AF580B", activeBorder: "#AF580B" },
 };
 
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditLeadModalProps) {
-  const [priority,   setPriority]   = useState<Priority>(lead.priority as Priority);
-  const [driveId,    setDriveId]    = useState(lead.drive_id.toString());
-  const [statusId,   setStatusId]   = useState(lead.status_id.toString());
-  const [assignedTo, setAssignedTo] = useState("");
-  const [currency,   setCurrency]   = useState(lead.currency ?? "USD");
+  const [firstName, setFirstName] = useState(lead.first_name);
+  const [lastName, setLastName] = useState(lead.last_name);
+  const [email, setEmail] = useState(lead.email);
+  const [phone, setPhone] = useState(lead.phone ?? "");
+  const [company, setCompany] = useState(lead.company);
+  const [value, setValue] = useState(String(lead.estimated_value ?? ""));
+  const [notes, setNotes] = useState(lead.notes ?? "");
+  const [priority, setPriority] = useState<Priority>(lead.priority as Priority);
+  const [driveId, setDriveId] = useState(lead.drive_id.toString());
+  const [statusId, setStatusId] = useState(lead.status_id.toString());
+  const [assignedTo, setAssignedTo] = useState(lead.assigned_to ? String(lead.assigned_to) : "");
+  const [currency, setCurrency] = useState(lead.currency ?? "USD");
 
-  const driveOptions    = drives.map(d => ({ value: d.id.toString(), label: d.name }));
-  const statusOptions   = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
+  const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
+  const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
   const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
 
   const handleSave = () => {
-    onSave({ priority });
+    onSave({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      company: company.trim(),
+      drive_id: Number(driveId),
+      status_id: Number(statusId),
+      assigned_to: assignedTo ? Number(assignedTo) : undefined,
+      estimated_value: value ? Number(value) : undefined,
+      currency,
+      priority,
+      notes,
+    });
     onClose();
   };
 
@@ -72,29 +92,29 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>First Name <span className="text-red-500">*</span></label>
-              <input type="text" defaultValue={lead.first_name} className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Last Name</label>
-              <input type="text" defaultValue={lead.last_name} className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Email</label>
-              <input type="email" defaultValue={lead.email} className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Phone</label>
-              <input type="tel" defaultValue={lead.phone ?? ""} placeholder="+1 234 567 8900" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Company</label>
-              <input type="text" defaultValue={lead.company} className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={company} onChange={e => setCompany(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Pipeline</label>
@@ -116,7 +136,7 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Estimated Value</label>
-              <input type="number" defaultValue={lead.estimated_value} className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="number" value={value} onChange={e => setValue(e.target.value)} className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Currency</label>
@@ -150,7 +170,7 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
           {/* Notes */}
           <div className="flex flex-col" style={{ gap: "8px" }}>
             <label className={labelCls}>Notes</label>
-            <textarea rows={3} defaultValue={lead.notes ?? ""}
+            <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
               className="w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors resize-none"
               style={{ padding: "12px 16px" }}
             />

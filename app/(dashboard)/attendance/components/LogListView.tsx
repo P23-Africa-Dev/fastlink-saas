@@ -2,11 +2,12 @@
 
 import React, { useState, useMemo } from "react";
 import { Search, Filter, RotateCcw, Clock, FileText } from "lucide-react";
-import { AttendanceLog, STATUS_CONFIG, MOCK_TEAM } from "./types";
+import { AttendanceLog, STATUS_CONFIG, MOCK_TEAM, TeamMember } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface LogListViewProps {
   logs: AttendanceLog[];
+  teamMembers?: TeamMember[];
 }
 
 function fmt(iso: string | null) {
@@ -20,21 +21,22 @@ function fmtDate(d: string) {
 
 const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none text-(--text-primary) focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af]";
 
-export function LogListView({ logs }: LogListViewProps) {
-  const [from,      setFrom]      = useState("");
-  const [to,        setTo]        = useState("");
-  const [userId,    setUserId]    = useState<number | "all">("all");
-  const [statusF,   setStatusF]   = useState<string>("all");
-  const [search,    setSearch]    = useState("");
+export function LogListView({ logs, teamMembers }: LogListViewProps) {
+  const members = teamMembers && teamMembers.length > 0 ? teamMembers : MOCK_TEAM;
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [userId, setUserId] = useState<number | "all">("all");
+  const [statusF, setStatusF] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     return logs.filter(l => {
-      if (from   && l.date < from)                         return false;
-      if (to     && l.date > to)                           return false;
-      if (userId !== "all" && l.user_id !== userId)        return false;
-      if (statusF !== "all" && l.status !== statusF)       return false;
+      if (from && l.date < from) return false;
+      if (to && l.date > to) return false;
+      if (userId !== "all" && l.user_id !== userId) return false;
+      if (statusF !== "all" && l.status !== statusF) return false;
       if (search && !l.user_name.toLowerCase().includes(search.toLowerCase()) &&
-                    !l.date.includes(search)) return false;
+        !l.date.includes(search)) return false;
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [logs, from, to, userId, statusF, search]);
@@ -66,7 +68,7 @@ export function LogListView({ logs }: LogListViewProps) {
             <span className="text-[12px] font-bold text-[#9ca3af]">From</span>
             <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={inputCls} style={{ padding: "7px 10px" }} />
             <span className="text-[12px] font-bold text-[#9ca3af]">To</span>
-            <input type="date" value={to}   onChange={e => setTo(e.target.value)}   className={inputCls} style={{ padding: "7px 10px" }} />
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} className={inputCls} style={{ padding: "7px 10px" }} />
           </div>
 
           {/* User filter */}
@@ -75,7 +77,7 @@ export function LogListView({ logs }: LogListViewProps) {
             onChange={v => setUserId(v === "all" ? "all" : Number(v))}
             options={[
               { value: "all", label: "All Members" },
-              ...MOCK_TEAM.map(m => ({ value: m.id.toString(), label: m.name })),
+              ...members.map(m => ({ value: m.id.toString(), label: m.name })),
             ]}
             searchPlaceholder="Search members…"
           />
@@ -85,10 +87,10 @@ export function LogListView({ logs }: LogListViewProps) {
             value={statusF}
             onChange={setStatusF}
             options={[
-              { value: "all",      label: "All Statuses" },
-              { value: "present",  label: "Present" },
-              { value: "absent",   label: "Absent" },
-              { value: "late",     label: "Late" },
+              { value: "all", label: "All Statuses" },
+              { value: "present", label: "Present" },
+              { value: "absent", label: "Absent" },
+              { value: "late", label: "Late" },
               { value: "half_day", label: "Half Day" },
             ]}
             searchPlaceholder="Search statuses…"
@@ -140,7 +142,7 @@ export function LogListView({ logs }: LogListViewProps) {
                   <td style={{ padding: "12px 16px" }}>
                     <div className="flex items-center" style={{ gap: "8px" }}>
                       {(() => {
-                        const m = MOCK_TEAM.find(t => t.id === log.user_id);
+                        const m = members.find(t => t.id === log.user_id);
                         return (
                           <>
                             <div
