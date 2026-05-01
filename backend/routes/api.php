@@ -41,6 +41,8 @@ Route::prefix('v1')->group(function () {
             ->name('api.dashboard.stats');
 
         // User management
+        Route::get('/users/supervisors', [UserController::class, 'supervisors'])
+            ->middleware('role:admin|supervisor|staff');
         Route::get('/users', [UserController::class, 'index'])
             ->middleware('role:admin');
         Route::post('/users', [UserController::class, 'store'])
@@ -148,6 +150,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/leave-requests', [LeaveRequestController::class, 'store'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/leave-requests/{leaveRequest}', [LeaveRequestController::class, 'show'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::patch('/leave-requests/{leaveRequest}', [LeaveRequestController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/leave-requests/{leaveRequest}/decide', [LeaveRequestController::class, 'decide'])
             ->middleware('role:admin|supervisor');

@@ -151,9 +151,9 @@ export default function LeaveRequestsPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [reqRes, userRes] = await Promise.allSettled([
+        const [reqRes, supervisorsRes] = await Promise.allSettled([
           api.get<ApiResponse<BackendLeaveRequest[]>>("/leave-requests", { params: { per_page: 200 } }),
-          api.get<ApiResponse<BackendUser[]>>("/users", { params: { per_page: 200 } }),
+          api.get<ApiResponse<BackendUser[]>>("/users/supervisors", { params: { exclude_self: true } }),
         ]);
 
         if (!mounted) return;
@@ -162,15 +162,13 @@ export default function LeaveRequestsPage() {
           ? reqRes.value.data.data.map(mapLeaveRequest)
           : [];
 
-        const supOptions = userRes.status === "fulfilled"
-          ? userRes.value.data.data
-            .filter((u) => u.roles?.some((r) => r.name === "admin" || r.name === "supervisor"))
-            .map((u) => ({
-              id: u.id,
-              name: u.name,
-              initials: initialsFromName(u.name),
-              color: colorFromId(u.id),
-            }))
+        const supOptions = supervisorsRes.status === "fulfilled"
+          ? supervisorsRes.value.data.data.map((u) => ({
+            id: u.id,
+            name: u.name,
+            initials: initialsFromName(u.name),
+            color: colorFromId(u.id),
+          }))
           : [];
 
         setRequests(mapped);

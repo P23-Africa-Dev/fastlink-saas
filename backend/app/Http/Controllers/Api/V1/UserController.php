@@ -16,6 +16,24 @@ use Throwable;
 
 class UserController extends Controller
 {
+    public function supervisors(Request $request): JsonResponse
+    {
+        $query = User::query()
+            ->select(['id', 'name', 'email'])
+            ->with('roles:id,name')
+            ->whereNull('suspended_at')
+            ->whereHas('roles', function ($builder) {
+                $builder->whereIn('name', ['admin', 'supervisor']);
+            })
+            ->orderBy('name');
+
+        if ($request->boolean('exclude_self', true)) {
+            $query->where('id', '!=', $request->user()->id);
+        }
+
+        return $this->success($query->get(), 'Supervisors fetched.');
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = User::query()

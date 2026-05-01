@@ -85,6 +85,24 @@ it('blocks supervisor from creating admin users', function () {
         ->assertJsonPath('success', false);
 });
 
+it('allows staff to fetch supervisors list for leave forms', function () {
+    $staff = apiUser('staff', ['email' => 'staff-leave-list@fastlink.test']);
+    $supervisor = apiUser('supervisor', ['email' => 'sup-leave-list@fastlink.test']);
+    $admin = apiUser('admin', ['email' => 'admin-leave-list@fastlink.test']);
+
+    Sanctum::actingAs($staff);
+
+    $response = $this->getJson('/api/v1/users/supervisors?exclude_self=1');
+
+    $response->assertOk()
+        ->assertJsonPath('success', true);
+
+    $ids = collect($response->json('data'))->pluck('id')->all();
+    expect($ids)->toContain($supervisor->id);
+    expect($ids)->toContain($admin->id);
+    expect($ids)->not->toContain($staff->id);
+});
+
 it('restores a soft-deleted user when creating with the same email', function () {
     $admin = apiUser('admin');
     Sanctum::actingAs($admin);
