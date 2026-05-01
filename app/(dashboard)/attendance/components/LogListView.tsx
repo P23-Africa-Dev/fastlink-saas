@@ -115,7 +115,7 @@ export function LogListView({ logs }: LogListViewProps) {
         <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
           <thead>
             <tr className="bg-[#f8f8fc] border-b border-[#f0f0f5]">
-              {["Date", "Member", "Status", "Sign In", "Sign Out", "Hours", "Note"].map(h => (
+              {["Date", "Member", "Status", "Clock In", "Clock Out", "Hours", "Note"].map(h => (
                 <th key={h} className="text-left text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider" style={{ padding: "10px 16px" }}>
                   {h}
                 </th>

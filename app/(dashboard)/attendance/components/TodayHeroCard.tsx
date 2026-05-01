@@ -46,9 +46,9 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
   const timeStr = clock.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   const statusBadge = {
-    idle:       { label: "Not Signed In", color: "#9ca3af",  bg: "#f3f4f6"  },
-    signed_in:  { label: "Signed In",     color: "#074616",  bg: "#dcfce7"  },
-    signed_out: { label: "Signed Out",    color: "#AF580B",  bg: "#fef3c7"  },
+    idle:       { label: "Not Clocked In", color: "#9ca3af",  bg: "#f3f4f6"  },
+    signed_in:  { label: "Clocked In",     color: "#074616",  bg: "#dcfce7"  },
+    signed_out: { label: "Clocked Out",    color: "#AF580B",  bg: "#fef3c7"  },
   }[state];
 
   return (
@@ -116,7 +116,7 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
               className="inline-flex items-center rounded-xl text-[13px] font-bold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ padding: "10px 22px", gap: "8px", background: "#33084E", boxShadow: "0 4px 12px rgba(51,8,78,0.25)" }}
             >
-              <LogIn size={15} /> Sign In
+              <LogIn size={15} /> Clock In
             </button>
           )}
           {state === "signed_in" && (
@@ -125,7 +125,7 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
               className="inline-flex items-center rounded-xl text-[13px] font-bold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ padding: "10px 22px", gap: "8px", background: "#AF580B", boxShadow: "0 4px 12px rgba(175,88,11,0.25)" }}
             >
-              <LogOut size={15} /> Sign Out
+              <LogOut size={15} /> Clock Out
             </button>
           )}
           {state === "signed_out" && (
@@ -136,7 +136,7 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
         </div>
       </div>
 
-      {/* Bottom progress bar — only while signed in */}
+      {/* Bottom progress bar — only while clocked in */}
       {state === "signed_in" && (
         <div className="h-1 bg-[#f0f0f5]" style={{ borderTop: "1px solid #f0f0f5" }}>
           <div

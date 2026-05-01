@@ -38,7 +38,7 @@ export function SignOutModal({ onClose, onConfirm, signInTime }: SignOutModalPro
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#AF580B" }}>
               <LogOut size={15} className="text-white" />
             </div>
-            <h2 className="text-[15px] font-bold text-(--text-primary)">Sign Out</h2>
+            <h2 className="text-[15px] font-bold text-(--text-primary)">Clock Out</h2>
           </div>
           <button onClick={onClose} className="text-[#9ca3af] hover:text-(--text-primary) transition-colors">
             <X size={18} />
@@ -50,7 +50,7 @@ export function SignOutModal({ onClose, onConfirm, signInTime }: SignOutModalPro
           {/* Time summary */}
           <div className="rounded-xl border border-[#f0f0f5] overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "10px 16px" }}>
-              <span className="text-[12px] font-bold text-[#9ca3af] uppercase tracking-wider">Signed in at</span>
+              <span className="text-[12px] font-bold text-[#9ca3af] uppercase tracking-wider">Clocked in at</span>
               <span className="text-[14px] font-bold text-(--text-primary)">{signInFmt}</span>
             </div>
             <div className="flex items-center justify-between border-b border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "10px 16px" }}>
@@ -88,7 +88,7 @@ export function SignOutModal({ onClose, onConfirm, signInTime }: SignOutModalPro
             className="inline-flex items-center gap-1.5 rounded-xl text-[13px] font-bold text-white transition-all hover:opacity-90"
             style={{ padding: "8px 16px", background: "#AF580B" }}
           >
-            <LogOut size={13} /> Sign Out
+            <LogOut size={13} /> Clock Out
           </button>
         </div>
       </div>

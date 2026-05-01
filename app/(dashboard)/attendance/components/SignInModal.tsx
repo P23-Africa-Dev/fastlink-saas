@@ -28,7 +28,7 @@ export function SignInModal({ onClose, onConfirm }: SignInModalProps) {
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#33084E" }}>
               <LogIn size={15} className="text-white" />
             </div>
-            <h2 className="text-[15px] font-bold text-(--text-primary)">Sign In</h2>
+            <h2 className="text-[15px] font-bold text-(--text-primary)">Clock In</h2>
           </div>
           <button onClick={onClose} className="text-[#9ca3af] hover:text-(--text-primary) transition-colors">
             <X size={18} />
@@ -60,7 +60,7 @@ export function SignInModal({ onClose, onConfirm }: SignInModalProps) {
         {/* Footer */}
         <div className="flex items-center justify-end border-t border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "14px 20px", gap: "8px" }}>
           <ModalButton variant="secondary" onClick={onClose} style={{ padding: "8px 16px" }}>Cancel</ModalButton>
-          <ModalButton variant="primary" onClick={() => onConfirm(note)} style={{ padding: "8px 16px" }}>Sign In</ModalButton>
+          <ModalButton variant="primary" onClick={() => onConfirm(note)} style={{ padding: "8px 16px" }}>Clock In</ModalButton>
         </div>
       </div>
     </div>
