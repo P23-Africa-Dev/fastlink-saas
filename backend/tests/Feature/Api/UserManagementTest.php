@@ -103,6 +103,24 @@ it('allows staff to fetch supervisors list for leave forms', function () {
     expect($ids)->not->toContain($staff->id);
 });
 
+it('allows supervisor to fetch approvers list while excluding self', function () {
+    $supervisor = apiUser('supervisor', ['email' => 'supervisor-self-filter@fastlink.test']);
+    $otherSupervisor = apiUser('supervisor', ['email' => 'supervisor-peer@fastlink.test']);
+    $admin = apiUser('admin', ['email' => 'admin-peer@fastlink.test']);
+
+    Sanctum::actingAs($supervisor);
+
+    $response = $this->getJson('/api/v1/users/supervisors?exclude_self=1');
+
+    $response->assertOk()
+        ->assertJsonPath('success', true);
+
+    $ids = collect($response->json('data'))->pluck('id')->all();
+    expect($ids)->toContain($otherSupervisor->id);
+    expect($ids)->toContain($admin->id);
+    expect($ids)->not->toContain($supervisor->id);
+});
+
 it('restores a soft-deleted user when creating with the same email', function () {
     $admin = apiUser('admin');
     Sanctum::actingAs($admin);

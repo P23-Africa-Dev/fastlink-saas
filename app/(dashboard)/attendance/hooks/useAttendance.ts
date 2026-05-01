@@ -73,7 +73,7 @@ export function useCreateLeaveRequest() {
 export function useUpdateLeaveStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status, ...payload }: { id: number; status: string; [key: string]: any }) => {
+    mutationFn: async ({ id, status, ...payload }: { id: number; status: string;[key: string]: any }) => {
       const res = await api.post<ApiResponse<LeaveRequest>>(`/leave-requests/${id}/decide`, { status, ...payload });
       return res.data.data;
     },
@@ -86,7 +86,7 @@ export function useUpdateLeaveStatus() {
 export function useRespondToLeave() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, accept, ...payload }: { id: number; accept: boolean; [key: string]: any }) => {
+    mutationFn: async ({ id, accept, ...payload }: { id: number; accept: boolean;[key: string]: any }) => {
       const res = await api.post<ApiResponse<LeaveRequest>>(`/leave-requests/${id}/respond`, { accept, ...payload });
       return res.data.data;
     },
@@ -101,6 +101,18 @@ export function useUsers() {
     queryKey: ["users"],
     queryFn: async () => {
       const res = await api.get<ApiResponse<any[]>>("/users", { params: { per_page: 200 } });
+      return res.data.data;
+    },
+  });
+}
+
+export function useSupervisors() {
+  return useQuery({
+    queryKey: ["users", "supervisors"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<any[]>>("/users/supervisors", {
+        params: { exclude_self: true },
+      });
       return res.data.data;
     },
   });
