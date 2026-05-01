@@ -6,6 +6,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
+import { useDashboardStats } from "./hooks/useDashboard";
 import {
   ArrowUpRight,
   MoreHorizontal, Target, TrendingUp, FolderUp,
@@ -306,6 +307,7 @@ function DatePicker({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { data: stats } = useDashboardStats();
   const [activePipeline, setActivePipeline] = useState<string>("All Leads");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const selectedGroup = pipelineGroups.find((g) => g.label === activePipeline);
@@ -326,7 +328,29 @@ export default function DashboardPage() {
       acc[p.status] = (acc[p.status] ?? 0) + 1;
       return acc;
     }, {});
-  const total = attendanceData.length;
+  // Live stats derived values
+  const liveMetricValues = stats
+    ? [
+        stats.overview.leads_total.toLocaleString(),
+        stats.monthly.new_leads.toLocaleString(),
+        stats.overview.projects_total.toLocaleString(),
+      ]
+    : null;
+
+  const totalTasks    = stats?.overview.tasks_total ?? 0;
+  const doneTasks     = stats?.projects.completed_tasks ?? 0;
+  const pendingTasks  = stats?.projects.pending_tasks ?? 0;
+  const donePct       = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const pendingPct    = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
+
+  const liveTaskBreakdown = stats
+    ? [
+        { name: "Completed", value: donePct,    color: "#074616" },
+        { name: "Pending",   value: pendingPct, color: "#AF580B" },
+      ]
+    : taskBreakdownData;
+
+  const livePresentCount = stats?.overview.attendance_today ?? presentCount;
 
   return (
     <div className="content-area">
@@ -336,17 +360,14 @@ export default function DashboardPage() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-2">
-          {metricDefs.map((m) => (
+          {metricDefs.map((m, i) => (
             <div key={m.label} className="mhc-card" style={{ background: m.grad, border: "1px solid rgba(0,0,0,0.06)" }}>
               <div className="mhc-blob mhc-blob--a" />
               <div className="mhc-blob mhc-blob--b" />
 
               <div className="mhc-top flex justify-between">
-                {/* <div className="mhc-icon-wrap" style={{ background: m.iconBg, color: m.iconColor }}>
-                  <m.Icon size={18} strokeWidth={2.2} />
-                </div> */}
                 <div>
-                  <div className="mhc-value" style={{ color: m.textColor }}>{m.value}</div>
+                  <div className="mhc-value" style={{ color: m.textColor }}>{liveMetricValues?.[i] ?? m.value}</div>
                   <div className="mhc-label" style={{ color: m.textColor, opacity: 0.55 }}>{m.label}</div>
                 </div>
                 <span className="mhc-badge" style={{ background: m.badgeBg, color: m.badgeColor }}>
@@ -562,12 +583,12 @@ export default function DashboardPage() {
                     <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
                   </filter>
                 </defs>
-                <Pie data={taskBreakdownData} cx="50%" cy="50%"
+                <Pie data={liveTaskBreakdown} cx="50%" cy="50%"
                   innerRadius={52} outerRadius={80}
                   dataKey="value" paddingAngle={4}
                   startAngle={90} endAngle={-270} stroke="none"
                 >
-                  {taskBreakdownData.map((entry, i) => (
+                  {liveTaskBreakdown.map((entry, i) => (
                     <Cell key={i} fill={entry.color} filter="url(#donut-glow)" />
                   ))}
                 </Pie>
@@ -575,13 +596,13 @@ export default function DashboardPage() {
               </PieChart>
             </ResponsiveContainer>
             <div className="tbd-donut-center">
-              <span className="tbd-donut-pct">58%</span>
+              <span className="tbd-donut-pct">{donePct}%</span>
               <span className="tbd-donut-sub">done</span>
             </div>
           </div>
 
           <div className="tbd-stats">
-            {taskBreakdownData.map((item) => (
+            {liveTaskBreakdown.map((item) => (
               <div key={item.name} className="tbd-stat-row">
                 <div className="tbd-stat-left">
                   <span className="tbd-stat-dot" style={{ background: item.color }} />
@@ -598,8 +619,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="tbd-footer">
-            <span className="tbd-footer-label">Total tasks this sprint</span>
-            <span className="tbd-footer-val">100</span>
+            <span className="tbd-footer-label">Total tasks</span>
+            <span className="tbd-footer-val">{totalTasks || "—"}</span>
           </div>
         </div>
 
@@ -617,9 +638,9 @@ export default function DashboardPage() {
 
           <div className="atd-sum-stats">
             {[
-              { num: presentCount, label: "Present", color: "#074616", bg: "rgba(7,70,22,0.08)" },
-              { num: lateCount, label: "Late", color: "#AF580B", bg: "rgba(175,88,11,0.08)" },
-              { num: absentCount, label: "Absent", color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
+              { num: livePresentCount, label: "Present", color: "#074616", bg: "rgba(7,70,22,0.08)" },
+              { num: lateCount,        label: "Late",    color: "#AF580B", bg: "rgba(175,88,11,0.08)" },
+              { num: absentCount,      label: "Absent",  color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
             ].map(({ num, label, color, bg }) => (
               <div key={label} className="atd-sum-stat" style={{ color, background: bg }}>
                 <span className="atd-sum-stat-num">{num}</span>
@@ -629,9 +650,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="atd-sum-bar">
-            <div className="atd-sum-bar-seg" style={{ width: `${(presentCount / total) * 100}%`, background: "#074616" }} />
-            <div className="atd-sum-bar-seg" style={{ width: `${(lateCount / total) * 100}%`, background: "#AF580B" }} />
-            <div className="atd-sum-bar-seg" style={{ width: `${(absentCount / total) * 100}%`, background: "#ef4444" }} />
+            <div className="atd-sum-bar-seg" style={{ width: `${(livePresentCount / (livePresentCount + lateCount + absentCount || 1)) * 100}%`, background: "#074616" }} />
+            <div className="atd-sum-bar-seg" style={{ width: `${(lateCount / (livePresentCount + lateCount + absentCount || 1)) * 100}%`, background: "#AF580B" }} />
+            <div className="atd-sum-bar-seg" style={{ width: `${(absentCount / (livePresentCount + lateCount + absentCount || 1)) * 100}%`, background: "#ef4444" }} />
           </div>
 
           <div className="atd-sum-list">
