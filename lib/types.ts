@@ -152,8 +152,8 @@ export interface Attendance {
   id: number;
   user_id: number;
   date: string;
-  clock_in: string | null;
-  clock_out: string | null;
+  signed_in_at: string | null;
+  signed_out_at: string | null;
   status: "present" | "absent" | "late" | "half_day";
   total_hours: number;
   created_at: string;

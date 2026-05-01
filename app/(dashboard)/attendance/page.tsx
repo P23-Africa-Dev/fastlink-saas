@@ -97,9 +97,9 @@ function deriveStatus(signedInAt: string | null, signedOutAt: string | null, hou
 }
 
 function mapAttendance(raw: ApiAttendance): AttendanceLog {
-  const userName = `User #${raw.user_id}`;
-  const hours = raw.clock_in && raw.clock_out
-    ? Math.round((((new Date(raw.clock_out).getTime() - new Date(raw.clock_in).getTime()) / 3600000) * 10)) / 10
+  const userName = raw.user?.name ?? `User #${raw.user_id}`;
+  const hours = raw.signed_in_at && raw.signed_out_at
+    ? Math.round((((new Date(raw.signed_out_at).getTime() - new Date(raw.signed_in_at).getTime()) / 3600000) * 10)) / 10
     : null;
 
   return {
@@ -107,11 +107,11 @@ function mapAttendance(raw: ApiAttendance): AttendanceLog {
     user_id: raw.user_id,
     user_name: userName,
     user_initials: initialsFromName(userName),
-    date: raw.date,
-    sign_in: raw.clock_in,
-    sign_out: raw.clock_out,
+    date: raw.date.split("T")[0],
+    sign_in: raw.signed_in_at,
+    sign_out: raw.signed_out_at,
     hours,
-    status: raw.status as any,
+    status: raw.status ?? deriveStatus(raw.signed_in_at, raw.signed_out_at, hours),
     note: "",
   };
 }
