@@ -26,8 +26,8 @@ type Status = "present" | "absent" | "late";
 
 
 function statusFromAttendance(row: ApiAttendance): Status {
-  if (!row.clock_in) return "absent";
-  const signIn = new Date(row.clock_in);
+  if (!row.signed_in_at) return "absent";
+  const signIn = new Date(row.signed_in_at);
   const late = signIn.getHours() > 9 || (signIn.getHours() === 9 && signIn.getMinutes() > 15);
   return late ? "late" : "present";
 }

@@ -8,7 +8,7 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface CreateUserModalProps {
   onClose:  () => void;
-  onCreate: (data: { name: string; email: string; password: string; role: UserRole; department?: string }) => void;
+  onCreate: (data: { name: string; email: string; /* password: string; */ role: UserRole; /* department?: string */ }) => void;
 }
 
 const DEPARTMENTS = ["Engineering", "Operations", "Sales", "Marketing", "Design", "Support", "Product", "Finance"];
@@ -16,12 +16,12 @@ const DEPARTMENTS = ["Engineering", "Operations", "Sales", "Marketing", "Design"
 export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
   const [name,       setName]       = useState("");
   const [email,      setEmail]      = useState("");
-  const [password,   setPassword]   = useState("");
-  const [showPw,     setShowPw]     = useState(false);
+  // const [password,   setPassword]   = useState("");
+  // const [showPw,     setShowPw]     = useState(false);
   const [role,       setRole]       = useState<UserRole>("staff");
-  const [department, setDepartment] = useState("");
+  // const [department, setDepartment] = useState("");
 
-  const valid = name.trim() && email.trim() && password.length >= 8;
+  const valid = name.trim() && email.trim(); // && password.length >= 8;
 
   const inputCls = "w-full rounded-xl border border-[#f0f0f5] text-[13px] font-medium outline-none focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af] text-(--text-primary)";
 
@@ -80,7 +80,7 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
             </div>
 
             {/* Password */}
-            <div className="flex flex-col" style={{ gap: "6px" }}>
+            {/* <div className="flex flex-col" style={{ gap: "6px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Password</label>
               <div className="relative">
                 <input
@@ -99,7 +99,6 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-              {/* Strength indicator */}
               {password.length > 0 && (
                 <div className="flex items-center" style={{ gap: "6px" }}>
                   {[1, 2, 3, 4].map(i => (
@@ -121,7 +120,7 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
                   </span>
                 </div>
               )}
-            </div>
+            </div> */}
 
             {/* Role pills */}
             <div className="flex flex-col" style={{ gap: "8px" }}>
@@ -154,7 +153,7 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
             </div>
 
             {/* Department */}
-            <div className="flex flex-col" style={{ gap: "6px" }}>
+            {/* <div className="flex flex-col" style={{ gap: "6px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">
                 Department <span className="normal-case font-medium">(optional)</span>
               </label>
@@ -168,19 +167,19 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
                 ]}
                 searchPlaceholder="Search departments…"
               />
-            </div>
+            </div> */}
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[#f0f0f5] bg-[#f8f8fc] shrink-0" style={{ padding: "14px 22px" }}>
-          <span className="text-[12px] text-[#9ca3af]">{valid ? `${ROLE_CONFIG[role].label} · ${department || "No department"}` : "Fill required fields"}</span>
+          <span className="text-[12px] text-[#9ca3af]">{valid ? `${ROLE_CONFIG[role].label}` : "Fill required fields"}</span>
           <div className="flex items-center" style={{ gap: "8px" }}>
             <ModalButton variant="secondary" onClick={onClose} style={{ padding: "8px 16px" }}>Cancel</ModalButton>
             <ModalButton
               variant="primary"
               disabled={!valid}
-              onClick={() => valid && onCreate({ name, email, password, role, department: department || undefined })}
+              onClick={() => valid && onCreate({ name, email, /* password, */ role, /* department: department || undefined */ })}
               style={{ padding: "8px 16px", opacity: valid ? 1 : 0.5, cursor: valid ? "pointer" : "not-allowed" }}
             >
               Create User

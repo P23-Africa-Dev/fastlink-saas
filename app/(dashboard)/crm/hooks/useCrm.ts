@@ -82,7 +82,7 @@ export function useImportLeads() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (formData: FormData) => {
-      const res = await api.post<ApiResponse<any>>("/crm/leads/import", formData, {
+      const res = await api.post<ApiResponse<unknown>>("/crm/leads/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return res.data.data;

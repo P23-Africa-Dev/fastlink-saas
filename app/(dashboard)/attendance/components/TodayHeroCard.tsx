@@ -33,10 +33,13 @@ function calcHours(signInISO: string, signOutISO: string) {
 export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSignOut }: TodayHeroCardProps) {
   const [clock, setClock]   = useState(new Date());
   const [live,  setLive]    = useState("00:00:00");
+  const [now,   setNow]     = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => {
-      setClock(new Date());
+      const ts = Date.now();
+      setClock(new Date(ts));
+      setNow(ts);
       if (state === "signed_in" && signInTime) setLive(calcLive(signInTime));
     }, 1000);
     return () => clearInterval(id);
@@ -142,7 +145,7 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
           <div
             className="h-full transition-all duration-1000"
             style={{
-              width: `${Math.min(100, ((Date.now() - new Date(signInTime!).getTime()) / (9 * 3600000)) * 100)}%`,
+              width: `${Math.min(100, ((now - new Date(signInTime!).getTime()) / (9 * 3600000)) * 100)}%`,
               background: "linear-gradient(90deg, #33084E, #7c3aed)",
             }}
           />

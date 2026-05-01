@@ -42,6 +42,27 @@ interface RowFormState {
   is_lost: boolean;
 }
 
+interface CheckboxProps {
+  label: string;
+  field: "is_default" | "is_won" | "is_lost";
+  checked: boolean;
+  onChange: (field: "is_default" | "is_won" | "is_lost", value: boolean) => void;
+}
+
+function RowCheckbox({ label, field, checked, onChange }: CheckboxProps) {
+  return (
+    <label className="flex items-center cursor-pointer" style={{ gap: "6px" }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(field, e.target.checked)}
+        className="rounded"
+      />
+      <span className="text-[12px] font-bold text-(--text-primary)">{label}</span>
+    </label>
+  );
+}
+
 function StatusRowForm({
   initial,
   onSave,
@@ -58,18 +79,6 @@ function StatusRowForm({
 
   const handleNameChange = (name: string) =>
     setForm(f => ({ ...f, name, slug: f.slug === slugify(f.name) ? slugify(name) : f.slug }));
-
-  const Checkbox = ({ label, field }: { label: string; field: "is_default" | "is_won" | "is_lost" }) => (
-    <label className="flex items-center cursor-pointer" style={{ gap: "6px" }}>
-      <input
-        type="checkbox"
-        checked={form[field] as boolean}
-        onChange={e => set(field, e.target.checked)}
-        className="rounded"
-      />
-      <span className="text-[12px] font-bold text-(--text-primary)">{label}</span>
-    </label>
-  );
 
   return (
     <div className="rounded-2xl border border-(--accent-purple) bg-[#f8f8fc]" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -109,9 +118,9 @@ function StatusRowForm({
       </div>
 
       <div className="flex items-center" style={{ gap: "20px" }}>
-        <Checkbox label="Default"    field="is_default" />
-        <Checkbox label="Won stage"  field="is_won"     />
-        <Checkbox label="Lost stage" field="is_lost"    />
+        <RowCheckbox label="Default"    field="is_default" checked={form.is_default} onChange={(f, v) => set(f, v)} />
+        <RowCheckbox label="Won stage"  field="is_won"     checked={form.is_won}     onChange={(f, v) => set(f, v)} />
+        <RowCheckbox label="Lost stage" field="is_lost"    checked={form.is_lost}    onChange={(f, v) => set(f, v)} />
       </div>
 
       <div className="flex items-center justify-end" style={{ gap: "8px" }}>

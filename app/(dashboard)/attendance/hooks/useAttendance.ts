@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Attendance, LeaveRequest } from "@/lib/types";
+import type { ApiResponse, Attendance, LeaveRequest, User } from "@/lib/types";
 
 export function useAttendance(filters: { startDate?: string; endDate?: string; userId?: number }) {
   return useQuery({
@@ -73,7 +73,7 @@ export function useCreateLeaveRequest() {
 export function useUpdateLeaveStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status, ...payload }: { id: number; status: string;[key: string]: any }) => {
+    mutationFn: async ({ id, status, ...payload }: { id: number; status: string } & Record<string, unknown>) => {
       const res = await api.post<ApiResponse<LeaveRequest>>(`/leave-requests/${id}/decide`, { status, ...payload });
       return res.data.data;
     },
@@ -86,7 +86,7 @@ export function useUpdateLeaveStatus() {
 export function useRespondToLeave() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, accept, ...payload }: { id: number; accept: boolean;[key: string]: any }) => {
+    mutationFn: async ({ id, accept, ...payload }: { id: number; accept: boolean } & Record<string, unknown>) => {
       const res = await api.post<ApiResponse<LeaveRequest>>(`/leave-requests/${id}/respond`, { accept, ...payload });
       return res.data.data;
     },
@@ -100,7 +100,7 @@ export function useUsers() {
   return useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<any[]>>("/users", { params: { per_page: 200 } });
+      const res = await api.get<ApiResponse<User[]>>("/users", { params: { per_page: 200 } });
       return res.data.data;
     },
   });

@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Settings,
   ChevronRight,
+  GitPullRequest,
 } from "lucide-react";
 
 const navItems = [
@@ -19,12 +20,12 @@ const navItems = [
   { icon: Briefcase, label: "CRM", href: "/crm" },
   { icon: Layers, label: "Project", href: "/project" },
   { icon: CalendarCheck, label: "Attendance", href: "/attendance" },
-  { icon: Users, label: "Users", href: "/users" },
+  { icon: GitPullRequest, label: "Users", href: "/users" },
 ];
 
 const bottomItems = [
   // { icon: CalendarDays, label: "Calendar", href: "/calendar" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: Users, label: "Settings", href: "/settings" },
 ];
 
 interface SidebarProps {

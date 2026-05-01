@@ -43,6 +43,11 @@ import { StatusItem } from "./components/ManageStatusesModal";
 import { CrmSkeleton } from "@/components/CrmSkeleton";
 import { toast } from "sonner";
 
+type ApiError = { response?: { data?: { message?: string } } };
+function errMsg(err: unknown, fallback: string) {
+  return (err as ApiError)?.response?.data?.message || fallback;
+}
+
 interface BackendUser {
   id: number;
   name: string;
@@ -77,7 +82,7 @@ const mapLead = (raw: ApiLead): Lead => ({
   phone: raw.phone ?? "",
   estimated_value: Number(raw.estimated_value ?? 0),
   currency: raw.currency ?? "USD",
-  priority: mapPriorityToUi(raw.priority as any),
+  priority: mapPriorityToUi(raw.priority as ApiLead["priority"]),
   status_id: raw.status_id,
   drive_id: raw.drive_id,
   date: raw.created_at?.split("T")[0] ?? "",
@@ -315,12 +320,7 @@ export default function CrmPage() {
 
   // Filters & view
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  // Set default drive once loaded
-  useEffect(() => {
-    if (drives.length > 0 && !filters.driveId) {
-      setFilters(prev => ({ ...prev, driveId: drives[0].id }));
-    }
-  }, [drives, filters.driveId]);
+
 
   useEffect(() => {
     if (!selectedLead) return;
@@ -357,7 +357,7 @@ export default function CrmPage() {
       if (movedLead) {
         updateLeadMutation.mutate({
           id: movedLead.id,
-          payload: { status_id: newStatusId } as any
+          payload: { status_id: newStatusId } as Partial<ApiLead>
         });
       }
     }
@@ -622,13 +622,13 @@ export default function CrmPage() {
           drives={drives}
           onClose={() => setNewLeadOpen(false)}
           onSave={(payload) => {
-            createLeadMutation.mutate(payload as any, {
+            createLeadMutation.mutate(payload as Partial<ApiLead>, {
               onSuccess: () => {
                 setNewLeadOpen(false);
                 toast.success("Lead created successfully");
               },
-              onError: (err: any) => {
-                toast.error(err.response?.data?.message || "Failed to create lead");
+              onError: (err: unknown) => {
+                toast.error(errMsg(err, "Failed to create lead"));
               }
             });
           }}
@@ -646,8 +646,8 @@ export default function CrmPage() {
                 setImportOpen(false);
                 toast.success("Leads imported successfully");
               },
-              onError: (err: any) => {
-                toast.error(err.response?.data?.message || "Import failed");
+              onError: (err: unknown) => {
+                toast.error(errMsg(err, "Import failed"));
               }
             });
           }}
@@ -665,15 +665,15 @@ export default function CrmPage() {
               ...updated,
               priority: updated.priority ? mapPriorityToApi(updated.priority) : undefined,
             };
-            updateLeadMutation.mutate({ id: selectedLead.id, payload: payload as any }, {
+            updateLeadMutation.mutate({ id: selectedLead.id, payload: payload as Partial<ApiLead> }, {
               onSuccess: (res) => {
-                const mapped = mapLead(res as any);
+                const mapped = mapLead(res as ApiLead);
                 setSelectedLead(mapped);
                 setEditLeadOpen(false);
                 toast.success("Lead updated successfully");
               },
-              onError: (err: any) => {
-                toast.error(err.response?.data?.message || "Failed to update lead");
+              onError: (err: unknown) => {
+                toast.error(errMsg(err, "Failed to update lead"));
               }
             });
           }}
@@ -691,8 +691,8 @@ export default function CrmPage() {
                 setDeleteLeadOpen(false);
                 toast.success("Lead deleted successfully");
               },
-              onError: (err: any) => {
-                toast.error(err.response?.data?.message || "Failed to delete lead");
+              onError: (err: unknown) => {
+                toast.error(errMsg(err, "Failed to delete lead"));
               }
             });
           }}
@@ -751,19 +751,19 @@ export default function CrmPage() {
           onCreate={(data) => {
             createDriveMutation.mutate(data, {
               onSuccess: () => toast.success("Pipeline created successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create pipeline")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to create pipeline"))
             });
           }}
           onUpdate={(id, data) => {
             updateDriveMutation.mutate({ id, payload: data }, {
               onSuccess: () => toast.success("Pipeline updated successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update pipeline")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to update pipeline"))
             });
           }}
           onDelete={(id) => {
             deleteDriveMutation.mutate(id, {
               onSuccess: () => toast.success("Pipeline deleted successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete pipeline")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete pipeline"))
             });
           }}
         />
@@ -776,19 +776,19 @@ export default function CrmPage() {
           onCreate={(data) => {
             createStatusMutation.mutate(data, {
               onSuccess: () => toast.success("Status created successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create status")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to create status"))
             });
           }}
           onUpdate={(id, data) => {
             updateStatusMutation.mutate({ id, payload: data }, {
               onSuccess: () => toast.success("Status updated successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update status")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to update status"))
             });
           }}
           onDelete={(id) => {
             deleteStatusMutation.mutate(id, {
               onSuccess: () => toast.success("Status deleted successfully"),
-              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete status")
+              onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete status"))
             });
           }}
         />

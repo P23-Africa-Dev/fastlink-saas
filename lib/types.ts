@@ -152,8 +152,8 @@ export interface Attendance {
   id: number;
   user_id: number;
   date: string;
-  clock_in: string | null;
-  clock_out: string | null;
+  signed_in_at: string | null;
+  signed_out_at: string | null;
   status: "present" | "absent" | "late" | "half_day";
   total_hours: number;
   created_at: string;
@@ -166,9 +166,11 @@ export interface LeaveRequest {
   id: number;
   user_id: number;
   leave_type: string;
+  type?: string;
   start_date: string;
   end_date: string;
   reason: string | null;
+  duration_days?: string | number;
   status: "pending" | "approved" | "rejected" | "modified";
   created_at: string;
   updated_at: string;

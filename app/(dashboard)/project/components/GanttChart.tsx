@@ -32,17 +32,28 @@ function formatDay(d: Date) {
 export function GanttChart({ projects, tasks }: GanttChartProps) {
   // Date range controls
   const defaultFrom = useMemo(() => {
-    const dates = [...projects.map(p => p.start_date), ...tasks.map(t => t.start_date)].filter(Boolean).map(parseDate);
+    const dates = [...projects.map(p => p.start_date), ...tasks.map(t => t.start_date)]
+      .filter(Boolean)
+      .map(parseDate)
+      .filter(d => !isNaN(d.getTime()));
+
     if (!dates.length) return new Date();
     const min = new Date(Math.min(...dates.map(d => d.getTime())));
+    if (isNaN(min.getTime())) return new Date();
     min.setDate(1);
     return min;
   }, [projects, tasks]);
 
   const defaultTo = useMemo(() => {
-    const dates = [...projects.map(p => p.due_date), ...tasks.map(t => t.due_date)].filter(Boolean).map(parseDate);
+    const dates = [...projects.map(p => p.due_date), ...tasks.map(t => t.due_date)]
+      .filter(Boolean)
+      .map(parseDate)
+      .filter(d => !isNaN(d.getTime()));
+
     if (!dates.length) return addDays(new Date(), 90);
-    return new Date(Math.max(...dates.map(d => d.getTime())));
+    const max = new Date(Math.max(...dates.map(d => d.getTime())));
+    if (isNaN(max.getTime())) return addDays(new Date(), 90);
+    return max;
   }, [projects, tasks]);
 
   const [rangeFrom, setRangeFrom] = useState(defaultFrom.toISOString().split("T")[0]);
