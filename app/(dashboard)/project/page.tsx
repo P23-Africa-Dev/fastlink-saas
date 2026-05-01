@@ -69,7 +69,7 @@ type ActiveView = "projects" | "kanban" | "gantt";
 
 const VIEWS: { id: ActiveView; label: string; icon: React.ReactNode }[] = [
   { id: "projects", label: "Projects", icon: <FolderOpen size={15} />     },
-  { id: "kanban",   label: "Kanban",   icon: <LayoutGrid size={15} />     },
+  { id: "kanban",   label: "Tasks",   icon: <LayoutGrid size={15} />     },
   { id: "gantt",    label: "Gantt",    icon: <GanttChartSquare size={15} /> },
 ];
 

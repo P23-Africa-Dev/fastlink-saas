@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const [users,      setUsers]      = useState<User[]>(MOCK_USERS);
   const [search,     setSearch]     = useState("");
   const [roleF,      setRoleF]      = useState<UserRole | "all">("all");
-  const [layout,     setLayout]     = useState<Layout>("grid");
+  const [layout,     setLayout]     = useState<Layout>("list");
   const [perPage,    setPerPage]    = useState(9);
   const [page,       setPage]       = useState(1);
 

@@ -23,7 +23,7 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { icon: CalendarDays, label: "Calendar", href: "/calendar" },
+  // { icon: CalendarDays, label: "Calendar", href: "/calendar" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
