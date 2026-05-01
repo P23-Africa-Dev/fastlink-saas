@@ -98,3 +98,37 @@ export interface Lead {
   created_at: string;
   updated_at: string;
 }
+// ─── Projects ──────────────────────────────────────────────────────────────
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  status: "active" | "completed" | "on_hold" | "planning";
+  priority: "low" | "medium" | "high" | "urgent" | "normal";
+  progress: number;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Task {
+  id: number;
+  project_id: number;
+  title: string;
+  description: string | null;
+  status: "todo" | "in_progress" | "review" | "done";
+  priority: "low" | "medium" | "high" | "urgent" | "normal";
+  due_date: string | null;
+  assigned_to: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+}
