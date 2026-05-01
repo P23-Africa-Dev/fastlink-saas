@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { useDashboardStats } from "./hooks/useDashboard";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/types";
 import {
   ArrowUpRight,
   MoreHorizontal, Target, TrendingUp, FolderUp,
@@ -18,10 +20,7 @@ import { CustomSelect, SelectOption } from "@/components/ui/CustomSelect";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Status = "present" | "absent" | "late";
-type StageKey =
-  | "Lead" | "Qualified" | "Proposal" | "Negotiation" | "Closed Won"
-  | "Awareness" | "Interest" | "Consideration" | "Intent" | "Purchase"
-  | "Open" | "In Review" | "Escalated" | "Resolved";
+type StageKey = string;
 
 interface Lead {
   id: string;
@@ -33,6 +32,56 @@ interface Lead {
   date: string;
   score: number;
   avatarColor: string;
+}
+
+interface BackendTask {
+  id: number;
+  title: string;
+  status: "todo" | "in_progress" | "review" | "completed";
+  due_date: string | null;
+}
+
+interface BackendStatus {
+  id: number;
+  name: string;
+  color: string;
+}
+
+interface BackendLead {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  company: string;
+  estimated_value: number | string | null;
+  created_at: string;
+  statusDefinition?: BackendStatus;
+  status_definition?: BackendStatus;
+}
+
+interface BackendAttendance {
+  id: number;
+  user_id: number;
+  date: string;
+  signed_in_at: string | null;
+  signed_out_at: string | null;
+  user?: { id: number; name: string };
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function statusFromAttendance(row: BackendAttendance): Status {
+  if (!row.signed_in_at) return "absent";
+  const signIn = new Date(row.signed_in_at);
+  const late = signIn.getHours() > 9 || (signIn.getHours() === 9 && signIn.getMinutes() > 15);
+  return late ? "late" : "present";
 }
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -308,46 +357,159 @@ function DatePicker({
 
 export default function DashboardPage() {
   const { data: stats } = useDashboardStats();
+  const [weeklyData, setWeeklyData] = useState(weeklyTaskData);
+  const [dailyData, setDailyData] = useState(dailyTaskData);
+  const [attendanceList, setAttendanceList] = useState(attendanceData);
+  const [crmLeadList, setCrmLeadList] = useState<Lead[]>(Object.values(leadsData).flat());
+  const [crmStatuses, setCrmStatuses] = useState<BackendStatus[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>("All Leads");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const selectedGroup = pipelineGroups.find((g) => g.label === activePipeline);
+  const selectedStatus = crmStatuses.find((s) => s.name === activePipeline);
   const leads =
     activePipeline === "All Leads"
-      ? Object.values(leadsData).flat()
-      : (selectedGroup?.stages ?? []).flatMap((stage) => leadsData[stage]);
-  const pipelineColor = selectedGroup?.color ?? "#33084E";
+      ? crmLeadList
+      : crmLeadList.filter((lead) => lead.department === activePipeline);
+  const pipelineColor = selectedStatus?.color ?? "#33084E";
   const totalAmount = leads.reduce((sum, lead) => {
     const numeric = Number(lead.value.replace(/[^0-9.]/g, ""));
     return Number.isFinite(numeric) && numeric > 0 ? sum + numeric : sum;
   }, 0);
   const amountLabel = totalAmount > 0 ? `$${totalAmount.toLocaleString()}` : "--";
 
+  const pipelineSelectOptions: SelectOption[] = [
+    { value: "All Leads", label: "All Leads", color: "#33084E" },
+    ...crmStatuses.map((s) => ({ value: s.name, label: s.name, color: s.color })),
+  ];
+
   // Single pass over attendanceData instead of three separate filters
   const { present: presentCount = 0, absent: absentCount = 0, late: lateCount = 0 } =
-    attendanceData.reduce<Record<string, number>>((acc, p) => {
+    attendanceList.reduce<Record<string, number>>((acc, p) => {
       acc[p.status] = (acc[p.status] ?? 0) + 1;
       return acc;
     }, {});
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const [taskRes, leadRes, statusRes, attRes] = await Promise.all([
+          api.get<ApiResponse<BackendTask[]>>("/tasks", { params: { per_page: 300 } }),
+          api.get<ApiResponse<BackendLead[]>>("/crm/leads", { params: { per_page: 300 } }),
+          api.get<ApiResponse<BackendStatus[]>>("/crm/statuses", { params: { per_page: 100 } }),
+          api.get<ApiResponse<BackendAttendance[]>>("/attendance", {
+            params: { from: activeDate, to: activeDate, per_page: 200 },
+          }),
+        ]);
+
+        if (!mounted) return;
+
+        const tasks = taskRes.data.data;
+        const weeklySeed = [
+          { day: "Mon", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Tue", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Wed", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Thu", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Fri", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Sat", Completed: 0, InProgress: 0, Pending: 0 },
+          { day: "Sun", Completed: 0, InProgress: 0, Pending: 0 },
+        ];
+
+        tasks.forEach((task) => {
+          if (!task.due_date) return;
+          const d = new Date(task.due_date).getDay();
+          const dayIndex = d === 0 ? 6 : d - 1;
+          if (task.status === "completed") weeklySeed[dayIndex].Completed += 1;
+          else if (task.status === "in_progress") weeklySeed[dayIndex].InProgress += 1;
+          else weeklySeed[dayIndex].Pending += 1;
+        });
+
+        setWeeklyData(weeklySeed);
+
+        const iconByStatus = {
+          completed: Briefcase,
+          in_progress: Target,
+          review: ListTodo,
+          todo: Calendar,
+        } as const;
+
+        setDailyData(
+          tasks
+            .filter((t) => t.due_date === activeDate)
+            .slice(0, 20)
+            .map((t) => ({
+              id: String(t.id),
+              title: t.title,
+              time: t.due_date ? new Date(`${t.due_date}T09:00:00`).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--",
+              status: t.status === "in_progress" ? "in-progress" : t.status === "completed" ? "completed" : "pending",
+              color: t.status === "completed" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
+              icon: iconByStatus[t.status],
+              date: t.due_date ?? activeDate,
+            }))
+        );
+
+        const statuses = statusRes.data.data;
+        setCrmStatuses(statuses);
+        setCrmLeadList(
+          leadRes.data.data.map((l) => {
+            const status = l.statusDefinition ?? l.status_definition;
+            const fullName = `${l.first_name} ${l.last_name}`.trim();
+            return {
+              id: String(l.id),
+              name: fullName,
+              initials: initials(fullName),
+              email: l.email,
+              department: status?.name ?? "Unclassified",
+              value: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(l.estimated_value ?? 0)),
+              date: l.created_at?.split("T")[0] ?? "",
+              score: 0,
+              avatarColor: status?.color ?? "#33084E",
+            };
+          })
+        );
+
+        setAttendanceList(
+          attRes.data.data.map((row) => {
+            const name = row.user?.name ?? `User #${row.user_id}`;
+            return {
+              name,
+              initials: initials(name),
+              role: "Team",
+              status: statusFromAttendance(row),
+            };
+          })
+        );
+      } catch (error) {
+        console.error("Failed to load dashboard data", error);
+      }
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeDate]);
   // Live stats derived values
   const liveMetricValues = stats
     ? [
-        stats.overview.leads_total.toLocaleString(),
-        stats.monthly.new_leads.toLocaleString(),
-        stats.overview.projects_total.toLocaleString(),
-      ]
+      stats.overview.leads_total.toLocaleString(),
+      stats.monthly.new_leads.toLocaleString(),
+      stats.overview.projects_total.toLocaleString(),
+    ]
     : null;
 
-  const totalTasks    = stats?.overview.tasks_total ?? 0;
-  const doneTasks     = stats?.projects.completed_tasks ?? 0;
-  const pendingTasks  = stats?.projects.pending_tasks ?? 0;
-  const donePct       = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-  const pendingPct    = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
+  const totalTasks = stats?.overview.tasks_total ?? 0;
+  const doneTasks = stats?.projects.completed_tasks ?? 0;
+  const pendingTasks = stats?.projects.pending_tasks ?? 0;
+  const donePct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const pendingPct = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
 
   const liveTaskBreakdown = stats
     ? [
-        { name: "Completed", value: donePct,    color: "#074616" },
-        { name: "Pending",   value: pendingPct, color: "#AF580B" },
-      ]
+      { name: "Completed", value: donePct, color: "#074616" },
+      { name: "Pending", value: pendingPct, color: "#AF580B" },
+    ]
     : taskBreakdownData;
 
   const livePresentCount = stats?.overview.attendance_today ?? presentCount;
@@ -399,7 +561,7 @@ export default function DashboardPage() {
 
         {/* Task Activity Layout Split */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
-          
+
           {/* Weekly Task Activity */}
           <div className="chart-card animate-fade-in-delay-2">
             <div className="chart-card-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
@@ -414,7 +576,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={weeklyTaskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" vertical={false} />
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} dx={-5} />
@@ -439,15 +601,15 @@ export default function DashboardPage() {
             </div>
             <div className="flex flex-col gap-3 flex-1 max-h-[300px] overflow-y-auto px-1 pb-2">
               {(() => {
-                const tasks = dailyTaskData.filter(t => t.date === activeDate);
-                
+                const tasks = dailyData.filter(t => t.date === activeDate);
+
                 if (tasks.length === 0) {
                   return <div className="p-10 text-center text-[14px] text-[var(--text-muted)]">No tasks scheduled for this date</div>;
                 }
 
                 return tasks.map((task) => (
-                  <div 
-                    key={task.id} 
+                  <div
+                    key={task.id}
                     className="flex items-center justify-between p-[20px] rounded-2xl bg-white hover:bg-[#f8f8fc] transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-4 min-w-0">
@@ -639,8 +801,8 @@ export default function DashboardPage() {
           <div className="atd-sum-stats">
             {[
               { num: livePresentCount, label: "Present", color: "#074616", bg: "rgba(7,70,22,0.08)" },
-              { num: lateCount,        label: "Late",    color: "#AF580B", bg: "rgba(175,88,11,0.08)" },
-              { num: absentCount,      label: "Absent",  color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
+              { num: lateCount, label: "Late", color: "#AF580B", bg: "rgba(175,88,11,0.08)" },
+              { num: absentCount, label: "Absent", color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
             ].map(({ num, label, color, bg }) => (
               <div key={label} className="atd-sum-stat" style={{ color, background: bg }}>
                 <span className="atd-sum-stat-num">{num}</span>
@@ -656,7 +818,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="atd-sum-list">
-            {attendanceData.map((person) => {
+            {attendanceList.map((person) => {
               const cfg = statusConfig[person.status];
               return (
                 <div key={person.name} className="atd-sum-row">

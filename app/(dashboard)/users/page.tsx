@@ -1,27 +1,101 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Plus, ListFilter, CalendarDays, Users, Clock, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import api from "@/lib/api";
+import type { ApiResponse } from "@/lib/types";
+import { useAuthStore } from "@/lib/stores/authStore";
 
-import { RequestCard }           from "./components/RequestCard";
-import { RequestDetailDrawer }   from "./components/RequestDetailDrawer";
-import { NewLeaveRequestModal }  from "./components/NewLeaveRequestModal";
-import { DecisionModal }         from "./components/DecisionModal";
-import { ModifyModal }           from "./components/ModifyModal";
-import { RespondModal }          from "./components/RespondModal";
-import { LeaveCalendar }         from "./components/LeaveCalendar";
+import { RequestCard } from "./components/RequestCard";
+import { RequestDetailDrawer } from "./components/RequestDetailDrawer";
+import { NewLeaveRequestModal } from "./components/NewLeaveRequestModal";
+import { DecisionModal } from "./components/DecisionModal";
+import { ModifyModal } from "./components/ModifyModal";
+import { RespondModal } from "./components/RespondModal";
+import { LeaveCalendar } from "./components/LeaveCalendar";
 
 import {
   LeaveRequest, LeaveStatus, LeaveType,
-  STATUS_CONFIG, TYPE_CONFIG, LEAVE_TYPES, SUPERVISORS,
-  MOCK_REQUESTS, countDays,
+  STATUS_CONFIG, TYPE_CONFIG, LEAVE_TYPES, SupervisorOption,
+  countDays,
 } from "./components/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const MY_USER_ID   = 1;  // logged-in user id (Alex Morgan)
-const IS_ADMIN     = true; // toggle to see admin vs staff view
+interface BackendRole {
+  id: number;
+  name: string;
+}
+
+interface BackendUser {
+  id: number;
+  name: string;
+  email: string;
+  roles?: BackendRole[];
+}
+
+interface BackendLeaveRequest {
+  id: number;
+  user_id: number;
+  user?: BackendUser;
+  supervisor_id: number | null;
+  supervisor?: BackendUser | null;
+  type: LeaveType;
+  reason: string | null;
+  start_date: string;
+  end_date: string;
+  duration_days: number | string;
+  status: LeaveRequest["status"];
+  decision_note: string | null;
+  supervisor_note: string | null;
+  modified_start_date: string | null;
+  modified_end_date: string | null;
+  sender_response_note: string | null;
+  created_at: string;
+}
+
+function initialsFromName(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function colorFromId(id: number): string {
+  const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#0f766e", "#7c3aed"];
+  return colors[id % colors.length];
+}
+
+function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
+  const userName = raw.user?.name ?? `User #${raw.user_id}`;
+  const supervisorName = raw.supervisor?.name ?? (raw.supervisor_id ? `User #${raw.supervisor_id}` : "Unassigned");
+
+  return {
+    id: raw.id,
+    user_id: raw.user_id,
+    user_name: userName,
+    user_initials: initialsFromName(userName),
+    user_color: colorFromId(raw.user_id),
+    type: raw.type,
+    reason: raw.reason ?? "",
+    start_date: raw.start_date,
+    end_date: raw.end_date,
+    supervisor_id: raw.supervisor_id ?? 0,
+    supervisor_name: supervisorName,
+    supervisor_initials: initialsFromName(supervisorName),
+    status: raw.status,
+    decision_note: raw.decision_note,
+    supervisor_note: raw.supervisor_note,
+    modified_start_date: raw.modified_start_date,
+    modified_end_date: raw.modified_end_date,
+    sender_response_note: raw.sender_response_note,
+    created_at: raw.created_at,
+    days: Number(raw.duration_days) || countDays(raw.start_date, raw.end_date),
+  };
+}
 
 function currentMonth() {
   const d = new Date();
@@ -38,32 +112,82 @@ function nextMonth(m: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-type View        = "my" | "team" | "calendar";
-type DecideMode  = "approve" | "reject";
+type View = "my" | "team" | "calendar";
+type DecideMode = "approve" | "reject";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none text-(--text-primary) focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af]";
 
 export default function LeaveRequestsPage() {
-  const [requests,  setRequests]  = useState<LeaveRequest[]>(MOCK_REQUESTS);
-  const [view,      setView]      = useState<View>("my");
-  const [month,     setMonth]     = useState(currentMonth());
+  const currentUser = useAuthStore((s) => s.user);
+  const MY_USER_ID = currentUser?.id ?? 0;
+  const IS_ADMIN = Boolean(currentUser?.roles?.some((r) => r.name === "admin" || r.name === "supervisor"));
+
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [view, setView] = useState<View>("my");
+  const [month, setMonth] = useState(currentMonth());
+  const [loading, setLoading] = useState(true);
+  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
 
   // Filters
-  const [statusF,   setStatusF]   = useState<LeaveStatus | "all">("all");
-  const [typeF,     setTypeF]     = useState<LeaveType   | "all">("all");
-  const [fromF,     setFromF]     = useState("");
-  const [toF,       setToF]       = useState("");
-  const [perPage,   setPerPage]   = useState(6);
-  const [page,      setPage]      = useState(1);
+  const [statusF, setStatusF] = useState<LeaveStatus | "all">("all");
+  const [typeF, setTypeF] = useState<LeaveType | "all">("all");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
+  const [perPage, setPerPage] = useState(6);
+  const [page, setPage] = useState(1);
 
   // Modal / drawer state
-  const [selected,    setSelected]    = useState<LeaveRequest | null>(null);
-  const [showNew,     setShowNew]     = useState(false);
-  const [decideMode,  setDecideMode]  = useState<DecideMode | null>(null);
-  const [showModify,  setShowModify]  = useState(false);
+  const [selected, setSelected] = useState<LeaveRequest | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [decideMode, setDecideMode] = useState<DecideMode | null>(null);
+  const [showModify, setShowModify] = useState(false);
   const [respondMode, setRespondMode] = useState<boolean | null>(null); // true=accept, false=decline
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [reqRes, userRes] = await Promise.allSettled([
+          api.get<ApiResponse<BackendLeaveRequest[]>>("/leave-requests", { params: { per_page: 200 } }),
+          api.get<ApiResponse<BackendUser[]>>("/users", { params: { per_page: 200 } }),
+        ]);
+
+        if (!mounted) return;
+
+        const mapped = reqRes.status === "fulfilled"
+          ? reqRes.value.data.data.map(mapLeaveRequest)
+          : [];
+
+        const supOptions = userRes.status === "fulfilled"
+          ? userRes.value.data.data
+            .filter((u) => u.roles?.some((r) => r.name === "admin" || r.name === "supervisor"))
+            .map((u) => ({
+              id: u.id,
+              name: u.name,
+              initials: initialsFromName(u.name),
+              color: colorFromId(u.id),
+            }))
+          : [];
+
+        setRequests(mapped);
+        setSupervisors(supOptions);
+      } catch (error) {
+        console.error("Failed to load leave data", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // ── Filtered + paginated list ──────────────────────────────────────────────
   const source = view === "my"
@@ -73,93 +197,99 @@ export default function LeaveRequestsPage() {
   const filtered = useMemo(() => {
     return source.filter(r => {
       if (statusF !== "all" && r.status !== statusF) return false;
-      if (typeF   !== "all" && r.type   !== typeF)   return false;
+      if (typeF !== "all" && r.type !== typeF) return false;
       if (fromF && r.start_date < fromF) return false;
-      if (toF   && r.end_date   > toF)   return false;
+      if (toF && r.end_date > toF) return false;
       return true;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [source, statusF, typeF, fromF, toF]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const paginated  = filtered.slice((page - 1) * perPage, page * perPage);
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const resetFilters = () => { setStatusF("all"); setTypeF("all"); setFromF(""); setToF(""); setPage(1); };
 
   // ── Summary counts ────────────────────────────────────────────────────────
-  const myReqs      = requests.filter(r => r.user_id === MY_USER_ID);
+  const myReqs = requests.filter(r => r.user_id === MY_USER_ID);
   const pendingMine = myReqs.filter(r => r.status === "pending").length;
-  const modifiedMine= myReqs.filter(r => r.status === "modified").length;
+  const modifiedMine = myReqs.filter(r => r.status === "modified").length;
   const teamPending = requests.filter(r => r.status === "pending").length;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const openDecide  = (r: LeaveRequest, mode: DecideMode) => { setSelected(r); setDecideMode(mode); };
-  const openModify  = (r: LeaveRequest) => { setSelected(r); setShowModify(true); };
+  const openDecide = (r: LeaveRequest, mode: DecideMode) => { setSelected(r); setDecideMode(mode); };
+  const openModify = (r: LeaveRequest) => { setSelected(r); setShowModify(true); };
   const openRespond = (r: LeaveRequest, accept: boolean) => { setSelected(r); setRespondMode(accept); };
 
   const handleCreate = (data: { type: LeaveType; reason: string; start_date: string; end_date: string; supervisor_id: number }) => {
-    const sup = SUPERVISORS.find(s => s.id === data.supervisor_id)!;
-    const newReq: LeaveRequest = {
-      id:                   Date.now(),
-      user_id:              MY_USER_ID,
-      user_name:            "Alex Morgan",
-      user_initials:        "AM",
-      user_color:           "#33084E",
-      type:                 data.type,
-      reason:               data.reason,
-      start_date:           data.start_date,
-      end_date:             data.end_date,
-      supervisor_id:        data.supervisor_id,
-      supervisor_name:      sup.name,
-      supervisor_initials:  sup.initials,
-      status:               "pending",
-      decision_note:        null,
-      supervisor_note:      null,
-      modified_start_date:  null,
-      modified_end_date:    null,
-      sender_response_note: null,
-      created_at:           new Date().toISOString(),
-      days:                 countDays(data.start_date, data.end_date),
-    };
-    setRequests(prev => [newReq, ...prev]);
-    setShowNew(false);
+    void (async () => {
+      try {
+        const res = await api.post<ApiResponse<BackendLeaveRequest>>("/leave-requests", data);
+        setRequests((prev) => [mapLeaveRequest(res.data.data), ...prev]);
+        setShowNew(false);
+      } catch (error) {
+        console.error("Failed to create leave request", error);
+      }
+    })();
   };
 
   const handleDecision = (note: string) => {
     if (!selected || !decideMode) return;
-    setRequests(prev => prev.map(r =>
-      r.id === selected.id
-        ? { ...r, status: decideMode === "approve" ? "approved" : "rejected", decision_note: note || null }
-        : r
-    ));
-    setSelected(null); setDecideMode(null);
+    void (async () => {
+      try {
+        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/decide`, {
+          status: decideMode === "approve" ? "approved" : "rejected",
+          decision_note: note || null,
+        });
+
+        const updated = mapLeaveRequest(res.data.data);
+        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+        setSelected(null);
+        setDecideMode(null);
+      } catch (error) {
+        console.error("Failed to decide leave request", error);
+      }
+    })();
   };
 
   const handleModify = (data: { supervisor_note: string; modified_start_date: string; modified_end_date: string }) => {
     if (!selected) return;
-    setRequests(prev => prev.map(r =>
-      r.id === selected.id
-        ? { ...r, status: "modified", supervisor_note: data.supervisor_note, modified_start_date: data.modified_start_date, modified_end_date: data.modified_end_date }
-        : r
-    ));
-    setSelected(null); setShowModify(false);
+    void (async () => {
+      try {
+        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/decide`, {
+          status: "modified",
+          supervisor_note: data.supervisor_note,
+          modified_start_date: data.modified_start_date,
+          modified_end_date: data.modified_end_date,
+        });
+
+        const updated = mapLeaveRequest(res.data.data);
+        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+        setSelected(null);
+        setShowModify(false);
+      } catch (error) {
+        console.error("Failed to modify leave request", error);
+      }
+    })();
   };
 
   const handleRespond = (note: string) => {
     if (!selected || respondMode === null) return;
-    setRequests(prev => prev.map(r =>
-      r.id === selected.id
-        ? {
-            ...r,
-            status: respondMode ? "approved" : "rejected",
-            sender_response_note: note || null,
-            ...(respondMode && r.modified_start_date
-              ? { start_date: r.modified_start_date, end_date: r.modified_end_date!, days: countDays(r.modified_start_date, r.modified_end_date!) }
-              : {}),
-          }
-        : r
-    ));
-    setSelected(null); setRespondMode(null);
+    void (async () => {
+      try {
+        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/respond`, {
+          accept: respondMode,
+          sender_response_note: note || null,
+        });
+
+        const updated = mapLeaveRequest(res.data.data);
+        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+        setSelected(null);
+        setRespondMode(null);
+      } catch (error) {
+        console.error("Failed to respond to leave request", error);
+      }
+    })();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -185,10 +315,10 @@ export default function LeaveRequestsPage() {
       {/* ── Summary stat strip ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap shrink-0" style={{ gap: "10px" }}>
         {[
-          { label: "My Requests",    value: myReqs.length,    icon: <ListFilter size={15} />, bg: "#f3e8ff", color: "#33084E", iconBg: "#ede9fe" },
-          { label: "Awaiting My OK", value: modifiedMine,     icon: <Clock      size={15} />, bg: "#dbeafe", color: "#1d4ed8", iconBg: "#eff6ff" },
-          { label: "My Pending",     value: pendingMine,      icon: <Clock      size={15} />, bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
-          { label: "Team Pending",   value: teamPending,      icon: <Users      size={15} />, bg: "#dcfce7", color: "#074616", iconBg: "#f0fdf4" },
+          { label: "My Requests", value: myReqs.length, icon: <ListFilter size={15} />, bg: "#f3e8ff", color: "#33084E", iconBg: "#ede9fe" },
+          { label: "Awaiting My OK", value: modifiedMine, icon: <Clock size={15} />, bg: "#dbeafe", color: "#1d4ed8", iconBg: "#eff6ff" },
+          { label: "My Pending", value: pendingMine, icon: <Clock size={15} />, bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
+          { label: "Team Pending", value: teamPending, icon: <Users size={15} />, bg: "#dcfce7", color: "#074616", iconBg: "#f0fdf4" },
         ].map(s => (
           <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 150px" }}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.iconBg }}>
@@ -208,8 +338,8 @@ export default function LeaveRequestsPage() {
         {/* Tabs */}
         <div className="flex items-center rounded-xl border border-[#f0f0f5] bg-white overflow-hidden" style={{ padding: "4px" }}>
           {([
-            { key: "my",       icon: <ListFilter size={13} />, label: "My Requests" },
-            { key: "team",     icon: <Users      size={13} />, label: "Team Requests" },
+            { key: "my", icon: <ListFilter size={13} />, label: "My Requests" },
+            { key: "team", icon: <Users size={13} />, label: "Team Requests" },
             { key: "calendar", icon: <CalendarDays size={13} />, label: "Calendar" },
           ] as { key: View; icon: React.ReactNode; label: string }[]).map(tab => (
             <button
@@ -219,7 +349,7 @@ export default function LeaveRequestsPage() {
               style={{
                 padding: "7px 14px", gap: "6px",
                 background: view === tab.key ? "#33084E" : "transparent",
-                color:      view === tab.key ? "white"   : "#9ca3af",
+                color: view === tab.key ? "white" : "#9ca3af",
               }}
             >
               {tab.icon} {tab.label}
@@ -251,7 +381,7 @@ export default function LeaveRequestsPage() {
             />
 
             <input type="date" value={fromF} onChange={e => { setFromF(e.target.value); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="From" />
-            <input type="date" value={toF}   onChange={e => { setToF(e.target.value);   setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="To" />
+            <input type="date" value={toF} onChange={e => { setToF(e.target.value); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="To" />
 
             <button onClick={resetFilters} className="inline-flex items-center rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-bold text-[#9ca3af] hover:text-(--text-primary) transition-all" style={{ padding: "7px 12px", gap: "5px" }}>
               <RotateCcw size={12} /> Reset
@@ -279,7 +409,11 @@ export default function LeaveRequestsPage() {
           <>
             {/* Cards grid */}
             <div className="flex-1 overflow-y-auto" style={{ minHeight: "0" }}>
-              {paginated.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
+                  <p className="text-[15px] font-bold text-(--text-primary)">Loading leave requests...</p>
+                </div>
+              ) : paginated.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center" style={{ gap: "12px" }}>
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "#f3f4f6" }}>
                     <ListFilter size={24} className="text-[#9ca3af]" />
@@ -338,8 +472,8 @@ export default function LeaveRequestsPage() {
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-[12px] font-bold transition-all"
                       style={{
                         background: p === page ? "#33084E" : "white",
-                        color:      p === page ? "white"   : "#6b7280",
-                        border:     `1px solid ${p === page ? "#33084E" : "#f0f0f5"}`,
+                        color: p === page ? "white" : "#6b7280",
+                        border: `1px solid ${p === page ? "#33084E" : "#f0f0f5"}`,
                       }}
                     >
                       {p}
@@ -376,6 +510,7 @@ export default function LeaveRequestsPage() {
 
       {showNew && (
         <NewLeaveRequestModal
+          supervisors={supervisors}
           onClose={() => setShowNew(false)}
           onCreate={handleCreate}
         />

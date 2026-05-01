@@ -3,22 +3,24 @@
 import React, { useState, useMemo } from "react";
 import { X, CalendarDays, ChevronRight } from "lucide-react";
 import { ModalButton } from "../../crm/components/ModalButton";
-import { LeaveType, LEAVE_TYPES, TYPE_CONFIG, SUPERVISORS, countDays } from "./types";
+import { LeaveType, LEAVE_TYPES, TYPE_CONFIG, SUPERVISORS, SupervisorOption, countDays } from "./types";
 
 interface NewLeaveRequestModalProps {
-  onClose:  () => void;
+  onClose: () => void;
+  supervisors?: SupervisorOption[];
   onCreate: (data: {
     type: LeaveType; reason: string;
     start_date: string; end_date: string; supervisor_id: number;
   }) => void;
 }
 
-export function NewLeaveRequestModal({ onClose, onCreate }: NewLeaveRequestModalProps) {
-  const [type,      setType]      = useState<LeaveType>("annual");
-  const [reason,    setReason]    = useState("");
+export function NewLeaveRequestModal({ onClose, supervisors, onCreate }: NewLeaveRequestModalProps) {
+  const supervisorOptions = (supervisors && supervisors.length > 0) ? supervisors : SUPERVISORS;
+  const [type, setType] = useState<LeaveType>("annual");
+  const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [endDate,   setEndDate]   = useState("");
-  const [supId,     setSupId]     = useState<number>(SUPERVISORS[0].id);
+  const [endDate, setEndDate] = useState("");
+  const [supId, setSupId] = useState<number>(supervisorOptions[0]?.id ?? 0);
 
   const days = useMemo(() => (startDate && endDate ? countDays(startDate, endDate) : 0), [startDate, endDate]);
   const valid = reason.trim() && startDate && endDate && endDate >= startDate;
@@ -51,8 +53,8 @@ export function NewLeaveRequestModal({ onClose, onCreate }: NewLeaveRequestModal
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Leave Type</label>
               <div className="flex flex-wrap" style={{ gap: "6px" }}>
                 {LEAVE_TYPES.map(t => {
-                  const cfg     = TYPE_CONFIG[t];
-                  const active  = type === t;
+                  const cfg = TYPE_CONFIG[t];
+                  const active = type === t;
                   return (
                     <button
                       key={t}
@@ -60,9 +62,9 @@ export function NewLeaveRequestModal({ onClose, onCreate }: NewLeaveRequestModal
                       className="rounded-xl text-[12px] font-bold border transition-all"
                       style={{
                         padding: "6px 14px",
-                        background: active ? cfg.bg       : "white",
-                        color:      active ? cfg.color    : "#9ca3af",
-                        borderColor: active ? cfg.color   : "#f0f0f5",
+                        background: active ? cfg.bg : "white",
+                        color: active ? cfg.color : "#9ca3af",
+                        borderColor: active ? cfg.color : "#f0f0f5",
                       }}
                     >
                       {cfg.label}
@@ -128,7 +130,7 @@ export function NewLeaveRequestModal({ onClose, onCreate }: NewLeaveRequestModal
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Supervisor</label>
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-                {SUPERVISORS.map((s, i) => {
+                {supervisorOptions.map((s, i) => {
                   const active = supId === s.id;
                   return (
                     <button

@@ -12,14 +12,13 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        api: __DIR__.'/../routes/api.php',
+        api: __DIR__ . '/../routes/api.php',
         apiPrefix: 'api',
-        commands: __DIR__.'/../routes/console.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // API authentication and role/permission middleware aliases.
-        $middleware->statefulApi();
+        // Keep API auth stateless (Bearer tokens) to avoid CSRF requirements on /api routes.
 
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
@@ -30,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Always return JSON payloads for API routes.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request, \Throwable $e) => $request->is('api/*') || $request->expectsJson()
+            fn(Request $request, \Throwable $e) => $request->is('api/*') || $request->expectsJson()
         );
 
         $exceptions->render(function (ValidationException $e, Request $request) {

@@ -6,12 +6,26 @@ import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Status { id: number; name: string; }
-interface Drive  { id: number; name: string; }
+interface Drive { id: number; name: string; }
 
 interface NewLeadModalProps {
   statuses: Status[];
-  drives:   Drive[];
-  onClose:  () => void;
+  drives: Drive[];
+  onClose: () => void;
+  onSave: (payload: {
+    first_name: string;
+    last_name?: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    drive_id?: number;
+    status_id?: number;
+    assigned_to?: number;
+    estimated_value?: number;
+    currency?: string;
+    priority: "low" | "medium" | "high";
+    notes?: string;
+  }) => void;
 }
 
 const PRIORITIES = ["low", "normal", "high"] as const;
@@ -19,25 +33,52 @@ type Priority = typeof PRIORITIES[number];
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN"] as const;
 
 const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string; activeBorder: string }> = {
-  low:    { activeBg: "#f0f0f5",   activeColor: "#9ca3af", activeBorder: "#9ca3af"  },
-  normal: { activeBg: "#33084E15", activeColor: "#33084E", activeBorder: "#33084E"  },
-  high:   { activeBg: "#AF580B15", activeColor: "#AF580B", activeBorder: "#AF580B"  },
+  low: { activeBg: "#f0f0f5", activeColor: "#9ca3af", activeBorder: "#9ca3af" },
+  normal: { activeBg: "#33084E15", activeColor: "#33084E", activeBorder: "#33084E" },
+  high: { activeBg: "#AF580B15", activeColor: "#AF580B", activeBorder: "#AF580B" },
 };
 
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
-export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
-  const [priority,   setPriority]   = useState<Priority>("normal");
-  const [driveId,    setDriveId]    = useState(() => drives[0]?.id.toString() ?? "");
-  const [statusId,   setStatusId]   = useState(() => statuses[0]?.id.toString() ?? "");
+export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModalProps) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState("");
+  const [value, setValue] = useState("");
+  const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<Priority>("normal");
+  const [driveId, setDriveId] = useState(() => drives[0]?.id.toString() ?? "");
+  const [statusId, setStatusId] = useState(() => statuses[0]?.id.toString() ?? "");
   const [assignedTo, setAssignedTo] = useState("");
-  const [currency,   setCurrency]   = useState("USD");
+  const [currency, setCurrency] = useState("USD");
 
-  const driveOptions    = drives.map(d => ({ value: d.id.toString(), label: d.name }));
-  const statusOptions   = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
+  const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
+  const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
   const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
+
+  const handleSave = () => {
+    if (!firstName.trim()) return;
+
+    onSave({
+      first_name: firstName.trim(),
+      last_name: lastName.trim() || undefined,
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      company: company.trim() || undefined,
+      drive_id: driveId ? Number(driveId) : undefined,
+      status_id: statusId ? Number(statusId) : undefined,
+      assigned_to: assignedTo ? Number(assignedTo) : undefined,
+      estimated_value: value ? Number(value) : undefined,
+      currency,
+      priority: priority === "normal" ? "medium" : priority,
+      notes: notes.trim() || undefined,
+    });
+    onClose();
+  };
 
   return (
     <div
@@ -62,11 +103,11 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>First Name <span className="text-red-500">*</span></label>
-              <input type="text" placeholder="e.g. Alice" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="e.g. Alice" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Last Name</label>
-              <input type="text" placeholder="e.g. Smith" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="e.g. Smith" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
           </div>
 
@@ -74,11 +115,11 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Email</label>
-              <input type="email" placeholder="alice@example.com" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="alice@example.com" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Phone</label>
-              <input type="tel" placeholder="+1 234 567 8900" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
           </div>
 
@@ -86,7 +127,7 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Company</label>
-              <input type="text" placeholder="Globex Corp" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="text" value={company} onChange={e => setCompany(e.target.value)} placeholder="Globex Corp" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Pipeline</label>
@@ -110,7 +151,7 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Estimated Value</label>
-              <input type="number" placeholder="15000" className={inputCls} style={{ padding: "12px 16px" }} />
+              <input type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="15000" className={inputCls} style={{ padding: "12px 16px" }} />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Currency</label>
@@ -156,6 +197,8 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
             <textarea
               rows={3}
               placeholder="Add any background context..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
               className="w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors resize-none"
               style={{ padding: "12px 16px" }}
             />
@@ -165,7 +208,7 @@ export function NewLeadModal({ statuses, drives, onClose }: NewLeadModalProps) {
         {/* Footer */}
         <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
           <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
-          <ModalButton variant="primary" onClick={onClose}>Save Lead</ModalButton>
+          <ModalButton variant="primary" onClick={handleSave} disabled={!firstName.trim()}>Save Lead</ModalButton>
         </div>
       </div>
     </div>

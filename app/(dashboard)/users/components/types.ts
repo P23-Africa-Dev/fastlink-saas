@@ -1,74 +1,83 @@
-export type LeaveStatus = "pending" | "approved" | "rejected" | "modified" | "cancelled";
-export type LeaveType   = "annual" | "sick" | "maternity" | "paternity" | "unpaid" | "study" | "compassionate";
+export type LeaveStatus = "pending" | "approved" | "rejected" | "modified" | "sender_okay" | "sender_not_okay" | "cancelled";
+export type LeaveType = "annual" | "sick" | "personal" | "maternity" | "paternity" | "bereavement" | "other";
+
+export interface SupervisorOption {
+  id: number;
+  name: string;
+  initials: string;
+  color: string;
+}
 
 export interface LeaveRequest {
-  id:                   number;
-  user_id:              number;
-  user_name:            string;
-  user_initials:        string;
-  user_color:           string;
-  type:                 LeaveType;
-  reason:               string;
-  start_date:           string;
-  end_date:             string;
-  supervisor_id:        number;
-  supervisor_name:      string;
-  supervisor_initials:  string;
-  status:               LeaveStatus;
-  decision_note:        string | null;
-  supervisor_note:      string | null;
-  modified_start_date:  string | null;
-  modified_end_date:    string | null;
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_initials: string;
+  user_color: string;
+  type: LeaveType;
+  reason: string;
+  start_date: string;
+  end_date: string;
+  supervisor_id: number;
+  supervisor_name: string;
+  supervisor_initials: string;
+  status: LeaveStatus;
+  decision_note: string | null;
+  supervisor_note: string | null;
+  modified_start_date: string | null;
+  modified_end_date: string | null;
   sender_response_note: string | null;
-  created_at:           string;
-  days:                 number;
+  created_at: string;
+  days: number;
 }
 
 export interface Pagination {
-  total:        number;
-  per_page:     number;
+  total: number;
+  per_page: number;
   current_page: number;
-  last_page:    number;
+  last_page: number;
 }
 
 // ── Status config ──────────────────────────────────────────────────────────────
 
 export const STATUS_CONFIG: Record<LeaveStatus, { label: string; color: string; bg: string; dot: string }> = {
-  pending:   { label: "Pending",   color: "#AF580B", bg: "#fef3c7", dot: "#d97706" },
-  approved:  { label: "Approved",  color: "#074616", bg: "#dcfce7", dot: "#16a34a" },
-  rejected:  { label: "Rejected",  color: "#991b1b", bg: "#fee2e2", dot: "#dc2626" },
-  modified:  { label: "Modified",  color: "#1d4ed8", bg: "#dbeafe", dot: "#2563eb" },
+  pending: { label: "Pending", color: "#AF580B", bg: "#fef3c7", dot: "#d97706" },
+  approved: { label: "Approved", color: "#074616", bg: "#dcfce7", dot: "#16a34a" },
+  rejected: { label: "Rejected", color: "#991b1b", bg: "#fee2e2", dot: "#dc2626" },
+  modified: { label: "Modified", color: "#1d4ed8", bg: "#dbeafe", dot: "#2563eb" },
+  sender_okay: { label: "Accepted", color: "#074616", bg: "#dcfce7", dot: "#16a34a" },
+  sender_not_okay: { label: "Declined", color: "#991b1b", bg: "#fee2e2", dot: "#dc2626" },
   cancelled: { label: "Cancelled", color: "#6b7280", bg: "#f3f4f6", dot: "#9ca3af" },
 };
 
 // ── Leave type config ──────────────────────────────────────────────────────────
 
 export const TYPE_CONFIG: Record<LeaveType, { label: string; color: string; bg: string }> = {
-  annual:        { label: "Annual",        color: "#33084E", bg: "#f3e8ff" },
-  sick:          { label: "Sick",          color: "#991b1b", bg: "#fee2e2" },
-  maternity:     { label: "Maternity",     color: "#be185d", bg: "#fce7f3" },
-  paternity:     { label: "Paternity",     color: "#1d4ed8", bg: "#dbeafe" },
-  unpaid:        { label: "Unpaid",        color: "#6b7280", bg: "#f3f4f6" },
-  study:         { label: "Study",         color: "#074616", bg: "#dcfce7" },
-  compassionate: { label: "Compassionate", color: "#AF580B", bg: "#fef3c7" },
+  annual: { label: "Annual", color: "#33084E", bg: "#f3e8ff" },
+  sick: { label: "Sick", color: "#991b1b", bg: "#fee2e2" },
+  personal: { label: "Personal", color: "#1d4ed8", bg: "#dbeafe" },
+  maternity: { label: "Maternity", color: "#be185d", bg: "#fce7f3" },
+  paternity: { label: "Paternity", color: "#1d4ed8", bg: "#dbeafe" },
+  bereavement: { label: "Bereavement", color: "#AF580B", bg: "#fef3c7" },
+  other: { label: "Other", color: "#6b7280", bg: "#f3f4f6" },
 };
 
-export const LEAVE_TYPES: LeaveType[] = ["annual", "sick", "maternity", "paternity", "unpaid", "study", "compassionate"];
+export const LEAVE_TYPES: LeaveType[] = ["annual", "sick", "personal", "maternity", "paternity", "bereavement", "other"];
 
 // ── Mock team ──────────────────────────────────────────────────────────────────
 
-export const SUPERVISORS = [
-  { id: 2, name: "Jordan Lee",    initials: "JL", color: "#AF580B" },
-  { id: 3, name: "Sam Rivera",    initials: "SR", color: "#074616" },
+export const SUPERVISORS: SupervisorOption[] = [
+  { id: 2, name: "Jordan Lee", initials: "JL", color: "#AF580B" },
+  { id: 3, name: "Sam Rivera", initials: "SR", color: "#074616" },
   { id: 4, name: "Taylor Brooks", initials: "TB", color: "#1d4ed8" },
 ];
 
 export const TEAM_MEMBERS = [
-  { id: 1,  name: "Alex Morgan",    initials: "AM", color: "#33084E" },
-  { id: 2,  name: "Jordan Lee",     initials: "JL", color: "#AF580B" },
-  { id: 3,  name: "Sam Rivera",     initials: "SR", color: "#074616" },
-  { id: 4,  name: "Taylor Brooks",  initials: "TB", color: "#1d4ed8" },
-  { id: 5,  name: "Casey Kim",      initials: "CK", color: "#be185d" },
+  { id: 1, name: "Alex Morgan", initials: "AM", color: "#33084E" },
+  { id: 2, name: "Jordan Lee", initials: "JL", color: "#AF580B" },
+  { id: 3, name: "Sam Rivera", initials: "SR", color: "#074616" },
+  { id: 4, name: "Taylor Brooks", initials: "TB", color: "#1d4ed8" },
+  { id: 5, name: "Casey Kim", initials: "CK", color: "#be185d" },
 ];
 
 // ── Day count helper ───────────────────────────────────────────────────────────
@@ -87,7 +96,7 @@ export function fmtDate(d: string) {
 export function fmtDateRange(start: string, end: string) {
   if (!start || !end) return "—";
   const s = new Date(start + "T00:00:00");
-  const e = new Date(end   + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
   const so = s.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const eo = e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return `${so} – ${eo}`;
@@ -134,7 +143,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 3, user_id: 1, user_name: "Alex Morgan", user_initials: "AM", user_color: "#33084E",
-    type: "study", reason: "Professional certification exam preparation — AWS Solutions Architect.",
+    type: "personal", reason: "Professional certification exam preparation — AWS Solutions Architect.",
     start_date: future(20), end_date: future(21), supervisor_id: 3,
     supervisor_name: "Sam Rivera", supervisor_initials: "SR",
     status: "modified", decision_note: null,
@@ -162,7 +171,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 6, user_id: 3, user_name: "Sam Rivera", user_initials: "SR", user_color: "#074616",
-    type: "compassionate", reason: "Bereavement — passing of a family member.",
+    type: "bereavement", reason: "Bereavement — passing of a family member.",
     start_date: past(3), end_date: past(1), supervisor_id: 4,
     supervisor_name: "Taylor Brooks", supervisor_initials: "TB",
     status: "approved", decision_note: "Our deepest condolences. Approved immediately.", supervisor_note: null,
@@ -180,7 +189,7 @@ export const MOCK_REQUESTS: LeaveRequest[] = [
   },
   {
     id: 8, user_id: 2, user_name: "Jordan Lee", user_initials: "JL", user_color: "#AF580B",
-    type: "unpaid", reason: "Personal project sabbatical.",
+    type: "other", reason: "Personal project sabbatical.",
     start_date: future(60), end_date: future(74), supervisor_id: 3,
     supervisor_name: "Sam Rivera", supervisor_initials: "SR",
     status: "pending", decision_note: null, supervisor_note: null,

@@ -23,19 +23,21 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
     if (!token) {
       router.replace("/");
-    } else {
-      setChecked(true);
     }
-  }, [token, router]);
+  }, [hasHydrated, token, router]);
 
-  if (!checked) return null;
+  if (!hasHydrated || !token) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
