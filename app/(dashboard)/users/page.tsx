@@ -10,7 +10,7 @@ import {
   useCreateLeaveRequest,
   useUpdateLeaveStatus,
   useRespondToLeave,
-  useUsers,
+  useSupervisors,
 } from "../attendance/hooks/useAttendance";
 
 import { RequestCard } from "./components/RequestCard";
@@ -110,7 +110,7 @@ export default function LeaveRequestsPage() {
 
   // Queries
   const { data: requestsRaw, isLoading: requestsLoading } = useLeaveRequests();
-  const { data: usersRaw } = useUsers();
+  const { data: supervisorsRaw } = useSupervisors();
 
   // Mutations
   const createLeaveMutation = useCreateLeaveRequest();
@@ -120,15 +120,14 @@ export default function LeaveRequestsPage() {
   const requests = useMemo(() => (requestsRaw || []).map(mapLeaveRequest), [requestsRaw]);
 
   const supervisors = useMemo(() => {
-    return (usersRaw || [])
-      .filter((u: ApiUser) => u.roles?.some((r) => r.name === "admin" || r.name === "supervisor"))
+    return (supervisorsRaw || [])
       .map((u: ApiUser) => ({
         id: u.id,
         name: u.name,
         initials: initialsFromName(u.name),
         color: colorFromId(u.id),
       }));
-  }, [usersRaw]);
+  }, [supervisorsRaw]);
 
   // Modal / drawer state
   const [selected, setSelected] = useState<LeaveRequest | null>(null);

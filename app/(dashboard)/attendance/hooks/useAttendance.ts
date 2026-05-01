@@ -105,3 +105,15 @@ export function useUsers() {
     },
   });
 }
+
+export function useSupervisors() {
+  return useQuery({
+    queryKey: ["users", "supervisors"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<any[]>>("/users/supervisors", {
+        params: { exclude_self: true },
+      });
+      return res.data.data;
+    },
+  });
+}
