@@ -1,0 +1,170 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { ApiResponse, Lead, Drive, LeadStatus } from "@/lib/types";
+
+export function useDrives() {
+  return useQuery({
+    queryKey: ["crm", "drives"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<Drive[]>>("/crm/drives", { params: { per_page: 100 } });
+      return res.data.data;
+    },
+  });
+}
+
+export function useStatuses() {
+  return useQuery({
+    queryKey: ["crm", "statuses"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<LeadStatus[]>>("/crm/statuses", { params: { per_page: 100 } });
+      return res.data.data;
+    },
+  });
+}
+
+export function useLeads(filters: { driveId?: number; statusId?: number; query?: string; priority?: string }) {
+  return useQuery({
+    queryKey: ["crm", "leads", filters],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<Lead[]>>("/crm/leads", {
+        params: {
+          drive_id: filters.driveId || undefined,
+          status_id: filters.statusId || undefined,
+          search: filters.query || undefined,
+          priority: filters.priority || undefined,
+          per_page: 300,
+        },
+      });
+      return res.data.data;
+    },
+  });
+}
+
+export function useCreateLead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<Lead>) => {
+      const res = await api.post<ApiResponse<Lead>>("/crm/leads", payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "leads"] });
+    },
+  });
+}
+
+export function useUpdateLead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<Lead> }) => {
+      const res = await api.patch<ApiResponse<Lead>>(`/crm/leads/${id}`, payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "leads"] });
+    },
+  });
+}
+
+export function useDeleteLead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/crm/leads/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "leads"] });
+    },
+  });
+}
+
+export function useImportLeads() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (formData: FormData) => {
+      const res = await api.post<ApiResponse<any>>("/crm/leads/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "leads"] });
+    },
+  });
+}
+
+export function useCreateDrive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<Drive>) => {
+      const res = await api.post<ApiResponse<Drive>>("/crm/drives", payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "drives"] });
+    },
+  });
+}
+
+export function useUpdateDrive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<Drive> }) => {
+      const res = await api.patch<ApiResponse<Drive>>(`/crm/drives/${id}`, payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "drives"] });
+    },
+  });
+}
+
+export function useDeleteDrive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/crm/drives/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "drives"] });
+    },
+  });
+}
+
+export function useCreateStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<LeadStatus>) => {
+      const res = await api.post<ApiResponse<LeadStatus>>("/crm/statuses", payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "statuses"] });
+    },
+  });
+}
+
+export function useUpdateStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<LeadStatus> }) => {
+      const res = await api.patch<ApiResponse<LeadStatus>>(`/crm/statuses/${id}`, payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "statuses"] });
+    },
+  });
+}
+
+export function useDeleteStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/crm/statuses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm", "statuses"] });
+    },
+  });
+}

@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { CalendarDays, List } from "lucide-react";
 import api from "@/lib/api";
-import type { ApiResponse } from "@/lib/types";
+import type { ApiResponse, Attendance as ApiAttendance } from "@/lib/types";
+import { useAttendance, useSignIn, useSignOut } from "./hooks/useAttendance";
 import { useAuthStore } from "@/lib/stores/authStore";
 
 import { TodayHeroCard } from "./components/TodayHeroCard";
@@ -13,6 +14,8 @@ import { LogListView } from "./components/LogListView";
 import { DayDetailDrawer } from "./components/DayDetailDrawer";
 import { SignInModal } from "./components/SignInModal";
 import { SignOutModal } from "./components/SignOutModal";
+import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
+import { toast } from "sonner";
 
 import {
   AttendanceLog,
@@ -66,20 +69,6 @@ function buildCalendarDays(logs: AttendanceLog[], month: string): CalendarDay[] 
   return result;
 }
 
-interface BackendUser {
-  id: number;
-  name: string;
-}
-
-interface BackendAttendance {
-  id: number;
-  user_id: number;
-  user?: BackendUser;
-  date: string;
-  signed_in_at: string | null;
-  signed_out_at: string | null;
-  note: string | null;
-}
 
 function initialsFromName(name: string): string {
   return name
@@ -107,10 +96,10 @@ function deriveStatus(signedInAt: string | null, signedOutAt: string | null, hou
   return "present";
 }
 
-function mapAttendance(raw: BackendAttendance): AttendanceLog {
-  const userName = raw.user?.name ?? `User #${raw.user_id}`;
-  const hours = raw.signed_in_at && raw.signed_out_at
-    ? Math.round((((new Date(raw.signed_out_at).getTime() - new Date(raw.signed_in_at).getTime()) / 3600000) * 10)) / 10
+function mapAttendance(raw: ApiAttendance): AttendanceLog {
+  const userName = `User #${raw.user_id}`;
+  const hours = raw.clock_in && raw.clock_out
+    ? Math.round((((new Date(raw.clock_out).getTime() - new Date(raw.clock_in).getTime()) / 3600000) * 10)) / 10
     : null;
 
   return {
@@ -119,11 +108,11 @@ function mapAttendance(raw: BackendAttendance): AttendanceLog {
     user_name: userName,
     user_initials: initialsFromName(userName),
     date: raw.date,
-    sign_in: raw.signed_in_at,
-    sign_out: raw.signed_out_at,
+    sign_in: raw.clock_in,
+    sign_out: raw.clock_out,
     hours,
-    status: deriveStatus(raw.signed_in_at, raw.signed_out_at, hours),
-    note: raw.note ?? "",
+    status: raw.status as any,
+    note: "",
   };
 }
 
@@ -145,109 +134,79 @@ export default function AttendancePage() {
   const currentUser = useAuthStore((s) => s.user);
   const userId = currentUser?.id ?? 0;
 
-  const [logs, setLogs] = useState<AttendanceLog[]>([]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [activeView, setActiveView] = useState<View>("calendar");
   const [month, setMonth] = useState(currentMonth());
-  const [todayState, setTodayState] = useState<TodayState>("idle");
-  const [signInTime, setSignInTime] = useState<string | null>(null);
-  const [signOutTime, setSignOutTime] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<View>("calendar");
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignOut, setShowSignOut] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
+  // Queries
+  const { data: attRaw, isLoading } = useAttendance({ userId });
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const attRes = await api.get<ApiResponse<BackendAttendance[]>>("/attendance", { params: { per_page: 200 } });
+  // Mutations
+  const signInMutation = useSignIn();
+  const signOutMutation = useSignOut();
 
-        if (!mounted) return;
+  const logs = useMemo(() => (attRaw || []).map(mapAttendance), [attRaw]);
 
-        const mappedLogs = attRes.data.data.map(mapAttendance);
-        const memberMap = new Map<number, TeamMember>();
-        mappedLogs.forEach((log) => {
-          if (!memberMap.has(log.user_id)) {
-            memberMap.set(log.user_id, {
-              id: log.user_id,
-              name: log.user_name,
-              initials: log.user_initials,
-              color: colorFromId(log.user_id),
-            });
-          }
+  const teamMembers = useMemo(() => {
+    const memberMap = new Map<number, TeamMember>();
+    logs.forEach((log) => {
+      if (!memberMap.has(log.user_id)) {
+        memberMap.set(log.user_id, {
+          id: log.user_id,
+          name: log.user_name,
+          initials: log.user_initials,
+          color: colorFromId(log.user_id),
         });
-
-        setLogs(mappedLogs);
-        setTeamMembers(Array.from(memberMap.values()));
-
-        const today = todayStr();
-        const myTodayLog = mappedLogs.find((l) => l.user_id === userId && l.date === today);
-        if (myTodayLog?.sign_out) {
-          setTodayState("signed_out");
-          setSignInTime(myTodayLog.sign_in);
-          setSignOutTime(myTodayLog.sign_out);
-        } else if (myTodayLog?.sign_in) {
-          setTodayState("signed_in");
-          setSignInTime(myTodayLog.sign_in);
-        } else {
-          setTodayState("idle");
-        }
-      } catch (error) {
-        console.error("Failed to load attendance", error);
-      } finally {
-        if (mounted) setLoading(false);
       }
-    };
+    });
+    return Array.from(memberMap.values());
+  }, [logs]);
 
-    void load();
+  const todayLog = useMemo(() => {
+    const today = todayStr();
+    return logs.find((l) => l.user_id === userId && l.date === today);
+  }, [logs, userId]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [userId]);
+  const todayState: TodayState = useMemo(() => {
+    if (todayLog?.sign_out) return "signed_out";
+    if (todayLog?.sign_in) return "signed_in";
+    return "idle";
+  }, [todayLog]);
+
+  const signInTime = todayLog?.sign_in ?? null;
+  const signOutTime = todayLog?.sign_out ?? null;
+
 
   const calendarDays = useMemo(() => buildCalendarDays(logs, month), [logs, month]);
   const stats = useMemo(() => computeStats(logs, userId), [logs, userId]);
 
   // ── Sign-in handler ──────────────────────────────────────────────────────
   const handleSignIn = (note: string) => {
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendAttendance>>("/attendance/sign-in", { note });
-        const mapped = mapAttendance(res.data.data);
-
-        setSignInTime(mapped.sign_in);
-        setTodayState("signed_in");
-        setLogs((prev) => {
-          const exists = prev.some((l) => l.id === mapped.id);
-          if (exists) return prev.map((l) => (l.id === mapped.id ? mapped : l));
-          return [mapped, ...prev];
-        });
+    signInMutation.mutate({ note }, {
+      onSuccess: () => {
         setShowSignIn(false);
-      } catch (error) {
-        console.error("Sign-in failed", error);
-      }
-    })();
+        toast.success("Clocked in successfully");
+      },
+      onError: (err: any) => toast.error(err.response?.data?.message || "Clock in failed")
+    });
   };
 
   // ── Sign-out handler ─────────────────────────────────────────────────────
   const handleSignOut = (note: string) => {
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendAttendance>>("/attendance/sign-out", { note });
-        const mapped = mapAttendance(res.data.data);
-        setSignOutTime(mapped.sign_out);
-        setTodayState("signed_out");
-        setLogs((prev) => prev.map((l) => (l.id === mapped.id ? mapped : l)));
+    signOutMutation.mutate({ note }, {
+      onSuccess: () => {
         setShowSignOut(false);
-      } catch (error) {
-        console.error("Sign-out failed", error);
-      }
-    })();
+        toast.success("Clocked out successfully");
+      },
+      onError: (err: any) => toast.error(err.response?.data?.message || "Clock out failed")
+    });
   };
+
+  if (isLoading) {
+    return <AttendanceSkeleton />;
+  }
 
   return (
     <div
@@ -315,10 +274,6 @@ export default function AttendancePage() {
           <LogListView logs={logs} teamMembers={teamMembers} />
         )}
       </div>
-
-      {loading && (
-        <div className="text-[12px] text-[#9ca3af]">Loading attendance data...</div>
-      )}
 
       {/* ── Modals & drawers ─────────────────────────────────────────────── */}
       {selectedDay && (
