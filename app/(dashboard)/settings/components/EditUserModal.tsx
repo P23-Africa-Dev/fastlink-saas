@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Pencil } from "lucide-react";
 import { ModalButton } from "../../crm/components/ModalButton";
 import { User, UserRole, USER_ROLES, ROLE_CONFIG } from "./types";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface EditUserModalProps {
   user:     User;
@@ -111,10 +112,16 @@ export function EditUserModal({ user, onClose, onSave }: EditUserModalProps) {
             {/* Department */}
             <div className="flex flex-col" style={{ gap: "6px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Department</label>
-              <select value={department} onChange={e => setDepartment(e.target.value)} className={inputCls} style={{ padding: "11px 14px" }}>
-                <option value="">No department</option>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <CustomSelect
+                fullWidth
+                value={department}
+                onChange={setDepartment}
+                options={[
+                  { value: "", label: "No department" },
+                  ...DEPARTMENTS.map(d => ({ value: d, label: d })),
+                ]}
+                searchPlaceholder="Search departments…"
+              />
             </div>
 
             {/* Account status toggle */}

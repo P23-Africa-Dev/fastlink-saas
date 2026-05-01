@@ -21,7 +21,7 @@ export function UserCard({ user, onClick, onEdit, onDelete, onToggleSuspend, men
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl border border-[#f0f0f5] cursor-pointer group transition-all hover:shadow-md hover:border-[#d1d5db] flex flex-col overflow-hidden relative"
+      className="bg-white rounded-2xl border cursor-pointer group transition-all shadow-md border-[#d1d5db] flex flex-col overflow-hidden relative hover:bg-[#f0f8ff] hover:border-[#d1d5db]"
       style={{ borderTop: `3px solid ${roleCfg.color}` }}
     >
       {/* Suspended overlay banner */}

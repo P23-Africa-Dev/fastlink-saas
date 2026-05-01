@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface NewTaskModalProps {
   projects:       Project[];
@@ -62,9 +63,13 @@ export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject,
           {/* Project */}
           <div className="flex flex-col" style={{ gap: "8px" }}>
             <label className={labelCls}>Project</label>
-            <select value={projectId} onChange={e => setProjectId(Number(e.target.value))} className={`${inputCls} font-medium`} style={{ padding: "12px 16px" }}>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <CustomSelect
+              fullWidth
+              value={projectId.toString()}
+              onChange={v => setProjectId(Number(v))}
+              options={projects.map(p => ({ value: p.id.toString(), label: p.name }))}
+              searchPlaceholder="Search projects…"
+            />
           </div>
 
           {/* Status pill */}

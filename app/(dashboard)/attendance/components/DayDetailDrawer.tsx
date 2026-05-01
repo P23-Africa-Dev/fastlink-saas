@@ -85,7 +85,7 @@ export function DayDetailDrawer({ day, onClose }: DayDetailDrawerProps) {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#dcfce7" }}>
                   <LogIn size={14} style={{ color: "#16a34a" }} />
                 </div>
-                <span className="text-[13px] font-semibold text-(--text-primary)">Sign In</span>
+                <span className="text-[13px] font-semibold text-(--text-primary)">Clock In</span>
               </div>
               <span className="text-[15px] font-bold text-(--text-primary)">{fmt(day.sign_in)}</span>
             </div>
@@ -96,7 +96,7 @@ export function DayDetailDrawer({ day, onClose }: DayDetailDrawerProps) {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#fee2e2" }}>
                   <LogOut size={14} style={{ color: "#dc2626" }} />
                 </div>
-                <span className="text-[13px] font-semibold text-(--text-primary)">Sign Out</span>
+                <span className="text-[13px] font-semibold text-(--text-primary)">Clock Out</span>
               </div>
               <span className="text-[15px] font-bold text-(--text-primary)">{fmt(day.sign_out)}</span>
             </div>

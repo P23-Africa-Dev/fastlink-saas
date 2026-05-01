@@ -237,7 +237,7 @@ export default function CrmPage() {
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
 
   return (
-    <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
+    <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between" style={{ gap: "16px" }}>

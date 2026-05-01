@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, FolderOpen, LayoutGrid, GanttChartSquare, Pencil, Trash2 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 import { ProjectCard }        from "./components/ProjectCard";
 import { NewProjectModal }    from "./components/NewProjectModal";
@@ -69,7 +70,7 @@ type ActiveView = "projects" | "kanban" | "gantt";
 
 const VIEWS: { id: ActiveView; label: string; icon: React.ReactNode }[] = [
   { id: "projects", label: "Projects", icon: <FolderOpen size={15} />     },
-  { id: "kanban",   label: "Kanban",   icon: <LayoutGrid size={15} />     },
+  { id: "kanban",   label: "Tasks",   icon: <LayoutGrid size={15} />     },
   { id: "gantt",    label: "Gantt",    icon: <GanttChartSquare size={15} /> },
 ];
 
@@ -153,7 +154,7 @@ export default function ProjectPage() {
   const projectName = selectedProject?.name ?? "";
 
   return (
-    <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
+    <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "24px" }}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between" style={{ gap: "16px" }}>
@@ -204,15 +205,15 @@ export default function ProjectPage() {
 
         {/* Project filter (kanban / gantt) */}
         {(activeView === "kanban" || activeView === "gantt") && (
-          <select
-            value={selectedProjectId ?? ""}
-            onChange={e => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
-            className="rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[13px] font-bold text-(--text-primary) outline-none focus:border-(--accent-purple) transition-colors cursor-pointer self-start sm:self-auto"
-            style={{ padding: "9px 14px" }}
-          >
-            <option value="">All Projects</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <CustomSelect
+            value={selectedProjectId?.toString() ?? ""}
+            onChange={v => setSelectedProjectId(v ? Number(v) : null)}
+            options={[
+              { value: "", label: "All Projects" },
+              ...projects.map(p => ({ value: p.id.toString(), label: p.name })),
+            ]}
+            searchPlaceholder="Search projects…"
+          />
         )}
       </div>
 

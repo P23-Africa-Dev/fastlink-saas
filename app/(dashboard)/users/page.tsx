@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Plus, ListFilter, CalendarDays, Users, Clock, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 import { RequestCard }           from "./components/RequestCard";
 import { RequestDetailDrawer }   from "./components/RequestDetailDrawer";
@@ -41,6 +42,8 @@ type View        = "my" | "team" | "calendar";
 type DecideMode  = "approve" | "reject";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none text-(--text-primary) focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af]";
 
 export default function LeaveRequestsPage() {
   const [requests,  setRequests]  = useState<LeaveRequest[]>(MOCK_REQUESTS);
@@ -161,10 +164,8 @@ export default function LeaveRequestsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none focus:border-[#33084E] transition-colors text-(--text-primary) placeholder:text-[#9ca3af]";
-
   return (
-    <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
+    <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
 
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between shrink-0" style={{ gap: "12px" }}>
@@ -189,7 +190,7 @@ export default function LeaveRequestsPage() {
           { label: "My Pending",     value: pendingMine,      icon: <Clock      size={15} />, bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
           { label: "Team Pending",   value: teamPending,      icon: <Users      size={15} />, bg: "#dcfce7", color: "#074616", iconBg: "#f0fdf4" },
         ].map(s => (
-          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 150px" }}>
+          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 150px" }}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.iconBg }}>
               <span style={{ color: s.color }}>{s.icon}</span>
             </div>
@@ -229,17 +230,25 @@ export default function LeaveRequestsPage() {
         {/* Filters — hidden on calendar */}
         {view !== "calendar" && (
           <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
-            <select value={statusF} onChange={e => { setStatusF(e.target.value as any); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }}>
-              <option value="all">All Statuses</option>
-              {(Object.keys(STATUS_CONFIG) as LeaveStatus[]).map(s => (
-                <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-              ))}
-            </select>
+            <CustomSelect
+              value={statusF}
+              onChange={v => { setStatusF(v as any); setPage(1); }}
+              options={[
+                { value: "all", label: "All Statuses" },
+                ...(Object.keys(STATUS_CONFIG) as LeaveStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label })),
+              ]}
+              searchPlaceholder="Search statuses…"
+            />
 
-            <select value={typeF} onChange={e => { setTypeF(e.target.value as any); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }}>
-              <option value="all">All Types</option>
-              {LEAVE_TYPES.map(t => <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>)}
-            </select>
+            <CustomSelect
+              value={typeF}
+              onChange={v => { setTypeF(v as any); setPage(1); }}
+              options={[
+                { value: "all", label: "All Types" },
+                ...LEAVE_TYPES.map(t => ({ value: t, label: TYPE_CONFIG[t].label })),
+              ]}
+              searchPlaceholder="Search types…"
+            />
 
             <input type="date" value={fromF} onChange={e => { setFromF(e.target.value); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="From" />
             <input type="date" value={toF}   onChange={e => { setToF(e.target.value);   setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="To" />
@@ -303,14 +312,12 @@ export default function LeaveRequestsPage() {
               <div className="flex items-center justify-between bg-white rounded-2xl border border-[#f0f0f5] shrink-0" style={{ padding: "10px 18px" }}>
                 <div className="flex items-center" style={{ gap: "8px" }}>
                   <span className="text-[12px] text-[#9ca3af]">Rows:</span>
-                  <select
-                    value={perPage}
-                    onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
-                    className={inputCls}
-                    style={{ padding: "4px 8px" }}
-                  >
-                    {[6, 12, 24].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={perPage.toString()}
+                    onChange={v => { setPerPage(Number(v)); setPage(1); }}
+                    options={[6, 12, 24].map(n => ({ value: n.toString(), label: n.toString() }))}
+                    searchPlaceholder="Search…"
+                  />
                   <span className="text-[12px] text-[#9ca3af]">
                     {(page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}
                   </span>

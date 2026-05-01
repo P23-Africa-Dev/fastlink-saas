@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, LayoutGrid, List, RotateCcw, ChevronLeft, ChevronRight, Users, Shield, UserCheck, UserX } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 import { UserCard }          from "./components/UserCard";
 import { UserDetailDrawer }  from "./components/UserDetailDrawer";
@@ -25,7 +26,7 @@ export default function SettingsPage() {
   const [users,      setUsers]      = useState<User[]>(MOCK_USERS);
   const [search,     setSearch]     = useState("");
   const [roleF,      setRoleF]      = useState<UserRole | "all">("all");
-  const [layout,     setLayout]     = useState<Layout>("grid");
+  const [layout,     setLayout]     = useState<Layout>("list");
   const [perPage,    setPerPage]    = useState(9);
   const [page,       setPage]       = useState(1);
 
@@ -116,10 +117,8 @@ export default function SettingsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none focus:border-[#33084E] transition-colors text-(--text-primary) placeholder:text-[#9ca3af]";
-
   return (
-    <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
+    <div className="flex flex-col w-full bg-white overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between shrink-0" style={{ gap: "12px" }}>
@@ -144,7 +143,7 @@ export default function SettingsPage() {
           { label: "Suspended",      value: suspendedCount, icon: <UserX size={15} />,     bg: "#fee2e2", color: "#991b1b", iconBg: "#fff5f5" },
           { label: "Admins",         value: adminCount,     icon: <Shield size={15} />,    bg: "#fef3c7", color: "#AF580B", iconBg: "#fef9c3" },
         ].map(s => (
-          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 130px" }}>
+          <div key={s.label} className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-[250ms] ease-out hover:-translate-y-[3px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]" style={{ padding: "12px 18px", gap: "12px", flex: "1 1 130px" }}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.iconBg }}>
               <span style={{ color: s.color }}>{s.icon}</span>
             </div>
@@ -172,15 +171,15 @@ export default function SettingsPage() {
           </div>
 
           {/* Role filter */}
-          <select
+          <CustomSelect
             value={roleF}
-            onChange={e => { setRoleF(e.target.value as any); setPage(1); }}
-            className={inputCls}
-            style={{ padding: "7px 10px" }}
-          >
-            <option value="all">All Roles</option>
-            {USER_ROLES.map(r => <option key={r} value={r}>{ROLE_CONFIG[r].label}</option>)}
-          </select>
+            onChange={v => { setRoleF(v as any); setPage(1); }}
+            options={[
+              { value: "all", label: "All Roles" },
+              ...USER_ROLES.map(r => ({ value: r, label: ROLE_CONFIG[r].label })),
+            ]}
+            searchPlaceholder="Search roles…"
+          />
 
           {/* Reset */}
           {(search || roleF !== "all") && (
@@ -194,9 +193,12 @@ export default function SettingsPage() {
 
         {/* Layout + per-page */}
         <div className="flex items-center" style={{ gap: "8px" }}>
-          <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }}>
-            {[6, 9, 12, 24].map(n => <option key={n} value={n}>{n} per page</option>)}
-          </select>
+          <CustomSelect
+            value={perPage.toString()}
+            onChange={v => { setPerPage(Number(v)); setPage(1); }}
+            options={[6, 9, 12, 24].map(n => ({ value: n.toString(), label: `${n} per page` }))}
+            searchPlaceholder="Search…"
+          />
           <div className="flex items-center rounded-xl border border-[#f0f0f5] bg-white overflow-hidden" style={{ padding: "4px" }}>
             {(["grid", "list"] as Layout[]).map(l => (
               <button
