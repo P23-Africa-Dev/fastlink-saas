@@ -59,3 +59,42 @@ export interface DashboardStats {
     completed_tasks: number;
   };
 }
+// ─── CRM ──────────────────────────────────────────────────────────────────────
+export interface Drive {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  color: string;
+  position: number;
+  is_default: boolean;
+}
+
+export interface LeadStatus {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  position: number;
+  is_default: boolean;
+  is_won: boolean;
+  is_lost: boolean;
+}
+
+export interface Lead {
+  id: number;
+  first_name: string;
+  last_name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  estimated_value: number | string | null;
+  currency: string | null;
+  priority: "low" | "medium" | "high" | "urgent" | "normal";
+  status_id: number;
+  drive_id: number;
+  notes: string | null;
+  assigned_to: number | null;
+  created_at: string;
+  updated_at: string;
+}

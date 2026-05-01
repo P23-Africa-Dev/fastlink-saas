@@ -1,9 +1,24 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Plus, Upload, MoreVertical, DollarSign, Building2, Calendar, Pencil, Trash2 } from "lucide-react";
 import api from "@/lib/api";
-import type { ApiResponse } from "@/lib/types";
+import type { ApiResponse, Lead as ApiLead, Drive as ApiDrive, LeadStatus as ApiStatus } from "@/lib/types";
+import {
+  useDrives,
+  useStatuses,
+  useLeads,
+  useCreateLead,
+  useUpdateLead,
+  useDeleteLead,
+  useImportLeads,
+  useCreateDrive,
+  useUpdateDrive,
+  useDeleteDrive,
+  useCreateStatus,
+  useUpdateStatus,
+  useDeleteStatus,
+} from "./hooks/useCrm";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, useSensor, useSensors,
@@ -33,46 +48,6 @@ interface BackendUser {
   name: string;
 }
 
-interface BackendDrive {
-  id: number;
-  name: string;
-  slug: string;
-  description?: string | null;
-  color: string;
-  position: number;
-  is_default: boolean;
-}
-
-interface BackendStatus {
-  id: number;
-  name: string;
-  slug: string;
-  color: string;
-  position: number;
-  is_default: boolean;
-  is_won: boolean;
-  is_lost: boolean;
-}
-
-interface BackendLead {
-  id: number;
-  first_name: string;
-  last_name: string;
-  company: string;
-  email: string;
-  phone?: string | null;
-  estimated_value?: number | string | null;
-  currency?: string | null;
-  priority?: "low" | "medium" | "high" | "urgent";
-  status_id: number;
-  drive_id: number;
-  notes?: string | null;
-  assigned_to?: number | null;
-  assigned_user?: BackendUser;
-  assignedUser?: BackendUser;
-  created_at: string;
-}
-
 interface BackendActivity {
   id: number;
   type: Activity["type"];
@@ -82,7 +57,7 @@ interface BackendActivity {
   is_completed: boolean;
 }
 
-const mapPriorityToUi = (priority?: BackendLead["priority"]) => {
+const mapPriorityToUi = (priority?: ApiLead["priority"]) => {
   if (priority === "high" || priority === "urgent") return "high" as const;
   if (priority === "low") return "low" as const;
   return "normal" as const;
@@ -93,7 +68,7 @@ const mapPriorityToApi = (priority: "low" | "normal" | "high") => {
   return priority;
 };
 
-const mapLead = (raw: BackendLead): Lead => ({
+const mapLead = (raw: ApiLead): Lead => ({
   id: raw.id,
   first_name: raw.first_name,
   last_name: raw.last_name,
@@ -102,7 +77,7 @@ const mapLead = (raw: BackendLead): Lead => ({
   phone: raw.phone ?? "",
   estimated_value: Number(raw.estimated_value ?? 0),
   currency: raw.currency ?? "USD",
-  priority: mapPriorityToUi(raw.priority),
+  priority: mapPriorityToUi(raw.priority as any),
   status_id: raw.status_id,
   drive_id: raw.drive_id,
   date: raw.created_at?.split("T")[0] ?? "",
@@ -110,7 +85,7 @@ const mapLead = (raw: BackendLead): Lead => ({
   assigned_to: raw.assigned_to ?? undefined,
 });
 
-const mapDrive = (raw: BackendDrive): DriveItem => ({
+const mapDrive = (raw: ApiDrive): DriveItem => ({
   id: raw.id,
   name: raw.name,
   slug: raw.slug,
@@ -120,7 +95,7 @@ const mapDrive = (raw: BackendDrive): DriveItem => ({
   is_default: raw.is_default,
 });
 
-const mapStatus = (raw: BackendStatus): StatusItem => ({
+const mapStatus = (raw: ApiStatus): StatusItem => ({
   id: raw.id,
   name: raw.name,
   slug: raw.slug,
@@ -275,11 +250,34 @@ function DraggableCard({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CrmPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [drives, setDrives] = useState<DriveItem[]>([]);
-  const [statuses, setStatuses] = useState<StatusItem[]>([]);
+  const [filters, setFilters] = useState<FilterState>({
+    driveId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
+  });
+
+  // Queries
+  const { data: drivesRaw, isLoading: drivesLoading } = useDrives();
+  const { data: statusesRaw, isLoading: statusesLoading } = useStatuses();
+  const { data: leadsRaw, isLoading: leadsLoading } = useLeads(filters);
+
+  // Mutations
+  const createLeadMutation = useCreateLead();
+  const updateLeadMutation = useUpdateLead();
+  const deleteLeadMutation = useDeleteLead();
+  const importLeadsMutation = useImportLeads();
+
+  const createDriveMutation = useCreateDrive();
+  const updateDriveMutation = useUpdateDrive();
+  const deleteDriveMutation = useDeleteDrive();
+
+  const createStatusMutation = useCreateStatus();
+  const updateStatusMutation = useUpdateStatus();
+  const deleteStatusMutation = useDeleteStatus();
+
+  const drives = useMemo(() => (drivesRaw || []).map(mapDrive), [drivesRaw]);
+  const statuses = useMemo(() => (statusesRaw || []).map(mapStatus), [statusesRaw]);
+  const leads = useMemo(() => (leadsRaw || []).map(mapLead), [leadsRaw]);
+
   const [activities, setActivities] = useState<Record<number, Activity[]>>({});
-  const [loading, setLoading] = useState(true);
 
   // Modal flags
   const [isNewLeadOpen, setNewLeadOpen] = useState(false);
@@ -317,43 +315,12 @@ export default function CrmPage() {
 
   // Filters & view
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [filters, setFilters] = useState<FilterState>({
-    driveId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
-  });
-
+  // Set default drive once loaded
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [driveRes, statusRes, leadRes] = await Promise.all([
-          api.get<ApiResponse<BackendDrive[]>>("/crm/drives", { params: { per_page: 100 } }),
-          api.get<ApiResponse<BackendStatus[]>>("/crm/statuses", { params: { per_page: 100 } }),
-          api.get<ApiResponse<BackendLead[]>>("/crm/leads", { params: { per_page: 300 } }),
-        ]);
-
-        if (!mounted) return;
-
-        const mappedDrives = driveRes.data.data.map(mapDrive);
-        setDrives(mappedDrives);
-        setStatuses(statusRes.data.data.map(mapStatus));
-        setLeads(leadRes.data.data.map(mapLead));
-        setFilters((prev) => ({ ...prev, driveId: mappedDrives[0]?.id ?? 0 }));
-      } catch (error: any) {
-        console.error("Failed to load CRM data", error);
-        toast.error(error?.response?.data?.message || "Failed to load CRM data.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    if (drives.length > 0 && !filters.driveId) {
+      setFilters(prev => ({ ...prev, driveId: drives[0].id }));
+    }
+  }, [drives, filters.driveId]);
 
   useEffect(() => {
     if (!selectedLead) return;
@@ -386,11 +353,11 @@ export default function CrmPage() {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const newStatusId = parseInt(over.id.toString());
-      setLeads(prev => prev.map(l => l.id.toString() === active.id.toString() ? { ...l, status_id: newStatusId } : l));
       const movedLead = leads.find((l) => l.id.toString() === active.id.toString());
       if (movedLead) {
-        void api.patch(`/crm/leads/${movedLead.id}`, { status_id: newStatusId }).catch((error) => {
-          console.error("Failed to move lead", error);
+        updateLeadMutation.mutate({
+          id: movedLead.id,
+          payload: { status_id: newStatusId } as any
         });
       }
     }
@@ -414,6 +381,8 @@ export default function CrmPage() {
   const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
 
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
+
+  const loading = drivesLoading || statusesLoading || leadsLoading;
 
   if (loading) {
     return <CrmSkeleton />;
@@ -653,20 +622,36 @@ export default function CrmPage() {
           drives={drives}
           onClose={() => setNewLeadOpen(false)}
           onSave={(payload) => {
-            void (async () => {
-              try {
-                const res = await api.post<ApiResponse<BackendLead>>("/crm/leads", payload);
-                setLeads((prev) => [mapLead(res.data.data), ...prev]);
-              } catch (error) {
-                console.error("Failed to create lead", error);
+            createLeadMutation.mutate(payload as any, {
+              onSuccess: () => {
+                setNewLeadOpen(false);
+                toast.success("Lead created successfully");
+              },
+              onError: (err: any) => {
+                toast.error(err.response?.data?.message || "Failed to create lead");
               }
-            })();
+            });
           }}
         />
       )}
 
       {isImportOpen && (
-        <ImportLeadsModal drives={drives} statuses={statuses} onClose={() => setImportOpen(false)} />
+        <ImportLeadsModal 
+          drives={drives} 
+          statuses={statuses} 
+          onClose={() => setImportOpen(false)} 
+          onImport={(formData) => {
+            importLeadsMutation.mutate(formData, {
+              onSuccess: () => {
+                setImportOpen(false);
+                toast.success("Leads imported successfully");
+              },
+              onError: (err: any) => {
+                toast.error(err.response?.data?.message || "Import failed");
+              }
+            });
+          }}
+        />
       )}
 
       {isEditLeadOpen && selectedLead && (
@@ -676,21 +661,21 @@ export default function CrmPage() {
           drives={drives}
           onClose={() => setEditLeadOpen(false)}
           onSave={(updated) => {
-            void (async () => {
-              try {
-                const payload = {
-                  ...updated,
-                  priority: updated.priority ? mapPriorityToApi(updated.priority) : undefined,
-                };
-                const res = await api.patch<ApiResponse<BackendLead>>(`/crm/leads/${selectedLead.id}`, payload);
-                const mapped = mapLead(res.data.data);
-                setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? mapped : l)));
+            const payload = {
+              ...updated,
+              priority: updated.priority ? mapPriorityToApi(updated.priority) : undefined,
+            };
+            updateLeadMutation.mutate({ id: selectedLead.id, payload: payload as any }, {
+              onSuccess: (res) => {
+                const mapped = mapLead(res as any);
                 setSelectedLead(mapped);
                 setEditLeadOpen(false);
-              } catch (error) {
-                console.error("Failed to update lead", error);
+                toast.success("Lead updated successfully");
+              },
+              onError: (err: any) => {
+                toast.error(err.response?.data?.message || "Failed to update lead");
               }
-            })();
+            });
           }}
         />
       )}
@@ -700,16 +685,16 @@ export default function CrmPage() {
           leadName={leadName}
           onClose={() => setDeleteLeadOpen(false)}
           onConfirm={() => {
-            void (async () => {
-              try {
-                await api.delete(`/crm/leads/${selectedLead.id}`);
-                setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
+            deleteLeadMutation.mutate(selectedLead.id, {
+              onSuccess: () => {
                 setSelectedLead(null);
                 setDeleteLeadOpen(false);
-              } catch (error) {
-                console.error("Failed to delete lead", error);
+                toast.success("Lead deleted successfully");
+              },
+              onError: (err: any) => {
+                toast.error(err.response?.data?.message || "Failed to delete lead");
               }
-            })();
+            });
           }}
         />
       )}
@@ -764,35 +749,22 @@ export default function CrmPage() {
           drives={drives}
           onClose={() => setPipelinesOpen(false)}
           onCreate={(data) => {
-            void (async () => {
-              try {
-                const res = await api.post<ApiResponse<BackendDrive>>("/crm/drives", data);
-                setDrives(prev => [...prev, mapDrive(res.data.data)]);
-              } catch (error) {
-                console.error("Failed to create pipeline", error);
-              }
-            })();
+            createDriveMutation.mutate(data, {
+              onSuccess: () => toast.success("Pipeline created successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create pipeline")
+            });
           }}
           onUpdate={(id, data) => {
-            void (async () => {
-              try {
-                const res = await api.patch<ApiResponse<BackendDrive>>(`/crm/drives/${id}`, data);
-                const mapped = mapDrive(res.data.data);
-                setDrives(prev => prev.map(d => d.id === id ? mapped : d));
-              } catch (error) {
-                console.error("Failed to update pipeline", error);
-              }
-            })();
+            updateDriveMutation.mutate({ id, payload: data }, {
+              onSuccess: () => toast.success("Pipeline updated successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update pipeline")
+            });
           }}
           onDelete={(id) => {
-            void (async () => {
-              try {
-                await api.delete(`/crm/drives/${id}`);
-                setDrives(prev => prev.filter(d => d.id !== id));
-              } catch (error) {
-                console.error("Failed to delete pipeline", error);
-              }
-            })();
+            deleteDriveMutation.mutate(id, {
+              onSuccess: () => toast.success("Pipeline deleted successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete pipeline")
+            });
           }}
         />
       )}
@@ -802,35 +774,22 @@ export default function CrmPage() {
           statuses={statuses}
           onClose={() => setStatusesOpen(false)}
           onCreate={(data) => {
-            void (async () => {
-              try {
-                const res = await api.post<ApiResponse<BackendStatus>>("/crm/statuses", data);
-                setStatuses(prev => [...prev, mapStatus(res.data.data)]);
-              } catch (error) {
-                console.error("Failed to create status", error);
-              }
-            })();
+            createStatusMutation.mutate(data, {
+              onSuccess: () => toast.success("Status created successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create status")
+            });
           }}
           onUpdate={(id, data) => {
-            void (async () => {
-              try {
-                const res = await api.patch<ApiResponse<BackendStatus>>(`/crm/statuses/${id}`, data);
-                const mapped = mapStatus(res.data.data);
-                setStatuses(prev => prev.map(s => s.id === id ? mapped : s));
-              } catch (error) {
-                console.error("Failed to update status", error);
-              }
-            })();
+            updateStatusMutation.mutate({ id, payload: data }, {
+              onSuccess: () => toast.success("Status updated successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update status")
+            });
           }}
           onDelete={(id) => {
-            void (async () => {
-              try {
-                await api.delete(`/crm/statuses/${id}`);
-                setStatuses(prev => prev.filter(s => s.id !== id));
-              } catch (error) {
-                console.error("Failed to delete status", error);
-              }
-            })();
+            deleteStatusMutation.mutate(id, {
+              onSuccess: () => toast.success("Status deleted successfully"),
+              onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete status")
+            });
           }}
         />
       )}

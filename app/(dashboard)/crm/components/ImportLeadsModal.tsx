@@ -12,6 +12,7 @@ interface ImportLeadsModalProps {
   drives:   Drive[];
   statuses: Status[];
   onClose:  () => void;
+  onImport: (formData: FormData) => void;
 }
 
 interface ImportResult {
@@ -37,7 +38,7 @@ function isValid(file: File) {
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] font-medium outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
-export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModalProps) {
+export function ImportLeadsModal({ drives, statuses, onClose, onImport }: ImportLeadsModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep]               = useState<"upload" | "result">("upload");
   const [isDragOver, setIsDragOver]   = useState(false);
@@ -78,9 +79,17 @@ export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModal
     if (f) handleFile(f);
   };
 
-  const simulateImport = () => {
-    // Placeholder — will call POST /crm/leads/import when API integrated
-    setStep("result");
+  const handleImport = () => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    if (impDriveId) formData.append("drive_id", impDriveId);
+    if (impStatusId) formData.append("status_id", impStatusId);
+    if (impPriority) formData.append("priority", impPriority);
+    if (impCurrency) formData.append("currency", impCurrency);
+    if (impAssignTo) formData.append("assigned_to", impAssignTo);
+
+    onImport(formData);
   };
 
   /* ── Step 1: Upload ─────────────────────────────────────────── */
@@ -203,7 +212,7 @@ export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModal
         {/* Footer */}
         <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
           <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
-          <ModalButton variant="primary" disabled={!file} onClick={simulateImport}>
+          <ModalButton variant="primary" disabled={!file} onClick={handleImport}>
             Import Data
           </ModalButton>
         </div>
