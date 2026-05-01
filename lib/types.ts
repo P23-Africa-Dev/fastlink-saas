@@ -10,6 +10,16 @@ export interface CurrentUser {
   roles: UserRole[];
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  roles?: UserRole[];
+  suspended_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -97,6 +107,9 @@ export interface Lead {
   assigned_to: number | null;
   created_at: string;
   updated_at: string;
+  statusDefinition?: LeadStatus;
+  status_definition?: LeadStatus;
+  user?: User;
 }
 // ─── Projects ──────────────────────────────────────────────────────────────
 export interface Project {
@@ -123,6 +136,7 @@ export interface Task {
   assigned_to: number | null;
   created_at: string;
   updated_at: string;
+  user?: User;
 }
 
 export interface TaskComment {
@@ -131,4 +145,39 @@ export interface TaskComment {
   user_id: number;
   content: string;
   created_at: string;
+}
+
+// ─── Attendance ────────────────────────────────────────────────────────────
+export interface Attendance {
+  id: number;
+  user_id: number;
+  date: string;
+  clock_in: string | null;
+  clock_out: string | null;
+  status: "present" | "absent" | "late" | "half_day";
+  total_hours: number;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
+// ─── Leave Requests ────────────────────────────────────────────────────────
+export interface LeaveRequest {
+  id: number;
+  user_id: number;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string | null;
+  status: "pending" | "approved" | "rejected" | "modified";
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  supervisor?: User;
+  supervisor_id?: number | null;
+  decision_note?: string | null;
+  supervisor_note?: string | null;
+  modified_start_date?: string | null;
+  modified_end_date?: string | null;
+  sender_response_note?: string | null;
 }

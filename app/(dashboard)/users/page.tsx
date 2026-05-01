@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Plus, ListFilter, CalendarDays, Users, Clock, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
-import api from "@/lib/api";
-import type { ApiResponse } from "@/lib/types";
+import type { LeaveRequest as ApiLeaveRequest, User as ApiUser } from "@/lib/types";
 import { useAuthStore } from "@/lib/stores/authStore";
+import {
+  useLeaveRequests,
+  useCreateLeaveRequest,
+  useUpdateLeaveStatus,
+  useRespondToLeave,
+  useUsers,
+} from "../attendance/hooks/useAttendance";
 
 import { RequestCard } from "./components/RequestCard";
 import { RequestDetailDrawer } from "./components/RequestDetailDrawer";
@@ -19,43 +25,12 @@ import { toast } from "sonner";
 
 import {
   LeaveRequest, LeaveStatus, LeaveType,
-  STATUS_CONFIG, TYPE_CONFIG, LEAVE_TYPES, SupervisorOption,
+  STATUS_CONFIG, TYPE_CONFIG, LEAVE_TYPES,
   countDays,
 } from "./components/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-interface BackendRole {
-  id: number;
-  name: string;
-}
-
-interface BackendUser {
-  id: number;
-  name: string;
-  email: string;
-  roles?: BackendRole[];
-}
-
-interface BackendLeaveRequest {
-  id: number;
-  user_id: number;
-  user?: BackendUser;
-  supervisor_id: number | null;
-  supervisor?: BackendUser | null;
-  type: LeaveType;
-  reason: string | null;
-  start_date: string;
-  end_date: string;
-  duration_days: number | string;
-  status: LeaveRequest["status"];
-  decision_note: string | null;
-  supervisor_note: string | null;
-  modified_start_date: string | null;
-  modified_end_date: string | null;
-  sender_response_note: string | null;
-  created_at: string;
-}
 
 function initialsFromName(name: string): string {
   return name
@@ -71,31 +46,27 @@ function colorFromId(id: number): string {
   return colors[id % colors.length];
 }
 
-function mapLeaveRequest(raw: BackendLeaveRequest): LeaveRequest {
+function mapLeaveRequest(raw: ApiLeaveRequest): LeaveRequest {
   const userName = raw.user?.name ?? `User #${raw.user_id}`;
   const supervisorName = raw.supervisor?.name ?? (raw.supervisor_id ? `User #${raw.supervisor_id}` : "Unassigned");
 
   return {
-    id: raw.id,
-    user_id: raw.user_id,
+    ...raw,
+    decision_note: raw.decision_note ?? null,
+    supervisor_note: raw.supervisor_note ?? null,
+    sender_response_note: raw.sender_response_note ?? null,
+    modified_start_date: raw.modified_start_date ?? null,
+    modified_end_date: raw.modified_end_date ?? null,
     user_name: userName,
     user_initials: initialsFromName(userName),
     user_color: colorFromId(raw.user_id),
-    type: raw.type,
+    type: (raw.leave_type as LeaveType) || "other",
     reason: raw.reason ?? "",
-    start_date: raw.start_date,
-    end_date: raw.end_date,
     supervisor_id: raw.supervisor_id ?? 0,
     supervisor_name: supervisorName,
     supervisor_initials: initialsFromName(supervisorName),
-    status: raw.status,
-    decision_note: raw.decision_note,
-    supervisor_note: raw.supervisor_note,
-    modified_start_date: raw.modified_start_date,
-    modified_end_date: raw.modified_end_date,
-    sender_response_note: raw.sender_response_note,
-    created_at: raw.created_at,
-    days: Number(raw.duration_days) || countDays(raw.start_date, raw.end_date),
+    status: (raw.status as LeaveStatus) || "pending",
+    days: countDays(raw.start_date, raw.end_date),
   };
 }
 
@@ -126,11 +97,8 @@ export default function LeaveRequestsPage() {
   const MY_USER_ID = currentUser?.id ?? 0;
   const IS_ADMIN = Boolean(currentUser?.roles?.some((r) => r.name === "admin" || r.name === "supervisor"));
 
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [view, setView] = useState<View>("my");
   const [month, setMonth] = useState(currentMonth());
-  const [loading, setLoading] = useState(true);
-  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
 
   // Filters
   const [statusF, setStatusF] = useState<LeaveStatus | "all">("all");
@@ -140,6 +108,28 @@ export default function LeaveRequestsPage() {
   const [perPage, setPerPage] = useState(6);
   const [page, setPage] = useState(1);
 
+  // Queries
+  const { data: requestsRaw, isLoading: requestsLoading } = useLeaveRequests();
+  const { data: usersRaw } = useUsers();
+
+  // Mutations
+  const createLeaveMutation = useCreateLeaveRequest();
+  const updateLeaveStatusMutation = useUpdateLeaveStatus();
+  const respondLeaveMutation = useRespondToLeave();
+
+  const requests = useMemo(() => (requestsRaw || []).map(mapLeaveRequest), [requestsRaw]);
+
+  const supervisors = useMemo(() => {
+    return (usersRaw || [])
+      .filter((u: ApiUser) => u.roles?.some((r) => r.name === "admin" || r.name === "supervisor"))
+      .map((u: ApiUser) => ({
+        id: u.id,
+        name: u.name,
+        initials: initialsFromName(u.name),
+        color: colorFromId(u.id),
+      }));
+  }, [usersRaw]);
+
   // Modal / drawer state
   const [selected, setSelected] = useState<LeaveRequest | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -147,50 +137,6 @@ export default function LeaveRequestsPage() {
   const [showModify, setShowModify] = useState(false);
   const [respondMode, setRespondMode] = useState<boolean | null>(null); // true=accept, false=decline
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [reqRes, userRes] = await Promise.allSettled([
-          api.get<ApiResponse<BackendLeaveRequest[]>>("/leave-requests", { params: { per_page: 200 } }),
-          api.get<ApiResponse<BackendUser[]>>("/users", { params: { per_page: 200 } }),
-        ]);
-
-        if (!mounted) return;
-
-        const mapped = reqRes.status === "fulfilled"
-          ? reqRes.value.data.data.map(mapLeaveRequest)
-          : [];
-
-        const supOptions = userRes.status === "fulfilled"
-          ? userRes.value.data.data
-            .filter((u) => u.roles?.some((r) => r.name === "admin" || r.name === "supervisor"))
-            .map((u) => ({
-              id: u.id,
-              name: u.name,
-              initials: initialsFromName(u.name),
-              color: colorFromId(u.id),
-            }))
-          : [];
-
-        setRequests(mapped);
-        setSupervisors(supOptions);
-      } catch (error: any) {
-        console.error("Failed to load leave data", error);
-        toast.error(error?.response?.data?.message || "Failed to load leave requests.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // ── Filtered + paginated list ──────────────────────────────────────────────
   const source = view === "my"
@@ -222,90 +168,76 @@ export default function LeaveRequestsPage() {
 
   const openDecide = (r: LeaveRequest, mode: DecideMode) => { setSelected(r); setDecideMode(mode); };
   const openModify = (r: LeaveRequest) => { setSelected(r); setShowModify(true); };
-  const openRespond = (r: LeaveRequest, accept: boolean) => { setSelected(r); setRespondMode(accept); };
 
   const handleCreate = (data: { type: LeaveType; reason: string; start_date: string; end_date: string; supervisor_id: number }) => {
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendLeaveRequest>>("/leave-requests", data);
-        setRequests((prev) => [mapLeaveRequest(res.data.data), ...prev]);
+    createLeaveMutation.mutate({
+      ...data,
+      leave_type: data.type,
+      status: "pending", // required by type but set by backend
+      id: 0, // placeholder
+      user_id: MY_USER_ID,
+      created_at: "",
+      updated_at: "",
+    }, {
+      onSuccess: () => {
         setShowNew(false);
         toast.success("Leave request submitted successfully");
-      } catch (error: any) {
-        console.error("Failed to create leave request", error);
-        toast.error(error?.response?.data?.message || "Failed to submit request.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to submit request")
+    });
   };
 
   const handleDecision = (note: string) => {
     if (!selected || !decideMode) return;
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/decide`, {
-          status: decideMode === "approve" ? "approved" : "rejected",
-          decision_note: note || null,
-        });
-
-        const updated = mapLeaveRequest(res.data.data);
-        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+    updateLeaveStatusMutation.mutate({
+      id: selected.id,
+      status: decideMode === "approve" ? "approved" : "rejected",
+      decision_note: note || null,
+    }, {
+      onSuccess: () => {
         setSelected(null);
         setDecideMode(null);
         toast.success("Action completed successfully");
-      } catch (error: any) {
-        console.error("Failed to decide leave request", error);
-        toast.error(error?.response?.data?.message || "Action failed.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Action failed")
+    });
   };
 
   const handleModify = (data: { supervisor_note: string; modified_start_date: string; modified_end_date: string }) => {
     if (!selected) return;
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/decide`, {
-          status: "modified",
-          supervisor_note: data.supervisor_note,
-          modified_start_date: data.modified_start_date,
-          modified_end_date: data.modified_end_date,
-        });
-
-        const updated = mapLeaveRequest(res.data.data);
-        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+    updateLeaveStatusMutation.mutate({
+      id: selected.id,
+      status: "modified",
+      ...data,
+    }, {
+      onSuccess: () => {
         setSelected(null);
         setShowModify(false);
         toast.success("Request modified successfully");
-      } catch (error: any) {
-        console.error("Failed to modify leave request", error);
-        toast.error(error?.response?.data?.message || "Modification failed.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Modification failed")
+    });
   };
 
   const handleRespond = (note: string) => {
     if (!selected || respondMode === null) return;
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendLeaveRequest>>(`/leave-requests/${selected.id}/respond`, {
-          accept: respondMode,
-          sender_response_note: note || null,
-        });
-
-        const updated = mapLeaveRequest(res.data.data);
-        setRequests((prev) => prev.map((r) => (r.id === selected.id ? updated : r)));
+    respondLeaveMutation.mutate({
+      id: selected.id,
+      accept: respondMode,
+      sender_response_note: note || null,
+    }, {
+      onSuccess: () => {
         setSelected(null);
         setRespondMode(null);
         toast.success("Response recorded successfully");
-      } catch (error: any) {
-        console.error("Failed to respond to leave request", error);
-        toast.error(error?.response?.data?.message || "Response failed.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Response failed")
+    });
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (requestsLoading) {
     return <LeaveSkeleton />;
   }
 
@@ -377,7 +309,7 @@ export default function LeaveRequestsPage() {
           <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
             <CustomSelect
               value={statusF}
-              onChange={v => { setStatusF(v as any); setPage(1); }}
+              onChange={v => { setStatusF(v as LeaveStatus | "all"); setPage(1); }}
               options={[
                 { value: "all", label: "All Statuses" },
                 ...(Object.keys(STATUS_CONFIG) as LeaveStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label })),
@@ -387,7 +319,7 @@ export default function LeaveRequestsPage() {
 
             <CustomSelect
               value={typeF}
-              onChange={v => { setTypeF(v as any); setPage(1); }}
+              onChange={v => { setTypeF(v as LeaveType | "all"); setPage(1); }}
               options={[
                 { value: "all", label: "All Types" },
                 ...LEAVE_TYPES.map(t => ({ value: t, label: TYPE_CONFIG[t].label })),

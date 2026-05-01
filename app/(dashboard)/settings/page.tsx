@@ -3,9 +3,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, LayoutGrid, List, RotateCcw, ChevronLeft, ChevronRight, Users, Shield, UserCheck, UserX } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
-import api from "@/lib/api";
-import type { ApiResponse } from "@/lib/types";
+import type { User as ApiUser } from "@/lib/types";
 import { SettingsSkeleton } from "@/components/SettingsSkeleton";
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "./hooks/useUsers";
 import { toast } from "sonner";
 
 import { UserCard } from "./components/UserCard";
@@ -24,20 +24,6 @@ import {
 type Layout = "grid" | "list";
 type OpenMenu = number | null;
 
-interface BackendRole {
-  id: number;
-  name: string;
-}
-
-interface BackendUser {
-  id: number;
-  name: string;
-  email: string;
-  created_at: string;
-  updated_at: string;
-  suspended_at: string | null;
-  roles?: BackendRole[];
-}
 
 function colorFromId(id: number): string {
   const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#0f766e", "#7c3aed"];
@@ -53,7 +39,7 @@ function initialsFromName(name: string): string {
     .toUpperCase();
 }
 
-function mapUser(raw: BackendUser): User {
+function mapUser(raw: ApiUser): User {
   const roleName = (raw.roles?.[0]?.name ?? "staff") as UserRole;
 
   return {
@@ -62,42 +48,32 @@ function mapUser(raw: BackendUser): User {
     email: raw.email,
     role: roleName,
     suspended: Boolean(raw.suspended_at),
-    created_at: raw.created_at,
+    created_at: raw.created_at ?? "",
     initials: initialsFromName(raw.name),
     color: colorFromId(raw.id),
-    last_active: raw.updated_at,
+    last_active: raw.updated_at ?? "",
   };
 }
 
-async function fetchAllUsers(): Promise<User[]> {
-  let page = 1;
-  let lastPage = 1;
-  const all: User[] = [];
-
-  while (page <= lastPage) {
-    const res = await api.get<ApiResponse<BackendUser[]>>("/users", {
-      params: { per_page: 100, page },
-    });
-
-    all.push(...res.data.data.map(mapUser));
-    const pagination = (res.data.meta as { pagination?: { last_page?: number } })?.pagination;
-    lastPage = pagination?.last_page ?? 1;
-    page += 1;
-  }
-
-  return all;
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
   const [roleF, setRoleF] = useState<UserRole | "all">("all");
   const [layout, setLayout] = useState<Layout>("list");
   const [perPage, setPerPage] = useState(9);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+
+  // Queries
+  const { data: usersRaw, isLoading } = useUsers();
+
+  // Mutations
+  const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+
+  const users = useMemo(() => (usersRaw || []).map(mapUser), [usersRaw]);
 
   // Drawer / modal state
   const [selected, setSelected] = useState<User | null>(null);
@@ -119,28 +95,6 @@ export default function SettingsPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const allUsers = await fetchAllUsers();
-        if (mounted) setUsers(allUsers);
-      } catch (error: any) {
-        console.error("Failed to load users", error);
-        toast.error(error?.response?.data?.message || "Failed to load users.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // ── Filtered + paginated ───────────────────────────────────────────────────
 
@@ -168,86 +122,49 @@ export default function SettingsPage() {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleCreate = (data: { name: string; email: string; password: string; role: UserRole; department?: string }) => {
-    void (async () => {
-      try {
-        const res = await api.post<ApiResponse<BackendUser>>("/users", {
-          name: data.name,
-          email: data.email,
-          password: data.password,
-          role: data.role,
-        });
-
-        const created = mapUser(res.data.data);
-        setUsers((prev) => [created, ...prev]);
+    createUserMutation.mutate(data, {
+      onSuccess: () => {
         setShowCreate(false);
-      } catch (error: any) {
-        console.error("Failed to create user", error);
-        toast.error(error?.response?.data?.message || "Failed to create user.");
-      }
-    })();
+        toast.success("User created successfully");
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to create user")
+    });
   };
 
   const handleEdit = (data: { name: string; role: UserRole; suspended: boolean; department?: string }) => {
     if (!editing) return;
-    void (async () => {
-      try {
-        const res = await api.patch<ApiResponse<BackendUser>>(`/users/${editing.id}`, {
-          name: data.name,
-          role: data.role,
-          suspended: data.suspended,
-        });
-
-        const updated = mapUser(res.data.data);
-        setUsers((prev) => prev.map((u) => (u.id === editing.id ? updated : u)));
-        if (selected?.id === editing.id) setSelected(updated);
+    updateUserMutation.mutate({ id: editing.id, ...data }, {
+      onSuccess: () => {
         setEditing(null);
         toast.success("User updated successfully");
-      } catch (error: any) {
-        console.error("Failed to update user", error);
-        toast.error(error?.response?.data?.message || "Failed to update user.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to update user")
+    });
   };
 
   const handleDelete = () => {
     if (!deleting) return;
-    void (async () => {
-      try {
-        await api.delete(`/users/${deleting.id}`);
-        setUsers((prev) => prev.filter((u) => u.id !== deleting.id));
-        if (selected?.id === deleting.id) setSelected(null);
+    deleteUserMutation.mutate(deleting.id, {
+      onSuccess: () => {
         setDeleting(null);
         toast.success("User deleted successfully");
-      } catch (error: any) {
-        console.error("Failed to delete user", error);
-        toast.error(error?.response?.data?.message || "Failed to delete user.");
-      }
-    })();
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to delete user")
+    });
   };
 
   const handleToggleSuspend = (user: User) => {
-    void (async () => {
-      try {
-        const res = await api.patch<ApiResponse<BackendUser>>(`/users/${user.id}`, {
-          suspended: !user.suspended,
-        });
-
-        const updated = mapUser(res.data.data);
-        setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
-        if (selected?.id === user.id) setSelected(updated);
-        toast.success(`User ${updated.suspended ? "suspended" : "activated"} successfully`);
-      } catch (error: any) {
-        console.error("Failed to toggle suspend", error);
-        toast.error(error?.response?.data?.message || "Action failed.");
-      } finally {
-        setOpenMenu(null);
-      }
-    })();
+    updateUserMutation.mutate({ id: user.id, suspended_at: user.suspended ? null : new Date().toISOString() }, {
+      onSuccess: (updated) => {
+        toast.success(`User ${updated.suspended_at ? "suspended" : "activated"} successfully`);
+      },
+      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Action failed")
+    });
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (isLoading) {
     return <SettingsSkeleton />;
   }
 
@@ -307,7 +224,7 @@ export default function SettingsPage() {
           {/* Role filter */}
           <CustomSelect
             value={roleF}
-            onChange={v => { setRoleF(v as any); setPage(1); }}
+            onChange={v => { setRoleF(v as UserRole | "all"); setPage(1); }}
             options={[
               { value: "all", label: "All Roles" },
               ...USER_ROLES.map(r => ({ value: r, label: ROLE_CONFIG[r].label })),
