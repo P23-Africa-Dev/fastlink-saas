@@ -3,6 +3,7 @@
 import React, { useRef, useState, useCallback } from "react";
 import { X, FileUp, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
 import { ModalButton } from "./ModalButton";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Drive { id: number; name: string; }
 interface Status { id: number; name: string; }
@@ -33,9 +34,8 @@ function isValid(file: File) {
   return ACCEPTED_TYPES.includes(file.type) || ACCEPTED_EXTENSIONS.includes(ext);
 }
 
-const inputCls  = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] font-medium outline-none focus:border-(--accent-purple) transition-colors";
-const labelCls  = "text-[13px] font-bold text-(--text-primary)";
-const selectCls = inputCls;
+const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] font-medium outline-none focus:border-(--accent-purple) transition-colors";
+const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +45,21 @@ export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModal
   const [fileError, setFileError]     = useState<string | null>(null);
   const [errorsOpen, setErrorsOpen]   = useState(false);
   const [result] = useState<ImportResult>({ imported: 0, skipped: 0, errors: [] });
+
+  const [impDriveId,   setImpDriveId]   = useState("");
+  const [impStatusId,  setImpStatusId]  = useState("");
+  const [impPriority,  setImpPriority]  = useState("");
+  const [impCurrency,  setImpCurrency]  = useState("");
+  const [impAssignTo,  setImpAssignTo]  = useState("");
+
+  const driveOptions    = [{ value: "", label: "Do not override" }, ...drives.map(d => ({ value: d.id.toString(), label: d.name }))];
+  const statusOptions   = [{ value: "", label: "Do not override" }, ...statuses.map(s => ({ value: s.id.toString(), label: s.name }))];
+  const priorityOptions = [
+    { value: "", label: "Do not override" },
+    ...PRIORITIES.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) })),
+  ];
+  const currencyOptions = [{ value: "", label: "Do not override" }, ...CURRENCIES.map(c => ({ value: c, label: c }))];
+  const assigneeOptions = [{ value: "", label: "Do not override" }, { value: "1", label: "Me" }];
 
   const handleFile = useCallback((f: File) => {
     if (!isValid(f)) {
@@ -164,38 +179,23 @@ export function ImportLeadsModal({ drives, statuses, onClose }: ImportLeadsModal
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "16px" }}>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Pipeline</label>
-              <select className={selectCls} style={{ padding: "10px 14px" }}>
-                <option value="">Do not override</option>
-                {drives.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <CustomSelect fullWidth value={impDriveId} onChange={setImpDriveId} options={driveOptions} searchPlaceholder="Search pipelines…" />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Status</label>
-              <select className={selectCls} style={{ padding: "10px 14px" }}>
-                <option value="">Do not override</option>
-                {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <CustomSelect fullWidth value={impStatusId} onChange={setImpStatusId} options={statusOptions} searchPlaceholder="Search statuses…" />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Priority</label>
-              <select className={selectCls} style={{ padding: "10px 14px" }}>
-                <option value="">Do not override</option>
-                {PRIORITIES.map(p => <option key={p} value={p} style={{ textTransform: "capitalize" }}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-              </select>
+              <CustomSelect fullWidth value={impPriority} onChange={setImpPriority} options={priorityOptions} searchPlaceholder="Search priorities…" />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className={labelCls}>Currency</label>
-              <select className={selectCls} style={{ padding: "10px 14px" }}>
-                <option value="">Do not override</option>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <CustomSelect fullWidth value={impCurrency} onChange={setImpCurrency} options={currencyOptions} searchPlaceholder="Search currency…" />
             </div>
             <div className="flex flex-col sm:col-span-2" style={{ gap: "8px" }}>
               <label className={labelCls}>Assign To</label>
-              <select className={selectCls} style={{ padding: "10px 14px" }}>
-                <option value="">Do not override</option>
-                <option value="1">Me</option>
-              </select>
+              <CustomSelect fullWidth value={impAssignTo} onChange={setImpAssignTo} options={assigneeOptions} searchPlaceholder="Search…" />
             </div>
           </div>
         </div>

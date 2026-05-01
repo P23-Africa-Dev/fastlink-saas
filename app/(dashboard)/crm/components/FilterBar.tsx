@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Search, LayoutGrid, List, Settings2 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Drive  { id: number; name: string; }
 
@@ -27,13 +28,24 @@ interface FilterBarProps {
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-const selectCls = "rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[13px] font-bold text-(--text-primary) outline-none focus:border-(--accent-purple) transition-colors cursor-pointer";
-
 export function FilterBar({
   drives, filters, totalLeads, viewMode,
   onFiltersChange, onViewChange, onManagePipelines, onManageStatuses,
 }: FilterBarProps) {
   const totalPages = Math.max(1, Math.ceil(totalLeads / filters.perPage));
+
+  const driveOptions    = drives.map(d => ({ value: d.id.toString(), label: d.name }));
+  const priorityOptions = [
+    { value: "", label: "All Priorities" },
+    { value: "high",   label: "High" },
+    { value: "normal", label: "Normal" },
+    { value: "low",    label: "Low" },
+  ];
+  const assigneeOptions = [
+    { value: "", label: "All Assignees" },
+    { value: "1", label: "Me" },
+  ];
+  const perPageOptions  = PER_PAGE_OPTIONS.map(n => ({ value: n.toString(), label: `${n} per page` }));
 
   return (
     <div className="flex flex-col" style={{ gap: "0" }}>
@@ -46,14 +58,12 @@ export function FilterBar({
 
           {/* Pipeline selector + gear */}
           <div className="flex items-center" style={{ gap: "4px" }}>
-            <select
-              value={filters.driveId}
-              onChange={e => onFiltersChange({ driveId: Number(e.target.value), page: 1 })}
-              className={selectCls}
-              style={{ padding: "9px 14px" }}
-            >
-              {drives.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <CustomSelect
+              value={filters.driveId.toString()}
+              onChange={v => onFiltersChange({ driveId: Number(v), page: 1 })}
+              options={driveOptions}
+              searchPlaceholder="Search pipelines…"
+            />
             <button
               onClick={onManagePipelines}
               title="Manage Pipelines"
@@ -77,38 +87,28 @@ export function FilterBar({
           </div>
 
           {/* Priority filter */}
-          <select
+          <CustomSelect
             value={filters.priority}
-            onChange={e => onFiltersChange({ priority: e.target.value, page: 1 })}
-            className={selectCls}
-            style={{ padding: "9px 14px" }}
-          >
-            <option value="">All Priorities</option>
-            <option value="high">High</option>
-            <option value="normal">Normal</option>
-            <option value="low">Low</option>
-          </select>
+            onChange={v => onFiltersChange({ priority: v, page: 1 })}
+            options={priorityOptions}
+            searchPlaceholder="Search priorities…"
+          />
 
           {/* Assigned To filter */}
-          <select
+          <CustomSelect
             value={filters.assignedTo}
-            onChange={e => onFiltersChange({ assignedTo: e.target.value, page: 1 })}
-            className={selectCls}
-            style={{ padding: "9px 14px" }}
-          >
-            <option value="">All Assignees</option>
-            <option value="1">Me</option>
-          </select>
+            onChange={v => onFiltersChange({ assignedTo: v, page: 1 })}
+            options={assigneeOptions}
+            searchPlaceholder="Search assignees…"
+          />
 
           {/* Per page */}
-          <select
-            value={filters.perPage}
-            onChange={e => onFiltersChange({ perPage: Number(e.target.value), page: 1 })}
-            className={selectCls}
-            style={{ padding: "9px 14px" }}
-          >
-            {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} per page</option>)}
-          </select>
+          <CustomSelect
+            value={filters.perPage.toString()}
+            onChange={v => onFiltersChange({ perPage: Number(v), page: 1 })}
+            options={perPageOptions}
+            searchPlaceholder="Search…"
+          />
         </div>
 
         {/* Right side: manage statuses + view toggle */}

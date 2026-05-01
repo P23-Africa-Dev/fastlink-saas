@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Plus, ListFilter, CalendarDays, Users, Clock, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 import { RequestCard }           from "./components/RequestCard";
 import { RequestDetailDrawer }   from "./components/RequestDetailDrawer";
@@ -161,8 +162,6 @@ export default function LeaveRequestsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none focus:border-[#33084E] transition-colors text-(--text-primary) placeholder:text-[#9ca3af]";
-
   return (
     <div className="flex flex-col w-full bg-[#f8f8fc] overflow-hidden" style={{ height: "calc(100vh - 75px)", padding: "32px", gap: "20px" }}>
 
@@ -229,17 +228,25 @@ export default function LeaveRequestsPage() {
         {/* Filters — hidden on calendar */}
         {view !== "calendar" && (
           <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
-            <select value={statusF} onChange={e => { setStatusF(e.target.value as any); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }}>
-              <option value="all">All Statuses</option>
-              {(Object.keys(STATUS_CONFIG) as LeaveStatus[]).map(s => (
-                <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-              ))}
-            </select>
+            <CustomSelect
+              value={statusF}
+              onChange={v => { setStatusF(v as any); setPage(1); }}
+              options={[
+                { value: "all", label: "All Statuses" },
+                ...(Object.keys(STATUS_CONFIG) as LeaveStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label })),
+              ]}
+              searchPlaceholder="Search statuses…"
+            />
 
-            <select value={typeF} onChange={e => { setTypeF(e.target.value as any); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }}>
-              <option value="all">All Types</option>
-              {LEAVE_TYPES.map(t => <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>)}
-            </select>
+            <CustomSelect
+              value={typeF}
+              onChange={v => { setTypeF(v as any); setPage(1); }}
+              options={[
+                { value: "all", label: "All Types" },
+                ...LEAVE_TYPES.map(t => ({ value: t, label: TYPE_CONFIG[t].label })),
+              ]}
+              searchPlaceholder="Search types…"
+            />
 
             <input type="date" value={fromF} onChange={e => { setFromF(e.target.value); setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="From" />
             <input type="date" value={toF}   onChange={e => { setToF(e.target.value);   setPage(1); }} className={inputCls} style={{ padding: "7px 10px" }} placeholder="To" />
@@ -303,14 +310,12 @@ export default function LeaveRequestsPage() {
               <div className="flex items-center justify-between bg-white rounded-2xl border border-[#f0f0f5] shrink-0" style={{ padding: "10px 18px" }}>
                 <div className="flex items-center" style={{ gap: "8px" }}>
                   <span className="text-[12px] text-[#9ca3af]">Rows:</span>
-                  <select
-                    value={perPage}
-                    onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
-                    className={inputCls}
-                    style={{ padding: "4px 8px" }}
-                  >
-                    {[6, 12, 24].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={perPage.toString()}
+                    onChange={v => { setPerPage(Number(v)); setPage(1); }}
+                    options={[6, 12, 24].map(n => ({ value: n.toString(), label: n.toString() }))}
+                    searchPlaceholder="Search…"
+                  />
                   <span className="text-[12px] text-[#9ca3af]">
                     {(page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}
                   </span>

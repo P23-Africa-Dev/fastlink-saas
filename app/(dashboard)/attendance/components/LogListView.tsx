@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Search, Filter, RotateCcw, Clock, FileText } from "lucide-react";
 import { AttendanceLog, STATUS_CONFIG, MOCK_TEAM } from "./types";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface LogListViewProps {
   logs: AttendanceLog[];
@@ -16,8 +17,6 @@ function fmt(iso: string | null) {
 function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", weekday: "short" });
 }
-
-const inputCls = "rounded-xl border border-[#f0f0f5] bg-white text-[12px] font-medium outline-none focus:border-[#33084E] transition-colors text-(--text-primary) placeholder:text-[#9ca3af]";
 
 export function LogListView({ logs }: LogListViewProps) {
   const [from,      setFrom]      = useState("");
@@ -69,29 +68,29 @@ export function LogListView({ logs }: LogListViewProps) {
           </div>
 
           {/* User filter */}
-          <select
-            value={userId}
-            onChange={e => setUserId(e.target.value === "all" ? "all" : Number(e.target.value))}
-            className={inputCls}
-            style={{ padding: "7px 10px" }}
-          >
-            <option value="all">All Members</option>
-            {MOCK_TEAM.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          <CustomSelect
+            value={userId === "all" ? "all" : userId.toString()}
+            onChange={v => setUserId(v === "all" ? "all" : Number(v))}
+            options={[
+              { value: "all", label: "All Members" },
+              ...MOCK_TEAM.map(m => ({ value: m.id.toString(), label: m.name })),
+            ]}
+            searchPlaceholder="Search members…"
+          />
 
           {/* Status filter */}
-          <select
+          <CustomSelect
             value={statusF}
-            onChange={e => setStatusF(e.target.value)}
-            className={inputCls}
-            style={{ padding: "7px 10px" }}
-          >
-            <option value="all">All Statuses</option>
-            <option value="present">Present</option>
-            <option value="absent">Absent</option>
-            <option value="late">Late</option>
-            <option value="half_day">Half Day</option>
-          </select>
+            onChange={setStatusF}
+            options={[
+              { value: "all",      label: "All Statuses" },
+              { value: "present",  label: "Present" },
+              { value: "absent",   label: "Absent" },
+              { value: "late",     label: "Late" },
+              { value: "half_day", label: "Half Day" },
+            ]}
+            searchPlaceholder="Search statuses…"
+          />
 
           {/* Reset */}
           <button

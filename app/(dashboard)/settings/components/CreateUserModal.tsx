@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Eye, EyeOff, UserPlus } from "lucide-react";
 import { ModalButton } from "../../crm/components/ModalButton";
 import { UserRole, USER_ROLES, ROLE_CONFIG } from "./types";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface CreateUserModalProps {
   onClose:  () => void;
@@ -157,15 +158,16 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">
                 Department <span className="normal-case font-medium">(optional)</span>
               </label>
-              <select
+              <CustomSelect
+                fullWidth
                 value={department}
-                onChange={e => setDepartment(e.target.value)}
-                className={inputCls}
-                style={{ padding: "11px 14px" }}
-              >
-                <option value="">Select department…</option>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+                onChange={setDepartment}
+                options={[
+                  { value: "", label: "Select department…" },
+                  ...DEPARTMENTS.map(d => ({ value: d, label: d })),
+                ]}
+                searchPlaceholder="Search departments…"
+              />
             </div>
           </div>
         </div>
