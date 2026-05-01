@@ -8,15 +8,16 @@ use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Models\Task;
 use App\Models\TaskComment;
+use App\Notifications\TaskAssignedNotification;
 use App\Services\TaskBoardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
+use Throwable;
 
 class TaskController extends Controller
 {
-    public function __construct(private readonly TaskBoardService $taskBoardService)
-    {
-    }
+    public function __construct(private readonly TaskBoardService $taskBoardService) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -29,9 +30,9 @@ class TaskController extends Controller
                         ->orWhere('description', 'like', "%{$q}%");
                 });
             })
-            ->when($request->filled('project_id'), fn ($builder) => $builder->where('project_id', (int) $request->input('project_id')))
-            ->when($request->filled('status'), fn ($builder) => $builder->where('status', $request->string('status')))
-            ->when($request->filled('priority'), fn ($builder) => $builder->where('priority', $request->string('priority')))
+            ->when($request->filled('project_id'), fn($builder) => $builder->where('project_id', (int) $request->input('project_id')))
+            ->when($request->filled('status'), fn($builder) => $builder->where('status', $request->string('status')))
+            ->when($request->filled('priority'), fn($builder) => $builder->where('priority', $request->string('priority')))
             ->orderBy('order')
             ->orderByDesc('id');
 
@@ -50,8 +51,15 @@ class TaskController extends Controller
         $task = Task::create($payload);
 
         if (!empty($assigneeIds)) {
-            $syncData = collect($assigneeIds)->mapWithKeys(fn (int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
+            $syncData = collect($assigneeIds)->mapWithKeys(fn(int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
             $task->assignees()->sync($syncData);
+
+            try {
+                $task->loadMissing(['project:id,name', 'assignees:id,name,email']);
+                Notification::send($task->assignees, new TaskAssignedNotification($task, $request->user()));
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         return $this->success($task->load(['project:id,name', 'assignees:id,name,email']), 'Task created.', 201);
@@ -83,7 +91,7 @@ class TaskController extends Controller
         $task->update($payload);
 
         if (is_array($assigneeIds)) {
-            $syncData = collect($assigneeIds)->mapWithKeys(fn (int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
+            $syncData = collect($assigneeIds)->mapWithKeys(fn(int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
             $task->assignees()->sync($syncData);
         }
 
@@ -136,7 +144,7 @@ class TaskController extends Controller
             'assignee_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
-        $syncData = collect($payload['assignee_ids'])->mapWithKeys(fn (int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
+        $syncData = collect($payload['assignee_ids'])->mapWithKeys(fn(int $id) => [$id => ['assigned_by' => $request->user()->id]])->all();
         $task->assignees()->sync($syncData);
 
         return $this->success($task->fresh()->load('assignees:id,name,email'), 'Task assignees updated.');

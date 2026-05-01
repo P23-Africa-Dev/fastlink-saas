@@ -41,7 +41,15 @@ Route::prefix('v1')->group(function () {
             ->name('api.dashboard.stats');
 
         // User management
-        Route::apiResource('users', UserController::class)
+        Route::get('/users', [UserController::class, 'index'])
+            ->middleware('role:admin');
+        Route::post('/users', [UserController::class, 'store'])
+            ->middleware('role:admin|supervisor');
+        Route::get('/users/{user}', [UserController::class, 'show'])
+            ->middleware('role:admin');
+        Route::patch('/users/{user}', [UserController::class, 'update'])
+            ->middleware('role:admin');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])
             ->middleware('role:admin');
 
         // CRM: drives and statuses
@@ -146,5 +154,4 @@ Route::prefix('v1')->group(function () {
         Route::post('/leave-requests/{leaveRequest}/respond', [LeaveRequestController::class, 'respond'])
             ->middleware('role:admin|supervisor|staff');
     });
-
 });

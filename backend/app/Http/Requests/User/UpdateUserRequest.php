@@ -21,7 +21,7 @@ class UpdateUserRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
+            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($userId)],
             'password' => ['sometimes', 'string', 'min:8', 'max:255'],
             'role' => ['sometimes', 'string', Rule::in(['admin', 'supervisor', 'staff'])],
             'suspended' => ['sometimes', 'boolean'],

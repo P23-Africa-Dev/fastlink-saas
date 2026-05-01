@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
+use App\Notifications\UserAccountCreatedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -36,13 +40,45 @@ class UserController extends Controller
     {
         $payload = $request->validated();
 
-        $user = User::create([
-            'name' => $payload['name'],
-            'email' => $payload['email'],
-            'password' => Hash::make($payload['password']),
-        ]);
+        if ($request->user()?->hasRole('supervisor') && $payload['role'] === 'admin') {
+            return $this->error('Supervisors cannot create admin accounts.', 403);
+        }
 
-        $user->syncRoles([$payload['role']]);
+        $temporaryPassword = Str::password(12, letters: true, numbers: true, symbols: false);
+
+        /** @var User $user */
+        $user = DB::transaction(function () use ($payload, $temporaryPassword) {
+            $existing = User::withTrashed()->where('email', $payload['email'])->first();
+
+            if ($existing && $existing->trashed()) {
+                $existing->restore();
+                $existing->update([
+                    'name' => $payload['name'],
+                    'password' => Hash::make($temporaryPassword),
+                    'suspended_at' => null,
+                ]);
+
+                $existing->syncRoles([$payload['role']]);
+
+                return $existing;
+            }
+
+            $created = User::create([
+                'name' => $payload['name'],
+                'email' => $payload['email'],
+                'password' => Hash::make($temporaryPassword),
+            ]);
+
+            $created->syncRoles([$payload['role']]);
+
+            return $created;
+        });
+
+        try {
+            $user->notify(new UserAccountCreatedNotification($temporaryPassword));
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return $this->success($user->load('roles:id,name'), 'User created.', 201);
     }
