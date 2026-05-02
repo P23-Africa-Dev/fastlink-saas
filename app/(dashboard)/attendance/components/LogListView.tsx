@@ -126,7 +126,7 @@ export function LogListView({ logs, teamMembers }: LogListViewProps) {
           </thead>
           <tbody>
             {filtered.map((log, i) => {
-              const cfg = STATUS_CONFIG[log.status];
+              const cfg = STATUS_CONFIG[log.status] || { label: log.status, color: "#6b7280", bg: "#f3f4f6", dot: "#9ca3af" };
               return (
                 <tr
                   key={log.id}

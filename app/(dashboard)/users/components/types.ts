@@ -84,19 +84,27 @@ export const TEAM_MEMBERS = [
 
 export function countDays(start: string, end: string): number {
   if (!start || !end) return 0;
-  const diff = new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime();
+  const s = start.includes("T") ? start.split("T")[0] : start;
+  const e = end.includes("T") ? end.split("T")[0] : end;
+  const diff = new Date(e + "T00:00:00").getTime() - new Date(s + "T00:00:00").getTime();
   return Math.max(1, Math.round(diff / 86400000) + 1);
 }
 
 export function fmtDate(d: string) {
   if (!d) return "—";
-  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const dateStr = d.includes("T") ? d.split("T")[0] : d;
+  const parsed = new Date(dateStr + "T00:00:00");
+  if (isNaN(parsed.getTime())) return "Invalid Date";
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function fmtDateRange(start: string, end: string) {
   if (!start || !end) return "—";
-  const s = new Date(start + "T00:00:00");
-  const e = new Date(end + "T00:00:00");
+  const sStr = start.includes("T") ? start.split("T")[0] : start;
+  const eStr = end.includes("T") ? end.split("T")[0] : end;
+  const s = new Date(sStr + "T00:00:00");
+  const e = new Date(eStr + "T00:00:00");
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return "Invalid Date";
   const so = s.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const eo = e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return `${so} – ${eo}`;

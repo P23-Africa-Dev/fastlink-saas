@@ -102,7 +102,7 @@ export default function SettingsPage() {
     const q = search.toLowerCase();
     return users.filter(u => {
       if (roleF !== "all" && u.role !== roleF) return false;
-      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q) && !(u.department ?? "").toLowerCase().includes(q)) return false;
+      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q) /* && !(u.department ?? "").toLowerCase().includes(q) */) return false;
       return true;
     });
   }, [users, search, roleF]);
@@ -121,7 +121,7 @@ export default function SettingsPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const handleCreate = (data: { name: string; email: string; password: string; role: UserRole; department?: string }) => {
+  const handleCreate = (data: { name: string; email: string; /* password: string; */ role: UserRole; /* department?: string */ }) => {
     createUserMutation.mutate(data, {
       onSuccess: () => {
         setShowCreate(false);
@@ -131,7 +131,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleEdit = (data: { name: string; role: UserRole; suspended: boolean; department?: string }) => {
+  const handleEdit = (data: { name: string; role: UserRole; suspended: boolean; /* department?: string */ }) => {
     if (!editing) return;
     updateUserMutation.mutate({ id: editing.id, ...data }, {
       onSuccess: () => {
@@ -302,7 +302,7 @@ export default function SettingsPage() {
               <table className="w-full border-collapse" style={{ minWidth: "600px" }}>
                 <thead>
                   <tr className="bg-[#f8f8fc] border-b border-[#f0f0f5]">
-                    {["Member", "Role", "Department", "Status", "Joined", "Last Active", ""].map(h => (
+                    {["Member", "Role", "Status", "Joined", "Last Active", ""].map(h => (
                       <th key={h} className="text-left text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider" style={{ padding: "10px 16px" }}>{h}</th>
                     ))}
                   </tr>
@@ -333,9 +333,9 @@ export default function SettingsPage() {
                             {roleCfg.label}
                           </span>
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
+                        {/* <td style={{ padding: "12px 16px" }}>
                           <span className="text-[12px] text-[#6b7280]">{user.department ?? "—"}</span>
-                        </td>
+                        </td> */}
                         <td style={{ padding: "12px 16px" }}>
                           <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: user.suspended ? "#fee2e2" : "#dcfce7", color: user.suspended ? "#991b1b" : "#074616" }}>
                             <span className="rounded-full" style={{ width: "5px", height: "5px", background: user.suspended ? "#dc2626" : "#16a34a" }} />

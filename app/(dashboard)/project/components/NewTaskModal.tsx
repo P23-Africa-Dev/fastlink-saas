@@ -1,33 +1,34 @@
 "use client";
 
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, Plus, Minus, PlusCircle } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface NewTaskModalProps {
-  projects:       Project[];
+  projects: Project[];
   defaultStatus?: TaskStatus;
   defaultProject?: number;
-  onClose:        () => void;
-  onSave:         (data: Omit<Task, "id">) => void;
+  onClose: () => void;
+  onSave: (data: Omit<Task, "id">) => void;
 }
 
 const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
-const PRIORITIES: Priority[]      = ["low", "normal", "high"];
+const PRIORITIES: Priority[] = ["low", "normal", "high"];
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject, onClose, onSave }: NewTaskModalProps) {
-  const [title,       setTitle]      = useState("");
-  const [description, setDesc]       = useState("");
-  const [projectId,   setProjectId]  = useState<number>(defaultProject ?? (projects[0]?.id ?? 0));
-  const [status,      setStatus]     = useState<TaskStatus>(defaultStatus);
-  const [priority,    setPriority]   = useState<Priority>("normal");
-  const [startDate,   setStartDate]  = useState("");
-  const [dueDate,     setDueDate]    = useState("");
-  const [assignees,   setAssignees]  = useState<number[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDesc] = useState("");
+  const [projectId, setProjectId] = useState<number>(defaultProject ?? (projects[0]?.id ?? 0));
+  const [status, setStatus] = useState<TaskStatus>(defaultStatus);
+  const [priority, setPriority] = useState<Priority>("normal");
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [assignees, setAssignees] = useState<number[]>([]);
+  const [extraDescs, setExtraDescs] = useState<string[]>([]);
 
   const toggleAssignee = (id: number) =>
     setAssignees(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
@@ -57,7 +58,53 @@ export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject,
 
           <div className="flex flex-col" style={{ gap: "8px" }}>
             <label className={labelCls}>Description</label>
-            <textarea rows={3} value={description} onChange={e => setDesc(e.target.value)} placeholder="Task details, acceptance criteria…" className={`${inputCls} resize-none`} style={{ padding: "12px 16px" }} />
+            <div className="flex flex-col" style={{ gap: "10px" }}>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={e => setDesc(e.target.value)}
+                placeholder="Task details, acceptance criteria…"
+                className={`${inputCls} resize-none`}
+                style={{ padding: "12px 16px" }}
+              />
+
+              {/* Extra descriptions */}
+              {extraDescs.map((desc, idx) => (
+                <div key={idx} className="relative group animate-in slide-in-from-top-2 duration-200">
+                  <textarea
+                    rows={2}
+                    value={desc}
+                    onChange={e => {
+                      const next = [...extraDescs];
+                      next[idx] = e.target.value;
+                      setExtraDescs(next);
+                    }}
+                    placeholder="Capture more nuances or specific details…"
+                    className={`${inputCls} resize-none pr-10`}
+                    style={{ padding: "12px 16px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setExtraDescs(prev => prev.filter((_, i) => i !== idx))}
+                    className="absolute right-3 top-3 text-[#9ca3af] hover:text-red-500 transition-colors"
+                  >
+                    <Minus size={16} />
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setExtraDescs(prev => [...prev, ""])}
+                className="flex items-center gap-2 text-[12px] font-bold text-[#33084E] hover:text-[#4d0b75] transition-all w-fit group cursor-pointer"
+                style={{ marginTop: "2px" }}
+              >
+                <div className="w-5 h-5 rounded-full bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                  <Plus size={12} />
+                </div>
+                <span>For multiple task, click here</span>
+              </button>
+            </div>
           </div>
 
           {/* Project */}
