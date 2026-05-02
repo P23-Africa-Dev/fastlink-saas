@@ -3,7 +3,7 @@ import { useAuthStore } from "./stores/authStore";
 
 const rawBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "https://api-fastlink.p23africa.com/public/api/v1";
+  "https://api-fastlink.p23africa.com/api/v1";
 
 const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, "");
 
