@@ -5,11 +5,11 @@ import { LogIn, LogOut, Clock, CheckCircle2, Calendar } from "lucide-react";
 import { TodayState } from "./types";
 
 interface TodayHeroCardProps {
-  state:       TodayState;
-  signInTime:  string | null;
+  state: TodayState;
+  signInTime: string | null;
   signOutTime: string | null;
-  onSignIn:    () => void;
-  onSignOut:   () => void;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }
 
 function fmt(iso: string | null) {
@@ -31,9 +31,9 @@ function calcHours(signInISO: string, signOutISO: string) {
 }
 
 export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSignOut }: TodayHeroCardProps) {
-  const [clock, setClock]   = useState(new Date());
-  const [live,  setLive]    = useState("00:00:00");
-  const [now,   setNow]     = useState(() => Date.now());
+  const [clock, setClock] = useState(new Date());
+  const [live, setLive] = useState("00:00:00");
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -49,9 +49,9 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
   const timeStr = clock.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   const statusBadge = {
-    idle:       { label: "Not Clocked In", color: "#9ca3af",  bg: "#f3f4f6"  },
-    signed_in:  { label: "Clocked In",     color: "#074616",  bg: "#dcfce7"  },
-    signed_out: { label: "Clocked Out",    color: "#AF580B",  bg: "#fef3c7"  },
+    idle: { label: "Not Clocked In", color: "#9ca3af", bg: "#f3f4f6" },
+    signed_in: { label: "Clocked In", color: "#074616", bg: "#dcfce7" },
+    signed_out: { label: "Clocked Out", color: "#AF580B", bg: "#fef3c7" },
   }[state];
 
   return (
@@ -132,9 +132,19 @@ export function TodayHeroCard({ state, signInTime, signOutTime, onSignIn, onSign
             </button>
           )}
           {state === "signed_out" && (
-            <div className="inline-flex items-center rounded-xl text-[13px] font-bold" style={{ padding: "10px 22px", gap: "8px", background: "#dcfce7", color: "#074616" }}>
-              <CheckCircle2 size={15} /> Day Complete
-            </div>
+            <button
+              disabled
+              className="inline-flex items-center rounded-xl text-[13px] font-bold"
+              style={{
+                padding: "10px 22px",
+                gap: "8px",
+                background: "#f3f4f6",
+                color: "#6b7280",
+                cursor: "not-allowed",
+              }}
+            >
+              <CheckCircle2 size={15} /> Clock In (Tomorrow)
+            </button>
           )}
         </div>
       </div>

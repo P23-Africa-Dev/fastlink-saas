@@ -13,18 +13,18 @@ use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
 {
-    public function __construct(private readonly AttendanceService $attendanceService)
-    {
-    }
+    public function __construct(private readonly AttendanceService $attendanceService) {}
 
     public function index(Request $request): JsonResponse
     {
+        $this->attendanceService->autoClockOutOverdue();
+
         $user = $request->user();
 
         $query = Attendance::query()
             ->with('user:id,name,email')
-            ->when($request->filled('from'), fn ($builder) => $builder->whereDate('date', '>=', $request->string('from')))
-            ->when($request->filled('to'), fn ($builder) => $builder->whereDate('date', '<=', $request->string('to')))
+            ->when($request->filled('from'), fn($builder) => $builder->whereDate('date', '>=', $request->string('from')))
+            ->when($request->filled('to'), fn($builder) => $builder->whereDate('date', '<=', $request->string('to')))
             ->orderByDesc('date');
 
         if ($user->hasRole('staff')) {
@@ -40,6 +40,8 @@ class AttendanceController extends Controller
 
     public function signIn(SignInRequest $request): JsonResponse
     {
+        $this->attendanceService->autoClockOutOverdue();
+
         $attendance = $this->attendanceService->signIn(
             $request->user(),
             $request->string('note')->toString() ?: null,
@@ -51,6 +53,8 @@ class AttendanceController extends Controller
 
     public function signOut(SignOutRequest $request): JsonResponse
     {
+        $this->attendanceService->autoClockOutOverdue();
+
         $attendance = $this->attendanceService->signOut(
             $request->user(),
             $request->string('note')->toString() ?: null,
@@ -62,6 +66,8 @@ class AttendanceController extends Controller
 
     public function calendar(Request $request): JsonResponse
     {
+        $this->attendanceService->autoClockOutOverdue();
+
         $month = $request->filled('month')
             ? Carbon::createFromFormat('Y-m', (string) $request->input('month'))
             : now();

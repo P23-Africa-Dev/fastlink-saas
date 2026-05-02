@@ -132,10 +132,15 @@ export interface Task {
   description: string | null;
   status: "todo" | "in_progress" | "review" | "done";
   priority: "low" | "medium" | "high" | "urgent" | "normal";
+  start_date: string | null;
   due_date: string | null;
   assigned_to: number | null;
   created_at: string;
   updated_at: string;
+  project?: {
+    id: number;
+    name: string;
+  } | null;
   user?: User;
 }
 
@@ -159,6 +164,13 @@ export interface Attendance {
   created_at: string;
   updated_at: string;
   user?: User;
+}
+
+export interface AttendanceCalendarPayload {
+  month: string;
+  attendances: Attendance[];
+  leave_requests: LeaveRequest[];
+  tasks: Task[];
 }
 
 // ─── Leave Requests ────────────────────────────────────────────────────────

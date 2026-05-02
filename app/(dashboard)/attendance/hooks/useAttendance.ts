@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Attendance, LeaveRequest, User } from "@/lib/types";
+import type { ApiResponse, Attendance, AttendanceCalendarPayload, LeaveRequest, User } from "@/lib/types";
 
 export function useAttendance(filters: { startDate?: string; endDate?: string; userId?: number }) {
   return useQuery({
@@ -8,10 +8,25 @@ export function useAttendance(filters: { startDate?: string; endDate?: string; u
     queryFn: async () => {
       const res = await api.get<ApiResponse<Attendance[]>>("/attendance", {
         params: {
-          start_date: filters.startDate,
-          end_date: filters.endDate,
+          from: filters.startDate,
+          to: filters.endDate,
           user_id: filters.userId,
           per_page: 100,
+        },
+      });
+      return res.data.data;
+    },
+  });
+}
+
+export function useAttendanceCalendar(params: { month: string; userId?: number }) {
+  return useQuery({
+    queryKey: ["attendance-calendar", params],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<AttendanceCalendarPayload>>("/attendance/calendar", {
+        params: {
+          month: params.month,
+          user_id: params.userId,
         },
       });
       return res.data.data;

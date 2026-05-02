@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { CalendarDays, List } from "lucide-react";
-import api from "@/lib/api";
-import type { ApiResponse, Attendance as ApiAttendance } from "@/lib/types";
+import type { Attendance as ApiAttendance } from "@/lib/types";
 import { useAttendance, useSignIn, useSignOut } from "./hooks/useAttendance";
 import { useAuthStore } from "@/lib/stores/authStore";
 
@@ -46,7 +45,7 @@ function nextMonth(m: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function buildCalendarDays(logs: AttendanceLog[], month: string): CalendarDay[] {
+function buildCalendarDays(logs: AttendanceLog[], month: string, userId: number): CalendarDay[] {
   const [y, mo] = month.split("-").map(Number);
   const daysInMo = new Date(y, mo, 0).getDate();
   const today = todayStr();
@@ -54,16 +53,24 @@ function buildCalendarDays(logs: AttendanceLog[], month: string): CalendarDay[] 
 
   for (let d = 1; d <= daysInMo; d++) {
     const dateStr = `${month}-${String(d).padStart(2, "0")}`;
-    const log = logs.find(l => l.date === dateStr && l.user_id === 1);
+    const log = logs.find(l => l.date === dateStr && l.user_id === userId);
     const dow = new Date(dateStr + "T00:00:00").getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isPastOrToday = dateStr <= today;
+
+    let status = log?.status ?? null;
+    if (!log && isPastOrToday && !isWeekend) {
+      status = "absent";
+    }
+
     result.push({
       date: dateStr,
-      status: log?.status ?? null,
+      status,
       sign_in: log?.sign_in ?? null,
       sign_out: log?.sign_out ?? null,
       hours: log?.hours ?? null,
       is_today: dateStr === today,
-      is_weekend: dow === 0 || dow === 6,
+      is_weekend: isWeekend,
     });
   }
   return result;
@@ -107,7 +114,7 @@ function mapAttendance(raw: ApiAttendance): AttendanceLog {
     user_id: raw.user_id,
     user_name: userName,
     user_initials: initialsFromName(userName),
-    date: raw.date.split("T")[0],
+    date: String(raw.date).split("T")[0],
     sign_in: raw.signed_in_at,
     sign_out: raw.signed_out_at,
     hours,
@@ -116,12 +123,14 @@ function mapAttendance(raw: ApiAttendance): AttendanceLog {
   };
 }
 
-function computeStats(logs: AttendanceLog[], userId = 1): SummaryStats {
-  const myLogs = logs.filter(l => l.user_id === userId);
-  const present = myLogs.filter(l => l.status === "present" || l.status === "late" || l.status === "half_day").length;
-  const absent = myLogs.filter(l => l.status === "absent").length;
-  const late = myLogs.filter(l => l.status === "late").length;
-  const hoursArr = myLogs.filter(l => l.hours != null).map(l => l.hours!);
+function computeStats(days: CalendarDay[]): SummaryStats {
+  const today = todayStr();
+  const completedWorkDays = days.filter((d) => d.date <= today && !d.is_weekend);
+
+  const present = completedWorkDays.filter((d) => d.status === "present" || d.status === "late" || d.status === "half_day").length;
+  const absent = completedWorkDays.filter((d) => d.status === "absent").length;
+  const late = completedWorkDays.filter((d) => d.status === "late").length;
+  const hoursArr = completedWorkDays.filter((d) => d.hours != null).map((d) => d.hours as number);
   const avg_hours = hoursArr.length ? hoursArr.reduce((a, b) => a + b, 0) / hoursArr.length : 0;
   return { present, absent, late, avg_hours };
 }
@@ -179,8 +188,8 @@ export default function AttendancePage() {
   const signOutTime = todayLog?.sign_out ?? null;
 
 
-  const calendarDays = useMemo(() => buildCalendarDays(logs, month), [logs, month]);
-  const stats = useMemo(() => computeStats(logs, userId), [logs, userId]);
+  const calendarDays = useMemo(() => buildCalendarDays(logs, month, userId), [logs, month, userId]);
+  const stats = useMemo(() => computeStats(calendarDays), [calendarDays]);
 
   // ── Sign-in handler ──────────────────────────────────────────────────────
   const handleSignIn = (note: string) => {
