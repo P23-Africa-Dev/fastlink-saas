@@ -16,6 +16,7 @@ export interface User {
   email: string;
   roles?: UserRole[];
   suspended_at?: string | null;
+  first_logged_in_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -7,20 +7,21 @@ import { User, UserRole, USER_ROLES, ROLE_CONFIG } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface EditUserModalProps {
-  user:     User;
-  onClose:  () => void;
-  onSave:   (data: { name: string; role: UserRole; suspended: boolean; department?: string }) => void;
+  user: User;
+  allowedRoles?: UserRole[];
+  onClose: () => void;
+  onSave: (data: { name: string; role: UserRole; suspended: boolean; department?: string }) => void;
 }
 
 const DEPARTMENTS = ["Engineering", "Operations", "Sales", "Marketing", "Design", "Support", "Product", "Finance"];
 
-export function EditUserModal({ user, onClose, onSave }: EditUserModalProps) {
-  const [name,       setName]       = useState(user.name);
-  const [role,       setRole]       = useState<UserRole>(user.role);
-  const [suspended,  setSuspended]  = useState(user.suspended);
+export function EditUserModal({ user, allowedRoles = USER_ROLES, onClose, onSave }: EditUserModalProps) {
+  const [name, setName] = useState(user.name);
+  const [role, setRole] = useState<UserRole>(user.role);
+  const [suspended, setSuspended] = useState(user.suspended);
   const [department, setDepartment] = useState(user.department ?? "");
 
-  const valid   = name.trim().length > 0;
+  const valid = name.trim().length > 0;
   const changed = name !== user.name || role !== user.role || suspended !== user.suspended || department !== (user.department ?? "");
 
   const inputCls = "w-full rounded-xl border border-[#f0f0f5] text-[13px] font-medium outline-none focus:border-[#33084E] transition-colors placeholder:text-[#9ca3af] text-(--text-primary)";
@@ -83,8 +84,8 @@ export function EditUserModal({ user, onClose, onSave }: EditUserModalProps) {
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Role</label>
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-                {USER_ROLES.map((r, i) => {
-                  const cfg    = ROLE_CONFIG[r];
+                {allowedRoles.map((r, i) => {
+                  const cfg = ROLE_CONFIG[r];
                   const active = role === r;
                   return (
                     <button

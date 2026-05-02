@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, LayoutGrid, List, RotateCcw, ChevronLeft, ChevronRight, Users, Shield, UserCheck, UserX } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import type { User as ApiUser } from "@/lib/types";
+import { useAuthStore } from "@/lib/stores/authStore";
 import { SettingsSkeleton } from "@/components/SettingsSkeleton";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "./hooks/useUsers";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ function mapUser(raw: ApiUser): User {
     email: raw.email,
     role: roleName,
     suspended: Boolean(raw.suspended_at),
+    pending_first_login: !raw.first_logged_in_at,
     created_at: raw.created_at ?? "",
     initials: initialsFromName(raw.name),
     color: colorFromId(raw.id),
@@ -59,6 +61,19 @@ function mapUser(raw: ApiUser): User {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const currentUser = useAuthStore((s) => s.user);
+
+  const isAdmin = Boolean(currentUser?.roles?.some((r) => r.name === "admin"));
+  const isSupervisor = Boolean(currentUser?.roles?.some((r) => r.name === "supervisor"));
+
+  const canCreateUsers = isAdmin || isSupervisor;
+
+  const canManageUser = (target: User) => {
+    if (isAdmin) return true;
+    if (isSupervisor) return target.role === "staff";
+    return false;
+  };
+
   const [search, setSearch] = useState("");
   const [roleF, setRoleF] = useState<UserRole | "all">("all");
   const [layout, setLayout] = useState<Layout>("list");
@@ -133,6 +148,11 @@ export default function SettingsPage() {
 
   const handleEdit = (data: { name: string; role: UserRole; suspended: boolean; /* department?: string */ }) => {
     if (!editing) return;
+    if (!canManageUser(editing)) {
+      toast.error("You do not have permission to edit this account");
+      return;
+    }
+
     updateUserMutation.mutate({ id: editing.id, ...data }, {
       onSuccess: () => {
         setEditing(null);
@@ -144,6 +164,11 @@ export default function SettingsPage() {
 
   const handleDelete = () => {
     if (!deleting) return;
+    if (!canManageUser(deleting)) {
+      toast.error("You do not have permission to delete this account");
+      return;
+    }
+
     deleteUserMutation.mutate(deleting.id, {
       onSuccess: () => {
         setDeleting(null);
@@ -154,7 +179,12 @@ export default function SettingsPage() {
   };
 
   const handleToggleSuspend = (user: User) => {
-    updateUserMutation.mutate({ id: user.id, suspended_at: user.suspended ? null : new Date().toISOString() }, {
+    if (!canManageUser(user)) {
+      toast.error("You do not have permission to suspend this account");
+      return;
+    }
+
+    updateUserMutation.mutate({ id: user.id, suspended: !user.suspended }, {
       onSuccess: (updated) => {
         toast.success(`User ${updated.suspended_at ? "suspended" : "activated"} successfully`);
       },
@@ -177,13 +207,15 @@ export default function SettingsPage() {
           <h1 className="text-[22px] font-bold text-(--text-primary)">User Management</h1>
           <p className="text-[13px] text-[#9ca3af]">Manage team members, roles, and account access.</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center rounded-xl text-[13px] font-bold text-white transition-all hover:opacity-90"
-          style={{ padding: "10px 18px", gap: "7px", background: "#33084E" }}
-        >
-          <Plus size={15} /> Create User
-        </button>
+        {canCreateUsers && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center rounded-xl text-[13px] font-bold text-white transition-all hover:opacity-90"
+            style={{ padding: "10px 18px", gap: "7px", background: "#33084E" }}
+          >
+            <Plus size={15} /> Create User
+          </button>
+        )}
       </div>
 
       {/* ── Stats strip ──────────────────────────────────────────────────────── */}
@@ -276,9 +308,11 @@ export default function SettingsPage() {
               </div>
               <p className="text-[15px] font-bold text-(--text-primary)">No users found</p>
               <p className="text-[13px] text-[#9ca3af]">Try adjusting your search or filters, or add a new user.</p>
-              <button onClick={() => setShowCreate(true)} className="inline-flex items-center rounded-xl text-[13px] font-bold text-white" style={{ padding: "9px 18px", gap: "6px", background: "#33084E" }}>
-                <Plus size={13} /> Create User
-              </button>
+              {canCreateUsers && (
+                <button onClick={() => setShowCreate(true)} className="inline-flex items-center rounded-xl text-[13px] font-bold text-white" style={{ padding: "9px 18px", gap: "6px", background: "#33084E" }}>
+                  <Plus size={13} /> Create User
+                </button>
+              )}
             </div>
           ) : layout === "grid" ? (
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: "14px" }}>
@@ -287,9 +321,18 @@ export default function SettingsPage() {
                   key={user.id}
                   user={user}
                   onClick={() => setSelected(user)}
-                  onEdit={() => { setEditing(user); setOpenMenu(null); }}
-                  onDelete={() => { setDeleting(user); setOpenMenu(null); }}
+                  onEdit={() => {
+                    if (!canManageUser(user)) return;
+                    setEditing(user);
+                    setOpenMenu(null);
+                  }}
+                  onDelete={() => {
+                    if (!canManageUser(user)) return;
+                    setDeleting(user);
+                    setOpenMenu(null);
+                  }}
                   onToggleSuspend={() => handleToggleSuspend(user)}
+                  canManage={canManageUser(user)}
                   menuOpen={openMenu === user.id}
                   onMenuToggle={e => { e.stopPropagation(); setOpenMenu(prev => prev === user.id ? null : user.id); }}
                   menuRef={openMenu === user.id ? menuRef : { current: null }}
@@ -337,10 +380,26 @@ export default function SettingsPage() {
                           <span className="text-[12px] text-[#6b7280]">{user.department ?? "—"}</span>
                         </td> */}
                         <td style={{ padding: "12px 16px" }}>
-                          <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: user.suspended ? "#fee2e2" : "#dcfce7", color: user.suspended ? "#991b1b" : "#074616" }}>
-                            <span className="rounded-full" style={{ width: "5px", height: "5px", background: user.suspended ? "#dc2626" : "#16a34a" }} />
-                            {user.suspended ? "Suspended" : "Active"}
-                          </span>
+                          {user.suspended ? (
+                            <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: "#fee2e2", color: "#991b1b" }}>
+                              <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#dc2626" }} />
+                              Suspended
+                            </span>
+                          ) : user.pending_first_login ? (
+                            <span
+                              title="User has not made their first login yet"
+                              className="inline-flex items-center rounded-full text-[11px] font-bold"
+                              style={{ padding: "3px 10px", gap: "4px", background: "#fef3c7", color: "#AF580B" }}
+                            >
+                              <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#d97706" }} />
+                              Pending
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: "#dcfce7", color: "#074616" }}>
+                              <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#16a34a" }} />
+                              Active
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span className="text-[12px] text-[#6b7280]">{fmtDate(user.created_at)}</span>
@@ -349,10 +408,14 @@ export default function SettingsPage() {
                           <span className="text-[12px] font-medium text-[#374151]">{user.last_active ? new Date(user.last_active).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
                         </td>
                         <td style={{ padding: "12px 16px" }} onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center" style={{ gap: "4px" }}>
-                            <button onClick={() => setEditing(user)} className="rounded-lg border border-[#f0f0f5] text-[11px] font-bold text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple) transition-all" style={{ padding: "4px 10px" }}>Edit</button>
-                            <button onClick={() => setDeleting(user)} className="rounded-lg border border-[#f0f0f5] text-[11px] font-bold text-red-400 hover:border-red-300 hover:bg-red-50 transition-all" style={{ padding: "4px 10px" }}>Delete</button>
-                          </div>
+                          {canManageUser(user) ? (
+                            <div className="flex items-center" style={{ gap: "4px" }}>
+                              <button onClick={() => setEditing(user)} className="rounded-lg border border-[#f0f0f5] text-[11px] font-bold text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple) transition-all" style={{ padding: "4px 10px" }}>Edit</button>
+                              <button onClick={() => setDeleting(user)} className="rounded-lg border border-[#f0f0f5] text-[11px] font-bold text-red-400 hover:border-red-300 hover:bg-red-50 transition-all" style={{ padding: "4px 10px" }}>Delete</button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-[#9ca3af]">View only</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -395,9 +458,16 @@ export default function SettingsPage() {
       {selected && !editing && !deleting && (
         <UserDetailDrawer
           user={selected}
+          canManage={canManageUser(selected)}
           onClose={() => setSelected(null)}
-          onEdit={() => { setEditing(selected); }}
-          onDelete={() => { setDeleting(selected); }}
+          onEdit={() => {
+            if (!canManageUser(selected)) return;
+            setEditing(selected);
+          }}
+          onDelete={() => {
+            if (!canManageUser(selected)) return;
+            setDeleting(selected);
+          }}
           onToggleSuspend={() => handleToggleSuspend(selected)}
         />
       )}
@@ -405,6 +475,7 @@ export default function SettingsPage() {
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
+          allowedRoles={isSupervisor && !isAdmin ? ["staff"] : USER_ROLES}
           onCreate={handleCreate}
         />
       )}
@@ -412,6 +483,7 @@ export default function SettingsPage() {
       {editing && (
         <EditUserModal
           user={editing}
+          allowedRoles={isSupervisor && !isAdmin ? ["staff"] : USER_ROLES}
           onClose={() => setEditing(null)}
           onSave={handleEdit}
         />

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Notifications\UserAccountCreatedNotification;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 
@@ -51,6 +52,24 @@ it('blocks staff from user management endpoints', function () {
     $response->assertStatus(403);
 });
 
+it('allows staff to view users list but not modify users', function () {
+    $staff = apiUser('staff', ['email' => 'staff-view-users@fastlink.test']);
+    $admin = apiUser('admin', ['email' => 'admin-view-users@fastlink.test']);
+
+    Sanctum::actingAs($staff);
+
+    $this->getJson('/api/v1/users')
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    $this->patchJson('/api/v1/users/' . $admin->id, [
+        'name' => 'Should Not Update',
+    ])->assertStatus(403);
+
+    $this->deleteJson('/api/v1/users/' . $admin->id)
+        ->assertStatus(403);
+});
+
 it('allows supervisor to create staff users and sends account email', function () {
     $supervisor = apiUser('supervisor');
     Sanctum::actingAs($supervisor);
@@ -83,6 +102,60 @@ it('blocks supervisor from creating admin users', function () {
 
     $create->assertStatus(403)
         ->assertJsonPath('success', false);
+});
+
+it('blocks supervisor from creating supervisor users', function () {
+    $supervisor = apiUser('supervisor', ['email' => 'sup-create-supervisor@fastlink.test']);
+    Sanctum::actingAs($supervisor);
+
+    $create = $this->postJson('/api/v1/users', [
+        'name' => 'Would Be Supervisor',
+        'email' => 'would-be-supervisor@fastlink.test',
+        'role' => 'supervisor',
+    ]);
+
+    $create->assertStatus(403)
+        ->assertJsonPath('success', false);
+});
+
+it('blocks supervisor from editing or deleting admin and supervisor accounts', function () {
+    $supervisor = apiUser('supervisor', ['email' => 'sup-manage-rules@fastlink.test']);
+    $admin = apiUser('admin', ['email' => 'admin-manage-rules@fastlink.test']);
+    $otherSupervisor = apiUser('supervisor', ['email' => 'other-sup-manage-rules@fastlink.test']);
+
+    Sanctum::actingAs($supervisor);
+
+    $this->patchJson('/api/v1/users/' . $admin->id, [
+        'suspended' => true,
+    ])->assertStatus(403);
+
+    $this->patchJson('/api/v1/users/' . $otherSupervisor->id, [
+        'name' => 'Updated Name',
+    ])->assertStatus(403);
+
+    $this->deleteJson('/api/v1/users/' . $admin->id)
+        ->assertStatus(403);
+
+    $this->deleteJson('/api/v1/users/' . $otherSupervisor->id)
+        ->assertStatus(403);
+});
+
+it('allows supervisor to edit, suspend, and delete staff accounts', function () {
+    $supervisor = apiUser('supervisor', ['email' => 'sup-manage-staff@fastlink.test']);
+    $staff = apiUser('staff', ['email' => 'staff-manage-staff@fastlink.test']);
+
+    Sanctum::actingAs($supervisor);
+
+    $this->patchJson('/api/v1/users/' . $staff->id, [
+        'name' => 'Managed Staff',
+        'suspended' => true,
+        'role' => 'staff',
+    ])->assertOk()
+        ->assertJsonPath('data.name', 'Managed Staff')
+        ->assertJsonPath('data.suspended_at', fn($value) => $value !== null);
+
+    $this->deleteJson('/api/v1/users/' . $staff->id)
+        ->assertOk();
 });
 
 it('allows staff to fetch supervisors list for leave forms', function () {
@@ -155,4 +228,32 @@ it('restores a soft-deleted user when creating with the same email', function ()
     expect($restored->hasRole('supervisor'))->toBeTrue();
 
     Notification::assertSentTo($restored, UserAccountCreatedNotification::class);
+});
+
+it('marks newly created users as pending until first login', function () {
+    $admin = apiUser('admin', ['email' => 'admin-pending-user@fastlink.test']);
+    Sanctum::actingAs($admin);
+
+    $create = $this->postJson('/api/v1/users', [
+        'name' => 'Pending User',
+        'email' => 'pending-user@fastlink.test',
+        'role' => 'staff',
+    ])->assertCreated();
+
+    $createdId = $create->json('data.id');
+
+    $user = User::findOrFail($createdId);
+    expect($user->first_logged_in_at)->toBeNull();
+
+    $user->forceFill([
+        'password' => Hash::make('password123'),
+    ])->save();
+
+    $this->postJson('/api/v1/auth/login', [
+        'email' => 'pending-user@fastlink.test',
+        'password' => 'password123',
+        'device_name' => 'pest-test',
+    ])->assertOk();
+
+    expect($user->fresh()->first_logged_in_at)->not->toBeNull();
 });

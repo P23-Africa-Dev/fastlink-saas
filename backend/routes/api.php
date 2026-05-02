@@ -44,15 +44,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/supervisors', [UserController::class, 'supervisors'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/users', [UserController::class, 'index'])
-            ->middleware('role:admin');
+            ->middleware('role:admin|supervisor|staff');
         Route::post('/users', [UserController::class, 'store'])
             ->middleware('role:admin|supervisor');
         Route::get('/users/{user}', [UserController::class, 'show'])
-            ->middleware('role:admin');
+            ->middleware('role:admin|supervisor|staff');
         Route::patch('/users/{user}', [UserController::class, 'update'])
-            ->middleware('role:admin');
+            ->middleware('role:admin|supervisor');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])
-            ->middleware('role:admin');
+            ->middleware('role:admin|supervisor');
 
         // CRM: drives and statuses
         Route::apiResource('crm/drives', LeadDriveController::class)

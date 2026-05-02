@@ -5,10 +5,11 @@ import { X, Mail, Building2, Shield, ShieldOff, Calendar, Clock, Pencil, Trash2,
 import { User, ROLE_CONFIG, fmtDate, fmtLastActive } from "./types";
 
 interface UserDetailDrawerProps {
-  user:            User;
-  onClose:         () => void;
-  onEdit:          () => void;
-  onDelete:        () => void;
+  user: User;
+  canManage: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   onToggleSuspend: () => void;
 }
 
@@ -24,7 +25,7 @@ function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: stri
   );
 }
 
-export function UserDetailDrawer({ user, onClose, onEdit, onDelete, onToggleSuspend }: UserDetailDrawerProps) {
+export function UserDetailDrawer({ user, canManage, onClose, onEdit, onDelete, onToggleSuspend }: UserDetailDrawerProps) {
   const roleCfg = ROLE_CONFIG[user.role];
 
   return (
@@ -37,12 +38,16 @@ export function UserDetailDrawer({ user, onClose, onEdit, onDelete, onToggleSusp
         <div className="flex items-center justify-between border-b border-[#f0f0f5] bg-[#f8f8fc] shrink-0" style={{ padding: "16px 20px" }}>
           <span className="text-[12px] font-bold text-[#9ca3af] uppercase tracking-wider">User Details</span>
           <div className="flex items-center" style={{ gap: "8px" }}>
-            <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-lg border border-[#f0f0f5] bg-white text-[12px] font-bold text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple) transition-all" style={{ padding: "6px 12px" }}>
-              <Pencil size={12} /> Edit
-            </button>
-            <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-lg border border-[#f0f0f5] bg-white text-[12px] font-bold text-red-500 hover:border-red-300 hover:bg-red-50 transition-all" style={{ padding: "6px 12px" }}>
-              <Trash2 size={12} /> Delete
-            </button>
+            {canManage && (
+              <>
+                <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-lg border border-[#f0f0f5] bg-white text-[12px] font-bold text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple) transition-all" style={{ padding: "6px 12px" }}>
+                  <Pencil size={12} /> Edit
+                </button>
+                <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-lg border border-[#f0f0f5] bg-white text-[12px] font-bold text-red-500 hover:border-red-300 hover:bg-red-50 transition-all" style={{ padding: "6px 12px" }}>
+                  <Trash2 size={12} /> Delete
+                </button>
+              </>
+            )}
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-(--text-primary) hover:bg-[#f0f0f5] transition-all">
               <X size={16} />
             </button>
@@ -110,29 +115,47 @@ export function UserDetailDrawer({ user, onClose, onEdit, onDelete, onToggleSusp
               {user.last_active ? fmtLastActive(user.last_active) : "—"}
             </InfoRow>
             <InfoRow icon={<UserCheck size={14} />} label="Account Status">
-              <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: user.suspended ? "#fee2e2" : "#dcfce7", color: user.suspended ? "#991b1b" : "#074616" }}>
-                <span className="rounded-full" style={{ width: "5px", height: "5px", background: user.suspended ? "#dc2626" : "#16a34a" }} />
-                {user.suspended ? "Suspended" : "Active"}
-              </span>
+              {user.suspended ? (
+                <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: "#fee2e2", color: "#991b1b" }}>
+                  <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#dc2626" }} />
+                  Suspended
+                </span>
+              ) : user.pending_first_login ? (
+                <span
+                  title="User has not made their first login yet"
+                  className="inline-flex items-center rounded-full text-[11px] font-bold"
+                  style={{ padding: "3px 10px", gap: "4px", background: "#fef3c7", color: "#AF580B" }}
+                >
+                  <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#d97706" }} />
+                  Pending
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "3px 10px", gap: "4px", background: "#dcfce7", color: "#074616" }}>
+                  <span className="rounded-full" style={{ width: "5px", height: "5px", background: "#16a34a" }} />
+                  Active
+                </span>
+              )}
             </InfoRow>
           </div>
         </div>
 
         {/* Suspend / unsuspend footer */}
-        <div className="border-t border-[#f0f0f5] bg-[#f8f8fc] shrink-0" style={{ padding: "16px 20px" }}>
-          <button
-            onClick={onToggleSuspend}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all hover:opacity-90"
-            style={{
-              padding: "11px 0",
-              background: user.suspended ? "#dcfce7" : "#fef3c7",
-              color:      user.suspended ? "#074616" : "#AF580B",
-            }}
-          >
-            {user.suspended ? <Shield size={14} /> : <ShieldOff size={14} />}
-            {user.suspended ? "Unsuspend Account" : "Suspend Account"}
-          </button>
-        </div>
+        {canManage && (
+          <div className="border-t border-[#f0f0f5] bg-[#f8f8fc] shrink-0" style={{ padding: "16px 20px" }}>
+            <button
+              onClick={onToggleSuspend}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all hover:opacity-90"
+              style={{
+                padding: "11px 0",
+                background: user.suspended ? "#dcfce7" : "#fef3c7",
+                color: user.suspended ? "#074616" : "#AF580B",
+              }}
+            >
+              {user.suspended ? <Shield size={14} /> : <ShieldOff size={14} />}
+              {user.suspended ? "Unsuspend Account" : "Suspend Account"}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

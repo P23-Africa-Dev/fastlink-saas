@@ -5,17 +5,18 @@ import { MoreHorizontal, Shield, ShieldOff, Mail, Building2 } from "lucide-react
 import { User, ROLE_CONFIG, fmtLastActive } from "./types";
 
 interface UserCardProps {
-  user:       User;
-  onClick:    () => void;
-  onEdit:     () => void;
-  onDelete:   () => void;
+  user: User;
+  canManage: boolean;
+  onClick: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   onToggleSuspend: () => void;
-  menuOpen:   boolean;
+  menuOpen: boolean;
   onMenuToggle: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  menuRef:    React.RefObject<HTMLDivElement | null>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function UserCard({ user, onClick, onEdit, onDelete, onToggleSuspend, menuOpen, onMenuToggle, menuRef }: UserCardProps) {
+export function UserCard({ user, canManage, onClick, onEdit, onDelete, onToggleSuspend, menuOpen, onMenuToggle, menuRef }: UserCardProps) {
   const roleCfg = ROLE_CONFIG[user.role];
 
   return (
@@ -84,17 +85,25 @@ export function UserCard({ user, onClick, onEdit, onDelete, onToggleSuspend, men
                 style={{ minWidth: "160px" }}
                 onClick={e => e.stopPropagation()}
               >
-                <button onClick={onEdit}   className="w-full flex items-center text-left text-[12px] font-semibold text-(--text-primary) hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", gap: "8px" }}>
-                  <span>Edit User</span>
-                </button>
-                <button onClick={onToggleSuspend} className="w-full flex items-center text-left text-[12px] font-semibold hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", gap: "8px", color: user.suspended ? "#074616" : "#AF580B" }}>
-                  {user.suspended ? <Shield size={13} /> : <ShieldOff size={13} />}
-                  {user.suspended ? "Unsuspend" : "Suspend"}
-                </button>
-                <div className="border-t border-[#f0f0f5]" />
-                <button onClick={onDelete} className="w-full flex items-center text-left text-[12px] font-semibold text-red-500 hover:bg-red-50 transition-colors" style={{ padding: "10px 14px", gap: "8px" }}>
-                  Delete User
-                </button>
+                {canManage ? (
+                  <>
+                    <button onClick={onEdit} className="w-full flex items-center text-left text-[12px] font-semibold text-(--text-primary) hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", gap: "8px" }}>
+                      <span>Edit User</span>
+                    </button>
+                    <button onClick={onToggleSuspend} className="w-full flex items-center text-left text-[12px] font-semibold hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", gap: "8px", color: user.suspended ? "#074616" : "#AF580B" }}>
+                      {user.suspended ? <Shield size={13} /> : <ShieldOff size={13} />}
+                      {user.suspended ? "Unsuspend" : "Suspend"}
+                    </button>
+                    <div className="border-t border-[#f0f0f5]" />
+                    <button onClick={onDelete} className="w-full flex items-center text-left text-[12px] font-semibold text-red-500 hover:bg-red-50 transition-colors" style={{ padding: "10px 14px", gap: "8px" }}>
+                      Delete User
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-[12px] font-semibold text-[#9ca3af]" style={{ padding: "10px 14px" }}>
+                    View only
+                  </div>
+                )}
               </div>
             )}
           </div>

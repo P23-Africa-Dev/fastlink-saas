@@ -58,8 +58,8 @@ class UserController extends Controller
     {
         $payload = $request->validated();
 
-        if ($request->user()?->hasRole('supervisor') && $payload['role'] === 'admin') {
-            return $this->error('Supervisors cannot create admin accounts.', 403);
+        if ($request->user()?->hasRole('supervisor') && $payload['role'] !== 'staff') {
+            return $this->error('Supervisors can only create staff accounts.', 403);
         }
 
         $temporaryPassword = Str::password(12, letters: true, numbers: true, symbols: false);
@@ -108,7 +108,17 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
+        if ($request->user()?->hasRole('supervisor')) {
+            if (!$user->hasRole('staff')) {
+                return $this->error('Supervisors can only manage staff accounts.', 403);
+            }
+        }
+
         $payload = $request->validated();
+
+        if ($request->user()?->hasRole('supervisor') && array_key_exists('role', $payload) && $payload['role'] !== 'staff') {
+            return $this->error('Supervisors can only assign the staff role.', 403);
+        }
 
         if (array_key_exists('password', $payload)) {
             $payload['password'] = Hash::make($payload['password']);
@@ -135,6 +145,10 @@ class UserController extends Controller
     {
         if ((int) $user->id === (int) $request->user()->id) {
             return $this->error('You cannot delete your own account.', 422);
+        }
+
+        if ($request->user()?->hasRole('supervisor') && !$user->hasRole('staff')) {
+            return $this->error('Supervisors can only delete staff accounts.', 403);
         }
 
         $user->tokens()->delete();

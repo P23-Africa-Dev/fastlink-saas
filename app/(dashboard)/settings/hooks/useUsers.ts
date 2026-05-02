@@ -41,7 +41,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...payload }: Partial<User> & { id: number }) => {
+    mutationFn: async ({ id, ...payload }: { id: number } & Record<string, unknown>) => {
       const res = await api.patch<ApiResponse<User>>(`/users/${id}`, payload);
       return res.data.data;
     },

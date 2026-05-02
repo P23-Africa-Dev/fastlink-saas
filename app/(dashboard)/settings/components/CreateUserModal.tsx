@@ -7,18 +7,19 @@ import { UserRole, USER_ROLES, ROLE_CONFIG } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface CreateUserModalProps {
-  onClose:  () => void;
+  onClose: () => void;
+  allowedRoles?: UserRole[];
   onCreate: (data: { name: string; email: string; /* password: string; */ role: UserRole; /* department?: string */ }) => void;
 }
 
 const DEPARTMENTS = ["Engineering", "Operations", "Sales", "Marketing", "Design", "Support", "Product", "Finance"];
 
-export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
-  const [name,       setName]       = useState("");
-  const [email,      setEmail]      = useState("");
+export function CreateUserModal({ onClose, allowedRoles = USER_ROLES, onCreate }: CreateUserModalProps) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   // const [password,   setPassword]   = useState("");
   // const [showPw,     setShowPw]     = useState(false);
-  const [role,       setRole]       = useState<UserRole>("staff");
+  const [role, setRole] = useState<UserRole>("staff");
   // const [department, setDepartment] = useState("");
 
   const valid = name.trim() && email.trim(); // && password.length >= 8;
@@ -126,8 +127,8 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <label className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">Role</label>
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-                {USER_ROLES.map((r, i) => {
-                  const cfg    = ROLE_CONFIG[r];
+                {allowedRoles.map((r, i) => {
+                  const cfg = ROLE_CONFIG[r];
                   const active = role === r;
                   return (
                     <button

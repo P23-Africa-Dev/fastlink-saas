@@ -26,6 +26,12 @@ class AuthController extends Controller
             return $this->error('Account suspended. Contact administrator.', 423);
         }
 
+        if ($user->first_logged_in_at === null) {
+            $user->forceFill([
+                'first_logged_in_at' => now(),
+            ])->save();
+        }
+
         $token = $user->createToken($payload['device_name'] ?? $request->userAgent() ?? 'api-client');
 
         return $this->success([
