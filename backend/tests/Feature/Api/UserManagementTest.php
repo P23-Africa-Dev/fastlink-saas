@@ -104,7 +104,7 @@ it('blocks supervisor from creating admin users', function () {
         ->assertJsonPath('success', false);
 });
 
-it('blocks supervisor from creating supervisor users', function () {
+it('allows supervisor to create supervisor users', function () {
     $supervisor = apiUser('supervisor', ['email' => 'sup-create-supervisor@fastlink.test']);
     Sanctum::actingAs($supervisor);
 
@@ -114,14 +114,14 @@ it('blocks supervisor from creating supervisor users', function () {
         'role' => 'supervisor',
     ]);
 
-    $create->assertStatus(403)
-        ->assertJsonPath('success', false);
+    $create->assertCreated()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.email', 'would-be-supervisor@fastlink.test');
 });
 
-it('blocks supervisor from editing or deleting admin and supervisor accounts', function () {
+it('blocks supervisor from editing or deleting admin accounts', function () {
     $supervisor = apiUser('supervisor', ['email' => 'sup-manage-rules@fastlink.test']);
     $admin = apiUser('admin', ['email' => 'admin-manage-rules@fastlink.test']);
-    $otherSupervisor = apiUser('supervisor', ['email' => 'other-sup-manage-rules@fastlink.test']);
 
     Sanctum::actingAs($supervisor);
 
@@ -129,15 +129,20 @@ it('blocks supervisor from editing or deleting admin and supervisor accounts', f
         'suspended' => true,
     ])->assertStatus(403);
 
-    $this->patchJson('/api/v1/users/' . $otherSupervisor->id, [
-        'name' => 'Updated Name',
-    ])->assertStatus(403);
-
     $this->deleteJson('/api/v1/users/' . $admin->id)
         ->assertStatus(403);
 
+    // Supervisors can still manage other supervisors
+    $otherSupervisor = apiUser('supervisor', ['email' => 'other-sup-manage-rules@fastlink.test']);
+
+    $this->patchJson('/api/v1/users/' . $otherSupervisor->id, [
+        'name' => 'Updated Name',
+        'role' => 'supervisor',
+    ])->assertOk()
+        ->assertJsonPath('data.name', 'Updated Name');
+
     $this->deleteJson('/api/v1/users/' . $otherSupervisor->id)
-        ->assertStatus(403);
+        ->assertOk();
 });
 
 it('allows supervisor to edit, suspend, and delete staff accounts', function () {

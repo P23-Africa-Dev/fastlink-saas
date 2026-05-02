@@ -70,7 +70,7 @@ export default function SettingsPage() {
 
   const canManageUser = (target: User) => {
     if (isAdmin) return true;
-    if (isSupervisor) return target.role === "staff";
+    if (isSupervisor) return target.role !== "admin";
     return false;
   };
 
@@ -475,7 +475,7 @@ export default function SettingsPage() {
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
-          allowedRoles={isSupervisor && !isAdmin ? ["staff"] : USER_ROLES}
+          allowedRoles={isSupervisor && !isAdmin ? ["supervisor", "staff"] : USER_ROLES}
           onCreate={handleCreate}
         />
       )}
@@ -483,7 +483,7 @@ export default function SettingsPage() {
       {editing && (
         <EditUserModal
           user={editing}
-          allowedRoles={isSupervisor && !isAdmin ? ["staff"] : USER_ROLES}
+          allowedRoles={isSupervisor && !isAdmin ? ["supervisor", "staff"] : USER_ROLES}
           onClose={() => setEditing(null)}
           onSave={handleEdit}
         />
