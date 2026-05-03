@@ -21,9 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Keep API auth stateless (Bearer tokens) to avoid CSRF requirements on /api routes.
 
         $middleware->alias([
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'role'                    => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission'              => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role_or_permission'      => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'company.settings.access' => \App\Http\Middleware\RequireCompanySettingsAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

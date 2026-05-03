@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Attendance;
+use App\Models\CompanySetting;
 use App\Models\LeaveRequest;
 use App\Models\Task;
 use App\Models\User;
@@ -12,21 +13,31 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
+    /**
+     * Auto-clock-out any open attendance records once the company closing time
+     * has passed. The closing time is read from company_settings so admins can
+     * configure it. Falls back to 18:00 if the setting row is missing.
+     */
     public function autoClockOutOverdue(?Carbon $reference = null): int
     {
         $now = ($reference ?? now())->copy()->timezone(config('app.timezone'));
         $today = $now->toDateString();
         $updated = 0;
 
+        // Load the company closing time once for the whole batch.
+        $closingTime = $this->resolveClosingTime();
+
         Attendance::query()
             ->whereNotNull('signed_in_at')
             ->whereNull('signed_out_at')
             ->whereDate('date', '<=', $today)
             ->orderBy('id')
-            ->chunkById(200, function ($rows) use (&$updated, $now) {
+            ->chunkById(200, function ($rows) use (&$updated, $now, $closingTime) {
                 foreach ($rows as $attendance) {
+                    [$closeHour, $closeMin] = $closingTime;
+
                     $cutoff = Carbon::parse($attendance->date->toDateString(), config('app.timezone'))
-                        ->setTime(18, 0, 0);
+                        ->setTime($closeHour, $closeMin, 0);
 
                     if ($now->lt($cutoff)) {
                         continue;
@@ -34,7 +45,7 @@ class AttendanceService
 
                     $attendance->update([
                         'signed_out_at' => $cutoff,
-                        'sign_out_ip' => $attendance->sign_out_ip ?? 'AUTO_SYSTEM',
+                        'sign_out_ip'   => $attendance->sign_out_ip ?? 'AUTO_SYSTEM',
                     ]);
 
                     $updated++;
@@ -42,6 +53,43 @@ class AttendanceService
             });
 
         return $updated;
+    }
+
+    /**
+     * Resolve the [hour, minute] pair for the company's configured closing time.
+     * Returns [18, 0] as the safe default when no setting row exists.
+     *
+     * @return array{0: int, 1: int}
+     */
+    public function resolveClosingTime(): array
+    {
+        $setting = CompanySetting::first();
+
+        if (! $setting) {
+            return [18, 0];
+        }
+
+        // closing_time is stored as HH:MM:SS string (MySQL TIME column)
+        $parts = explode(':', $setting->closing_time);
+
+        return [(int) ($parts[0] ?? 18), (int) ($parts[1] ?? 0)];
+    }
+
+    /**
+     * Expose company working days as an array of lowercase day names.
+     * Returns Mon–Fri as the safe default when no setting row exists.
+     *
+     * @return list<string>
+     */
+    public function resolveWorkingDays(): array
+    {
+        $setting = CompanySetting::first();
+
+        if (! $setting) {
+            return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        }
+
+        return $setting->working_days ?? ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     }
 
     public function signIn(User $user, ?string $note, ?string $ip): Attendance
@@ -59,8 +107,8 @@ class AttendanceService
             if (!$attendance) {
                 $attendance = Attendance::create([
                     'user_id' => $user->id,
-                    'date' => $today,
-                    'note' => $normalizedNote,
+                    'date'    => $today,
+                    'note'    => $normalizedNote,
                 ]);
             }
 
@@ -72,8 +120,8 @@ class AttendanceService
 
             $attendance->update([
                 'signed_in_at' => now(),
-                'sign_in_ip' => $ip,
-                'note' => $normalizedNote,
+                'sign_in_ip'   => $ip,
+                'note'         => $normalizedNote,
             ]);
 
             return $attendance->fresh();
@@ -106,8 +154,8 @@ class AttendanceService
 
             $attendance->update([
                 'signed_out_at' => now(),
-                'sign_out_ip' => $ip,
-                'note' => $normalizedNote ?? $attendance->note,
+                'sign_out_ip'   => $ip,
+                'note'          => $normalizedNote ?? $attendance->note,
             ]);
 
             return $attendance->fresh();
@@ -117,7 +165,7 @@ class AttendanceService
     public function calendar(Carbon $month, ?int $userId = null): array
     {
         $start = $month->copy()->startOfMonth()->startOfDay();
-        $end = $month->copy()->endOfMonth()->endOfDay();
+        $end   = $month->copy()->endOfMonth()->endOfDay();
 
         $attendanceQuery = Attendance::query()
             ->with('user:id,name,email')
@@ -156,10 +204,14 @@ class AttendanceService
         }
 
         return [
-            'month' => $month->format('Y-m'),
-            'attendances' => $attendanceQuery->orderBy('date')->get(),
+            'month'          => $month->format('Y-m'),
+            'attendances'    => $attendanceQuery->orderBy('date')->get(),
             'leave_requests' => $leaveQuery->orderBy('start_date')->get(),
-            'tasks' => $taskQuery->orderBy('start_date')->orderBy('due_date')->get(),
+            'tasks'          => $taskQuery->orderBy('start_date')->orderBy('due_date')->get(),
+            // Include working days and closing time so the frontend can render
+            // absence markers and display the correct end-of-day time.
+            'working_days'   => $this->resolveWorkingDays(),
+            'closing_time'   => sprintf('%02d:%02d', ...$this->resolveClosingTime()),
         ];
     }
 

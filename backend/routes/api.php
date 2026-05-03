@@ -9,6 +9,9 @@ use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
 use App\Http\Controllers\Api\V1\ProjectController;
+use App\Http\Controllers\Api\V1\Settings\CompanySettingController;
+use App\Http\Controllers\Api\V1\Settings\ProfileController;
+use App\Http\Controllers\Api\V1\Settings\SupervisorPasscodeController;
 use App\Http\Controllers\Api\V1\SpreadsheetController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -159,5 +162,37 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:admin|supervisor');
         Route::post('/leave-requests/{leaveRequest}/respond', [LeaveRequestController::class, 'respond'])
             ->middleware('role:admin|supervisor|staff');
+
+        // ── Settings ────────────────────────────────────────────────────────
+
+        // User profile (all roles)
+        Route::get('/settings/profile', [ProfileController::class, 'show'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::patch('/settings/profile', [ProfileController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::patch('/settings/appearance', [ProfileController::class, 'updateAppearance'])
+            ->middleware('role:admin|supervisor|staff');
+
+        // Company settings — read is open to all roles
+        Route::get('/settings/company', [CompanySettingController::class, 'show'])
+            ->middleware('role:admin|supervisor|staff');
+
+        // Company settings — write is gated by the company.settings.access middleware
+        Route::patch('/settings/company', [CompanySettingController::class, 'update'])
+            ->middleware(['role:admin|supervisor', 'company.settings.access']);
+
+        // Supervisor passcode management (admin: generate / revoke)
+        Route::get('/settings/company/passcodes', [SupervisorPasscodeController::class, 'index'])
+            ->middleware('role:admin');
+        Route::post('/settings/company/passcodes', [SupervisorPasscodeController::class, 'generate'])
+            ->middleware('role:admin');
+        Route::delete('/settings/company/passcodes/{passcode}', [SupervisorPasscodeController::class, 'revoke'])
+            ->middleware('role:admin');
+
+        // Supervisor passcode verification (supervisor only)
+        Route::post('/settings/company/verify-passcode', [SupervisorPasscodeController::class, 'verifyPasscode'])
+            ->middleware('role:supervisor');
+        Route::post('/settings/company/validate-device-token', [SupervisorPasscodeController::class, 'validateDeviceToken'])
+            ->middleware('role:supervisor');
     });
 });
