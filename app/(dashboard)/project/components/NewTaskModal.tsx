@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus, Minus, PlusCircle } from "lucide-react";
+import { X, Plus, Minus } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -11,7 +11,19 @@ interface NewTaskModalProps {
   defaultStatus?: TaskStatus;
   defaultProject?: number;
   onClose: () => void;
-  onSave: (data: Omit<Task, "id">) => void;
+  onSave: (data: {
+    title: string;
+    description?: string;
+    project_id: number;
+    status: TaskStatus;
+    priority: Priority;
+    start_date: string;
+    due_date: string;
+    assignee_ids: number[];
+    comment_count: number;
+    order: number;
+    subtasks?: string[];
+  }) => void;
 }
 
 const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
@@ -35,7 +47,20 @@ export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject,
 
   const handleSave = () => {
     if (!title.trim()) return;
-    onSave({ title: title.trim(), description, project_id: projectId, status, priority, start_date: startDate, due_date: dueDate, assignee_ids: assignees, comment_count: 0, order: 0 });
+    const subtasks = extraDescs.map((desc) => desc.trim()).filter(Boolean);
+    onSave({
+      title: title.trim(),
+      description,
+      project_id: projectId,
+      status,
+      priority,
+      start_date: startDate,
+      due_date: dueDate,
+      assignee_ids: assignees,
+      comment_count: 0,
+      order: 0,
+      subtasks: subtasks.length > 0 ? subtasks : undefined,
+    });
     onClose();
   };
 

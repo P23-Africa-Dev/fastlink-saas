@@ -3,11 +3,21 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Plus, Upload, MoreVertical, DollarSign, Building2, Calendar, Pencil, Trash2 } from "lucide-react";
 import api from "@/lib/api";
-import type { ApiResponse, Lead as ApiLead, Drive as ApiDrive, LeadStatus as ApiStatus } from "@/lib/types";
+import type {
+  ApiResponse,
+  Lead as ApiLead,
+  Drive as ApiDrive,
+  LeadStatus as ApiStatus,
+  LocationCountry,
+} from "@/lib/types";
 import {
   useDrives,
   useStatuses,
+  useIndustries,
   useLeads,
+  useCountries,
+  useStates,
+  useLgas,
   useCreateLead,
   useUpdateLead,
   useDeleteLead,
@@ -87,6 +97,16 @@ interface BackendActivity {
   is_completed: boolean;
 }
 
+const countryNameFromLead = (country: ApiLead["country"]): string => {
+  if (country && typeof country === "object" && "name" in country) {
+    return (country as LocationCountry).name;
+  }
+  if (typeof country === "string") {
+    return country;
+  }
+  return "";
+};
+
 const mapPriorityToUi = (priority?: ApiLead["priority"]) => {
   if (priority === "high" || priority === "urgent") return "high" as const;
   if (priority === "low") return "low" as const;
@@ -124,7 +144,14 @@ const mapLead = (raw: ApiLead, fallbackStatusId?: number): Lead => ({
   drive_id: Number(raw.drive_id ?? 0),
   date: raw.created_at?.split("T")[0] ?? "",
   notes: safeText(raw.notes ?? ""),
+  industry: safeText(raw.industry ?? ""),
   assigned_to: raw.assigned_to ?? undefined,
+  country_id: raw.country_id ?? undefined,
+  state_id: raw.state_id ?? undefined,
+  lga_id: raw.lga_id ?? undefined,
+  country_name: countryNameFromLead(raw.country),
+  state_name: raw.state?.name ?? "",
+  lga_name: raw.lga?.name ?? "",
 });
 
 const mapDrive = (raw: ApiDrive): DriveItem => ({
@@ -244,6 +271,11 @@ function LeadCardContent({
               <Building2 size={10} />
               <span className="truncate">{lead.company}</span>
             </div>
+              {lead.lga_name && (
+                <div className="text-[11px] text-[#9ca3af] truncate" style={{ marginTop: "2px" }}>
+                  {lead.lga_name}{lead.state_name ? `, ${lead.state_name}` : ""}
+                </div>
+              )}
           </div>
         </div>
         <button
@@ -293,14 +325,21 @@ function DraggableCard({
 
 export default function CrmPage() {
   const [filters, setFilters] = useState<FilterState>({
-    driveId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
+    driveId: 0, countryId: 0, stateId: 0, lgaId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
   });
 
   // Queries
   const { data: drivesRaw, isLoading: drivesLoading } = useDrives();
   const { data: statusesRaw, isLoading: statusesLoading } = useStatuses();
+  const { data: industriesRaw, isLoading: industriesLoading } = useIndustries();
+  const { data: countriesRaw, isLoading: countriesLoading } = useCountries();
+  const { data: statesRaw, isLoading: statesLoading } = useStates(filters.countryId || undefined);
+  const { data: lgasRaw, isLoading: lgasLoading } = useLgas(filters.stateId || undefined);
   const { data: leadsRaw, isLoading: leadsLoading } = useLeads({
     driveId: filters.driveId,
+    countryId: filters.countryId || undefined,
+    stateId: filters.stateId || undefined,
+    lgaId: filters.lgaId || undefined,
     query: filters.query,
     priority: filters.priority,
     assignedTo: filters.assignedTo,
@@ -322,6 +361,10 @@ export default function CrmPage() {
 
   const drives = useMemo(() => (drivesRaw || []).map(mapDrive), [drivesRaw]);
   const statuses = useMemo(() => (statusesRaw || []).map(mapStatus), [statusesRaw]);
+  const industries = useMemo(() => industriesRaw || [], [industriesRaw]);
+  const countries = useMemo(() => countriesRaw || [], [countriesRaw]);
+  const states = useMemo(() => statesRaw || [], [statesRaw]);
+  const lgas = useMemo(() => lgasRaw || [], [lgasRaw]);
   const defaultStatusId = useMemo(() => {
     const explicitDefault = statuses.find((status) => status.is_default);
     return explicitDefault?.id ?? statuses[0]?.id;
@@ -431,7 +474,7 @@ export default function CrmPage() {
 
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
 
-  const loading = drivesLoading || statusesLoading || leadsLoading;
+  const loading = drivesLoading || statusesLoading || industriesLoading || leadsLoading || countriesLoading || statesLoading || lgasLoading;
 
   if (loading) {
     return <CrmSkeleton />;
@@ -469,6 +512,9 @@ export default function CrmPage() {
       {/* ── Filter Bar ───────────────────────────────────────────────────── */}
       <FilterBar
         drives={drives}
+        countries={countries}
+        states={states}
+        lgas={lgas}
         filters={filters}
         totalLeads={filteredLeads.length}
         viewMode={viewMode}
@@ -538,6 +584,7 @@ export default function CrmPage() {
                 <thead>
                   <tr className="border-b border-[#f0f0f5] bg-[#f8f8fc]">
                     <th className="text-[12px] font-bold text-(--text-muted) uppercase tracking-wider w-75" style={{ padding: "16px 24px" }}>Lead</th>
+                    <th className="text-[12px] font-bold text-(--text-muted) uppercase tracking-wider" style={{ padding: "16px 24px" }}>Location</th>
                     <th className="text-[12px] font-bold text-(--text-muted) uppercase tracking-wider" style={{ padding: "16px 24px" }}>Status</th>
                     <th className="text-[12px] font-bold text-(--text-muted) uppercase tracking-wider" style={{ padding: "16px 24px" }}>Value</th>
                     <th className="text-[12px] font-bold text-(--text-muted) uppercase tracking-wider" style={{ padding: "16px 24px" }}>Added</th>
@@ -565,6 +612,13 @@ export default function CrmPage() {
                               <div className="text-[12px] text-(--text-muted)" style={{ marginTop: "2px" }}>{lead.company}</div>
                             </div>
                           </div>
+                        </td>
+                        <td style={{ padding: "16px 24px" }}>
+                          <span className="text-[12px] text-(--text-muted)">
+                            {lead.lga_name
+                              ? `${lead.lga_name}${lead.state_name ? `, ${lead.state_name}` : ""}`
+                              : "—"}
+                          </span>
                         </td>
                         <td style={{ padding: "16px 24px" }}>
                           <span className="inline-flex items-center rounded-full text-[11px] font-bold" style={{ padding: "4px 10px", gap: "6px", background: `${status?.color}15`, color: status?.color }}>
@@ -597,7 +651,7 @@ export default function CrmPage() {
                   })}
                   {filteredLeads.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center text-[14px] text-(--text-muted)" style={{ padding: "64px 24px" }}>
+                      <td colSpan={6} className="text-center text-[14px] text-(--text-muted)" style={{ padding: "64px 24px" }}>
                         No leads found matching your criteria.
                       </td>
                     </tr>
@@ -669,6 +723,7 @@ export default function CrmPage() {
         <NewLeadModal
           statuses={statuses}
           drives={drives}
+          industries={industries}
           onClose={() => setNewLeadOpen(false)}
           onSave={(payload) => {
             createLeadMutation.mutate(payload as Partial<ApiLead>, {
@@ -709,6 +764,7 @@ export default function CrmPage() {
           lead={selectedLead}
           statuses={statuses}
           drives={drives}
+          industries={industries}
           onClose={() => setEditLeadOpen(false)}
           onSave={(updated) => {
             const payload = {

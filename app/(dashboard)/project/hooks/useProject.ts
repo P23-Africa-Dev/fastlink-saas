@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Project, Task } from "@/lib/types";
+import type { ApiResponse, Project, Subtask, Task } from "@/lib/types";
 
 export function useProjects() {
   return useQuery({
@@ -98,6 +98,44 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`/tasks/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useAddSubtasks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, titles }: { taskId: number; titles: string[] }) => {
+      const res = await api.post<ApiResponse<Subtask[]>>(`/tasks/${taskId}/subtasks`, { titles });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useUpdateSubtask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<Pick<Subtask, "title" | "is_completed">> }) => {
+      const res = await api.put<ApiResponse<Subtask>>(`/subtasks/${id}`, payload);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useDeleteSubtask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/subtasks/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });

@@ -225,7 +225,7 @@ export default function DashboardPage() {
       if (!task.due_date) return;
       const d = new Date(task.due_date).getDay();
       const dayIndex = d === 0 ? 6 : d - 1;
-      if (task.status === "done") weeklySeed[dayIndex].Completed += 1;
+      if (task.status === "completed") weeklySeed[dayIndex].Completed += 1;
       else if (task.status === "in_progress") weeklySeed[dayIndex].InProgress += 1;
       else weeklySeed[dayIndex].Pending += 1;
     });
@@ -247,8 +247,8 @@ export default function DashboardPage() {
         id: String(t.id),
         title: t.title,
         time: t.due_date ? new Date(`${t.due_date}T09:00:00`).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--",
-        status: t.status === "in_progress" ? "in-progress" : t.status === "done" ? "completed" : "pending",
-        color: t.status === "done" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
+        status: t.status === "in_progress" ? "in-progress" : t.status === "completed" ? "completed" : "pending",
+        color: t.status === "completed" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
         icon: iconByStatus[t.status as keyof typeof iconByStatus] || Calendar,
         date: t.due_date ?? activeDate,
       }));

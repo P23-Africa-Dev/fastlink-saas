@@ -92,6 +92,25 @@ export interface LeadStatus {
   is_lost: boolean;
 }
 
+export interface LocationCountry {
+  id: number;
+  name: string;
+  code: string;
+  is_default?: boolean;
+}
+
+export interface LocationState {
+  id: number;
+  country_id: number;
+  name: string;
+}
+
+export interface LocationLga {
+  id: number;
+  state_id: number;
+  name: string;
+}
+
 export interface Lead {
   id: number;
   first_name: string;
@@ -105,7 +124,16 @@ export interface Lead {
   status_id: number;
   drive_id: number;
   notes: string | null;
+  industry?: string | null;
   assigned_to: number | null;
+  country_id?: number | null;
+  state_id?: number | null;
+  lga_id?: number | null;
+  country?: LocationCountry | string | null;
+  state?: LocationState | null;
+  lga?: LocationLga | null;
+  city?: string | null;
+  address?: string | null;
   created_at: string;
   updated_at: string;
   statusDefinition?: LeadStatus;
@@ -131,11 +159,15 @@ export interface Task {
   project_id: number;
   title: string;
   description: string | null;
-  status: "todo" | "in_progress" | "review" | "done";
+  status: "todo" | "in_progress" | "review" | "completed";
   priority: "low" | "medium" | "high" | "urgent" | "normal";
   start_date: string | null;
   due_date: string | null;
-  assigned_to: number | null;
+  assigned_to?: number | null;
+  assignees?: Array<Pick<User, "id" | "name" | "email">>;
+  subtasks?: Subtask[];
+  subtask_progress?: SubtaskProgress;
+  comments_count?: number;
   created_at: string;
   updated_at: string;
   project?: {
@@ -149,8 +181,26 @@ export interface TaskComment {
   id: number;
   task_id: number;
   user_id: number;
-  content: string;
+  comment: string;
+  content?: string;
   created_at: string;
+}
+
+export interface Subtask {
+  id: number;
+  task_id: number;
+  title: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubtaskProgress {
+  total: number;
+  completed: number;
+  percentage: number;
 }
 
 // ─── Attendance ────────────────────────────────────────────────────────────

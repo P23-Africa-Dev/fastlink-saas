@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Lead, Drive, LeadStatus } from "@/lib/types";
+import type { ApiResponse, Lead, Drive, LeadStatus, LocationCountry, LocationLga, LocationState } from "@/lib/types";
 
 export interface LeadImportResult {
   imported: number;
@@ -28,7 +28,61 @@ export function useStatuses() {
   });
 }
 
-export function useLeads(filters: { driveId?: number; statusId?: number; query?: string; priority?: string; assignedTo?: string }) {
+export function useIndustries() {
+  return useQuery({
+    queryKey: ["crm", "industries"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<string[]>>("/industries");
+      return res.data.data;
+    },
+  });
+}
+
+export function useCountries() {
+  return useQuery({
+    queryKey: ["crm", "countries"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<LocationCountry[]>>("/countries");
+      return res.data.data;
+    },
+  });
+}
+
+export function useStates(countryId?: number) {
+  return useQuery({
+    queryKey: ["crm", "states", countryId ?? "default"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<LocationState[]>>("/states", {
+        params: { country_id: countryId || undefined },
+      });
+      return res.data.data;
+    },
+  });
+}
+
+export function useLgas(stateId?: number) {
+  return useQuery({
+    queryKey: ["crm", "lgas", stateId ?? "none"],
+    queryFn: async () => {
+      if (!stateId) return [];
+      const res = await api.get<ApiResponse<LocationLga[]>>("/lgas", {
+        params: { state_id: stateId },
+      });
+      return res.data.data;
+    },
+  });
+}
+
+export function useLeads(filters: {
+  driveId?: number;
+  statusId?: number;
+  query?: string;
+  priority?: string;
+  assignedTo?: string;
+  countryId?: number;
+  stateId?: number;
+  lgaId?: number;
+}) {
   return useQuery({
     queryKey: ["crm", "leads", filters],
     queryFn: async () => {
@@ -40,6 +94,9 @@ export function useLeads(filters: { driveId?: number; statusId?: number; query?:
           q: filters.query || undefined,
           priority: apiPriority,
           assigned_to: filters.assignedTo || undefined,
+          country_id: filters.countryId || undefined,
+          state_id: filters.stateId || undefined,
+          lga_id: filters.lgaId || undefined,
           per_page: 300,
         },
       });

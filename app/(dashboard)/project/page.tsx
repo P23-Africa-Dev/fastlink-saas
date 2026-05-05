@@ -11,9 +11,12 @@ import {
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
+  useAddSubtasks,
+  useUpdateSubtask,
+  useDeleteSubtask,
 } from "./hooks/useProject";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Plus, FolderOpen, LayoutGrid, GanttChartSquare, Pencil, Trash2 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { ProjectCard } from "./components/ProjectCard";
@@ -62,6 +65,12 @@ function mapProject(raw: ApiProject): Project {
 }
 
 function mapTask(raw: ApiTask): Task {
+  const assigneeIds = Array.isArray(raw.assignees)
+    ? raw.assignees.map((assignee) => assignee.id)
+    : raw.assigned_to
+      ? [raw.assigned_to]
+      : [];
+
   return {
     id: raw.id,
     title: raw.title,
@@ -69,11 +78,13 @@ function mapTask(raw: ApiTask): Task {
     project_id: raw.project_id,
     status: raw.status as TaskStatus,
     priority: mapPriorityToUi(raw.priority as Priority),
-    start_date: raw.created_at?.split("T")[0] ?? "",
+    start_date: raw.start_date ?? raw.created_at?.split("T")[0] ?? "",
     due_date: raw.due_date ?? "",
-    assignee_ids: raw.assigned_to ? [raw.assigned_to] : [],
-    comment_count: 0,
+    assignee_ids: assigneeIds,
+    comment_count: raw.comments_count ?? 0,
     order: 0,
+    subtasks: raw.subtasks ?? [],
+    subtask_progress: raw.subtask_progress ?? { total: 0, completed: 0, percentage: 0 },
   };
 }
 
@@ -85,7 +96,7 @@ function mapComment(raw: ApiComment): Comment {
     task_id: raw.task_id,
     user_name: userName,
     user_initials: userInitials,
-    comment: raw.content,
+    comment: raw.comment ?? raw.content ?? "",
     created_at: raw.created_at,
   };
 }
@@ -177,6 +188,9 @@ export default function ProjectPage() {
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
+  const addSubtasksMutation = useAddSubtasks();
+  const updateSubtaskMutation = useUpdateSubtask();
+  const deleteSubtaskMutation = useDeleteSubtask();
 
   const projects = useMemo(() => (projectsRaw || []).map(mapProject), [projectsRaw]);
   const tasks = useMemo(() => (tasksRaw || []).map(mapTask), [tasksRaw]);
@@ -201,6 +215,19 @@ export default function ProjectPage() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const loadTaskDetails = useCallback(async (taskId: number) => {
+    try {
+      const res = await api.get<ApiResponse<ApiTask>>(`/tasks/${taskId}`);
+      const mappedTask = mapTask(res.data.data);
+      const mappedComments: Comment[] = [];
+
+      setSelectedTask((prev) => (prev?.id === taskId ? mappedTask : prev));
+      setComments((prev) => ({ ...prev, [taskId]: mappedComments }));
+    } catch (error) {
+      console.error("Failed to load task details", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!menu) return;
     const handler = (e: MouseEvent) => {
@@ -211,24 +238,15 @@ export default function ProjectPage() {
   }, [menu]);
 
 
-  useEffect(() => {
-    if (!selectedTask) return;
+  const selectedTaskId = selectedTask?.id;
 
+  useEffect(() => {
+    if (!selectedTaskId) return;
     let mounted = true;
 
     const loadTaskComments = async () => {
-      try {
-        const res = await api.get<ApiResponse<ApiTask>>(`/tasks/${selectedTask.id}`);
-        const mappedTask = mapTask(res.data.data);
-        const mappedComments: Comment[] = []; // Temporary: comments not yet in core Task type
-
-        if (!mounted) return;
-
-        setSelectedTask(mappedTask);
-        setComments((prev) => ({ ...prev, [selectedTask.id]: mappedComments }));
-      } catch (error) {
-        console.error("Failed to load task details", error);
-      }
+      await loadTaskDetails(selectedTaskId);
+      if (!mounted) return;
     };
 
     void loadTaskComments();
@@ -236,7 +254,7 @@ export default function ProjectPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedTask?.id]);
+  }, [selectedTaskId, loadTaskDetails]);
 
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, type: "project" | "task", item: Project | Task) => {
     e.stopPropagation();
@@ -278,6 +296,57 @@ export default function ProjectPage() {
 
   const handleAssign = (taskId: number, ids: number[]) => {
     updateTaskMutation.mutate({ id: taskId, payload: { assigned_to: ids[0] } as Partial<ApiTask> });
+  };
+
+  const handleAddSubtasks = (taskId: number, titles: string[]) => {
+    addSubtasksMutation.mutate(
+      { taskId, titles },
+      {
+        onSuccess: () => {
+          void loadTaskDetails(taskId);
+          toast.success("Subtasks added");
+        },
+        onError: (err: unknown) => toast.error(errMsg(err, "Failed to add subtasks")),
+      },
+    );
+  };
+
+  const handleToggleSubtask = (subtaskId: number, isCompleted: boolean) => {
+    if (!selectedTask) return;
+    updateSubtaskMutation.mutate(
+      { id: subtaskId, payload: { is_completed: isCompleted } },
+      {
+        onSuccess: () => {
+          void loadTaskDetails(selectedTask.id);
+        },
+        onError: (err: unknown) => toast.error(errMsg(err, "Failed to update subtask")),
+      },
+    );
+  };
+
+  const handleRenameSubtask = (subtaskId: number, title: string) => {
+    if (!selectedTask) return;
+    updateSubtaskMutation.mutate(
+      { id: subtaskId, payload: { title } },
+      {
+        onSuccess: () => {
+          void loadTaskDetails(selectedTask.id);
+          toast.success("Subtask renamed");
+        },
+        onError: (err: unknown) => toast.error(errMsg(err, "Failed to rename subtask")),
+      },
+    );
+  };
+
+  const handleDeleteSubtask = (subtaskId: number) => {
+    if (!selectedTask) return;
+    deleteSubtaskMutation.mutate(subtaskId, {
+      onSuccess: () => {
+        void loadTaskDetails(selectedTask.id);
+        toast.success("Subtask deleted");
+      },
+      onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete subtask")),
+    });
   };
 
   const projectName = selectedProject?.name ?? "";
@@ -469,6 +538,10 @@ export default function ProjectPage() {
           onDelete={() => setDeleteTaskOpen(true)}
           onComment={text => handleComment(selectedTask.id, text)}
           onAssign={ids => handleAssign(selectedTask.id, ids)}
+          onAddSubtasks={(titles) => handleAddSubtasks(selectedTask.id, titles)}
+          onToggleSubtask={handleToggleSubtask}
+          onRenameSubtask={handleRenameSubtask}
+          onDeleteSubtask={handleDeleteSubtask}
         />
       )}
 
