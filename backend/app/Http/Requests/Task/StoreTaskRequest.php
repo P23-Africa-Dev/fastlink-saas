@@ -18,16 +18,19 @@ class StoreTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'status' => ['nullable', 'string', Rule::in(['todo', 'in_progress', 'review', 'completed'])],
-            'priority' => ['nullable', 'string', Rule::in(['low', 'medium', 'high', 'urgent'])],
-            'start_date' => ['nullable', 'date'],
-            'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'order' => ['nullable', 'integer', 'min:0'],
-            'assignee_ids' => ['nullable', 'array'],
+            'title'          => ['required', 'string', 'max:255'],
+            'description'    => ['nullable', 'string'],
+            'project_id'     => ['nullable', 'integer', 'exists:projects,id'],
+            'status'         => ['nullable', 'string', Rule::in(['todo', 'in_progress', 'review', 'completed'])],
+            'priority'       => ['nullable', 'string', Rule::in(['low', 'medium', 'high', 'urgent'])],
+            'start_date'     => ['nullable', 'date'],
+            'due_date'       => ['nullable', 'date', 'after_or_equal:start_date'],
+            'order'          => ['nullable', 'integer', 'min:0'],
+            'assignee_ids'   => ['nullable', 'array'],
             'assignee_ids.*' => ['integer', 'exists:users,id'],
+            // Subtask support: optional array of title strings
+            'subtasks'       => ['nullable', 'array', 'max:100'],
+            'subtasks.*'     => ['required', 'string', 'max:255'],
         ];
     }
 }

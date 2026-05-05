@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\LeadDrive;
 use App\Models\LeadStatus;
 use App\Models\User;
+use App\Services\Crm\LocationService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -25,6 +26,13 @@ class LeadImportService
     private ?int $defaultStatusId = null;
 
     private ?int $defaultDriveId = null;
+
+    private readonly LocationService $locationService;
+
+    public function __construct()
+    {
+        $this->locationService = new LocationService();
+    }
 
     public function import(UploadedFile $file, array $defaults, User $actor): array
     {
@@ -191,6 +199,16 @@ class LeadImportService
         $statusId = $this->resolveStatusId($row, $defaults);
         $driveId = $this->resolveDriveId($row, $defaults);
 
+        // --- Location resolution (silent on mismatch) ---
+        $countryInput = trim((string) ($row['country'] ?? ''));
+        $stateInput   = trim((string) ($row['state'] ?? $row['state_province'] ?? ''));
+        $lgaInput     = trim((string) ($row['lga'] ?? $row['province'] ?? $row['local_government'] ?? ''));
+        $location     = $this->locationService->resolveRow(
+            $countryInput ?: null,
+            $stateInput   ?: null,
+            $lgaInput     ?: null,
+        );
+
         return [
             'first_name' => $this->limit($firstName !== '' ? $firstName : ($company !== '' ? $company : 'Imported Lead')),
             'last_name' => $this->limit($lastName),
@@ -204,6 +222,9 @@ class LeadImportService
             'country' => $this->limit((string) ($row['country'] ?? '')),
             'city' => $this->limit((string) ($row['city'] ?? '')),
             'address' => $this->limit((string) ($row['address'] ?? '')),
+            'country_id' => $location['country_id'],
+            'state_id' => $location['state_id'],
+            'lga_id' => $location['lga_id'],
             'website' => $this->limit((string) ($row['website'] ?? '')),
             'company_linkedin_profile' => $this->limit((string) ($row['company_linkedin_profile'] ?? '')),
             'ceo_linkedin_profile' => $this->limit((string) ($row['contact_linkedin_profile'] ?? $row['ceo_linkedin_profile'] ?? '')),

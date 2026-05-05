@@ -54,4 +54,9 @@ class Task extends Model
     {
         return $this->hasMany(TaskComment::class)->latest();
     }
+
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(Subtask::class)->orderBy('position')->orderBy('id');
+    }
 }

@@ -28,6 +28,9 @@ class Lead extends Model
         'country',
         'city',
         'address',
+        'country_id',
+        'state_id',
+        'lga_id',
         'status',
         'source',
         'priority',
@@ -81,5 +84,20 @@ class Lead extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(LeadActivity::class)->latest();
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function lga(): BelongsTo
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
     }
 }

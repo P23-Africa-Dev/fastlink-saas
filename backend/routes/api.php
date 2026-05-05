@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Settings\CompanySettingController;
 use App\Http\Controllers\Api\V1\Settings\ProfileController;
 use App\Http\Controllers\Api\V1\Settings\SupervisorPasscodeController;
 use App\Http\Controllers\Api\V1\SpreadsheetController;
+use App\Http\Controllers\Api\V1\SubtaskController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -122,6 +123,18 @@ Route::prefix('v1')->group(function () {
         Route::post('/tasks/{task}/comments', [TaskController::class, 'addComment'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/tasks/{task}/assign', [TaskController::class, 'assign'])
+            ->middleware('role:admin|supervisor');
+
+        // Subtask routes (nested under tasks)
+        Route::get('/tasks/{task}/subtasks', [SubtaskController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/tasks/{task}/subtasks', [SubtaskController::class, 'store'])
+            ->middleware('role:admin|supervisor');
+
+        // Subtask update / delete (top-level resource)
+        Route::put('/subtasks/{subtask}', [SubtaskController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::delete('/subtasks/{subtask}', [SubtaskController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
 
         Route::get('/attendance', [AttendanceController::class, 'index'])

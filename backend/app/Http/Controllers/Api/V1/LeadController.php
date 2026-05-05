@@ -27,7 +27,7 @@ class LeadController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Lead::query()
-            ->with(['assignedUser:id,name,email', 'creator:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color'])
+            ->with(['assignedUser:id,name,email', 'creator:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color', 'country:id,name,code', 'state:id,name', 'lga:id,name'])
             ->when($request->string('q')->toString(), function ($builder, $q) {
                 $builder->where(function ($inner) use ($q) {
                     $inner->where('first_name', 'like', "%{$q}%")
@@ -40,6 +40,9 @@ class LeadController extends Controller
             ->when($request->filled('drive_id'), fn ($builder) => $builder->where('drive_id', (int) $request->input('drive_id')))
             ->when($request->filled('assigned_to'), fn ($builder) => $builder->where('assigned_to', (int) $request->input('assigned_to')))
             ->when($request->filled('priority'), fn ($builder) => $builder->where('priority', $request->string('priority')))
+            ->when($request->filled('country_id'), fn ($builder) => $builder->where('country_id', (int) $request->input('country_id')))
+            ->when($request->filled('state_id'), fn ($builder) => $builder->where('state_id', (int) $request->input('state_id')))
+            ->when($request->filled('lga_id'), fn ($builder) => $builder->where('lga_id', (int) $request->input('lga_id')))
             ->orderByDesc('id');
 
         $leads = $query->paginate((int) $request->integer('per_page', 15));
@@ -93,7 +96,7 @@ class LeadController extends Controller
         );
 
         return $this->success(
-            $lead->load(['assignedUser:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color']),
+            $lead->load(['assignedUser:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color', 'country:id,name,code', 'state:id,name', 'lga:id,name']),
             'Lead created.',
             201
         );
@@ -108,6 +111,9 @@ class LeadController extends Controller
                 'drive:id,name,color',
                 'statusDefinition:id,name,color',
                 'activities.user:id,name,email',
+                'country:id,name,code',
+                'state:id,name',
+                'lga:id,name',
             ]),
             'Lead fetched.'
         );
@@ -154,7 +160,7 @@ class LeadController extends Controller
         }
 
         return $this->success(
-            $lead->fresh()->load(['assignedUser:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color']),
+            $lead->fresh()->load(['assignedUser:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color', 'country:id,name,code', 'state:id,name', 'lga:id,name']),
             'Lead updated.'
         );
     }

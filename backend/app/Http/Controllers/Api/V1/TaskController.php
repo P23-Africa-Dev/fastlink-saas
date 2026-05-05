@@ -9,6 +9,7 @@ use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Notifications\TaskAssignedNotification;
+use App\Services\SubtaskService;
 use App\Services\TaskBoardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,12 +18,15 @@ use Throwable;
 
 class TaskController extends Controller
 {
-    public function __construct(private readonly TaskBoardService $taskBoardService) {}
+    public function __construct(
+        private readonly TaskBoardService $taskBoardService,
+        private readonly SubtaskService $subtaskService,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
         $query = Task::query()
-            ->with(['project:id,name', 'creator:id,name,email', 'assignees:id,name,email'])
+            ->with(['project:id,name', 'creator:id,name,email', 'assignees:id,name,email', 'subtasks'])
             ->withCount('comments')
             ->when($request->string('q')->toString(), function ($builder, $q) {
                 $builder->where(function ($inner) use ($q) {
@@ -43,9 +47,10 @@ class TaskController extends Controller
 
     public function store(StoreTaskRequest $request): JsonResponse
     {
-        $payload = $request->validated();
+        $payload     = $request->validated();
         $assigneeIds = $payload['assignee_ids'] ?? [];
-        unset($payload['assignee_ids']);
+        $subtitles   = $payload['subtasks'] ?? [];
+        unset($payload['assignee_ids'], $payload['subtasks']);
 
         $payload['created_by'] = $request->user()->id;
         $task = Task::create($payload);
@@ -62,20 +67,26 @@ class TaskController extends Controller
             }
         }
 
-        return $this->success($task->load(['project:id,name', 'assignees:id,name,email']), 'Task created.', 201);
+        if (!empty($subtitles)) {
+            $this->subtaskService->createSubtasks($task, $subtitles);
+        }
+
+        $task->load(['project:id,name', 'assignees:id,name,email', 'subtasks']);
+
+        return $this->success($this->withSubtaskProgress($task), 'Task created.', 201);
     }
 
     public function show(Task $task): JsonResponse
     {
-        return $this->success(
-            $task->load([
-                'project:id,name',
-                'creator:id,name,email',
-                'assignees:id,name,email',
-                'comments.user:id,name,email',
-            ]),
-            'Task fetched.'
-        );
+        $task->load([
+            'project:id,name',
+            'creator:id,name,email',
+            'assignees:id,name,email',
+            'comments.user:id,name,email',
+            'subtasks',
+        ]);
+
+        return $this->success($this->withSubtaskProgress($task), 'Task fetched.');
     }
 
     public function update(UpdateTaskRequest $request, Task $task): JsonResponse
@@ -95,7 +106,7 @@ class TaskController extends Controller
             $task->assignees()->sync($syncData);
         }
 
-        return $this->success($task->fresh()->load(['project:id,name', 'assignees:id,name,email']), 'Task updated.');
+        return $this->success($this->withSubtaskProgress($task->fresh()->load(['project:id,name', 'assignees:id,name,email', 'subtasks'])), 'Task updated.');
     }
 
     public function destroy(Task $task): JsonResponse
@@ -135,6 +146,25 @@ class TaskController extends Controller
         ]);
 
         return $this->success($comment->load('user:id,name,email'), 'Task comment added.', 201);
+    }
+
+    /**
+     * Append subtask_progress summary to the task array.
+     */
+    private function withSubtaskProgress(Task $task): array
+    {
+        $data     = $task->toArray();
+        $subtasks = $task->relationLoaded('subtasks') ? $task->subtasks : $task->subtasks()->get();
+        $total    = $subtasks->count();
+        $done     = $subtasks->where('is_completed', true)->count();
+
+        $data['subtask_progress'] = [
+            'total'      => $total,
+            'completed'  => $done,
+            'percentage' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
+        ];
+
+        return $data;
     }
 
     public function assign(Request $request, Task $task): JsonResponse
