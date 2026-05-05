@@ -21,8 +21,7 @@ class LeadController extends Controller
         private readonly LeadImportService $leadImportService,
         private readonly NotificationService $notificationService,
         private readonly ActivityLogService $activityLogService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -36,13 +35,13 @@ class LeadController extends Controller
                         ->orWhere('company', 'like', "%{$q}%");
                 });
             })
-            ->when($request->filled('status'), fn ($builder) => $builder->where('status', $request->string('status')))
-            ->when($request->filled('drive_id'), fn ($builder) => $builder->where('drive_id', (int) $request->input('drive_id')))
-            ->when($request->filled('assigned_to'), fn ($builder) => $builder->where('assigned_to', (int) $request->input('assigned_to')))
-            ->when($request->filled('priority'), fn ($builder) => $builder->where('priority', $request->string('priority')))
-            ->when($request->filled('country_id'), fn ($builder) => $builder->where('country_id', (int) $request->input('country_id')))
-            ->when($request->filled('state_id'), fn ($builder) => $builder->where('state_id', (int) $request->input('state_id')))
-            ->when($request->filled('lga_id'), fn ($builder) => $builder->where('lga_id', (int) $request->input('lga_id')))
+            ->when($request->filled('status'), fn($builder) => $builder->where('status', $request->string('status')))
+            ->when($request->filled('drive_id'), fn($builder) => $builder->where('drive_id', (int) $request->input('drive_id')))
+            ->when($request->filled('assigned_to'), fn($builder) => $builder->where('assigned_to', (int) $request->input('assigned_to')))
+            ->when($request->filled('priority'), fn($builder) => $builder->where('priority', $request->string('priority')))
+            ->when($request->filled('country_id'), fn($builder) => $builder->where('country_id', (int) $request->input('country_id')))
+            ->when($request->filled('state_id'), fn($builder) => $builder->where('state_id', (int) $request->input('state_id')))
+            ->when($request->filled('lga_id'), fn($builder) => $builder->where('lga_id', (int) $request->input('lga_id')))
             ->orderByDesc('id');
 
         $leads = $query->paginate((int) $request->integer('per_page', 15));

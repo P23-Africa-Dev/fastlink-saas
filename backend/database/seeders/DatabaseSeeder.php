@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             WorkflowDefaultsSeeder::class,
             AdminUserSeeder::class,
+            LocationSeeder::class,
         ]);
     }
 }

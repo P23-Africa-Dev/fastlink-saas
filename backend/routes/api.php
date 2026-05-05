@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
+use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectTagController;
@@ -32,6 +33,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.dashboard.stats');
+
+        // Location hierarchy (read-only, available to all authenticated users)
+        Route::get('/countries', [LocationController::class, 'countries'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/states', [LocationController::class, 'states'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/lgas', [LocationController::class, 'lgas'])
+            ->middleware('role:admin|supervisor|staff');
 
         Route::get('/users/supervisors', [UserController::class, 'supervisors'])
             ->middleware('role:admin|supervisor|staff');
