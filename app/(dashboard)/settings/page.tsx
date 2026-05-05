@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   User,
   Palette,
@@ -21,8 +21,22 @@ import {
   AlertTriangle,
   Shield,
   ChevronDown,
-  X,
   Loader2,
+  // Activity log icons
+  ScrollText,
+  Briefcase,
+  UserCheck,
+  Upload,
+  Star,
+  Tag,
+  CalendarClock,
+  UserPlus,
+  LogIn,
+  LogOut,
+  Bell,
+  BarChart3,
+  Filter,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/stores/authStore";
@@ -36,10 +50,12 @@ import {
   useGeneratePasscode,
   useRevokePasscode,
   useSupervisors,
+  useActivityLogs,
   verifyPasscode,
   validateDeviceToken,
   type CompanySettings,
-  type Passcode,
+  type ProfileData,
+  type ActivityLog,
 } from "./hooks/useSettings";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -57,7 +73,7 @@ const TIMEZONES = [
   "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney",
 ];
 
-type Tab = "profile" | "appearance" | "company" | "passcodes";
+type Tab = "profile" | "appearance" | "company" | "passcodes" | "activity-logs";
 
 // ─── Shared Input ─────────────────────────────────────────────────────────────
 
@@ -109,12 +125,11 @@ function SaveBtn({ loading, onClick, label = "Save Changes" }: { loading?: boole
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
-function ProfileTab() {
-  const { data: profile, isLoading } = useProfile();
+function ProfileForm({ profile }: { profile: ProfileData }) {
   const updateMutation = useUpdateProfile();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(profile.name);
+  const [email, setEmail] = useState(profile.email);
   const [newPassword, setNewPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -122,13 +137,6 @@ function ProfileTab() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (profile) {
-      setName(profile.name);
-      setEmail(profile.email);
-    }
-  }, [profile]);
 
   const handleSave = () => {
     setErrors({});
@@ -156,16 +164,6 @@ function ProfileTab() {
       },
     });
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col" style={{ gap: "20px" }}>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 rounded-2xl bg-[#f8f8fc] animate-pulse" />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col" style={{ gap: "28px" }}>
@@ -253,16 +251,25 @@ function ProfileTab() {
   );
 }
 
+function ProfileTab() {
+  const { data: profile, isLoading } = useProfile();
+  if (isLoading || !profile) {
+    return (
+      <div className="flex flex-col" style={{ gap: "20px" }}>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 rounded-2xl bg-[#f8f8fc] animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+  return <ProfileForm key={profile.id} profile={profile} />;
+}
+
 // ─── Appearance Tab ───────────────────────────────────────────────────────────
 
-function AppearanceTab() {
-  const { data: profile, isLoading } = useProfile();
+function AppearanceForm({ initialAppearance }: { initialAppearance: "light" | "dark" | "system" }) {
   const updateAppearance = useUpdateAppearance();
-  const [current, setCurrent] = useState<"light" | "dark" | "system">("system");
-
-  useEffect(() => {
-    if (profile?.appearance) setCurrent(profile.appearance as "light" | "dark" | "system");
-  }, [profile?.appearance]);
+  const [current, setCurrent] = useState(initialAppearance);
 
   const handleChange = (val: "light" | "dark" | "system") => {
     setCurrent(val);
@@ -320,8 +327,6 @@ function AppearanceTab() {
       ),
     },
   ];
-
-  if (isLoading) return <div className="h-48 rounded-2xl bg-[#f8f8fc] animate-pulse" />;
 
   return (
     <div className="flex flex-col" style={{ gap: "28px" }}>
@@ -381,6 +386,13 @@ function AppearanceTab() {
       </div>
     </div>
   );
+}
+
+function AppearanceTab() {
+  const { data: profile, isLoading } = useProfile();
+  if (isLoading || !profile) return <div className="h-48 rounded-2xl bg-[#f8f8fc] animate-pulse" />;
+  const initial = (profile.appearance ?? "system") as "light" | "dark" | "system";
+  return <AppearanceForm key={initial} initialAppearance={initial} />;
 }
 
 // ─── Working Days Picker ──────────────────────────────────────────────────────
@@ -568,7 +580,11 @@ function CompanyForm({
 type SupervisorScreen = "checking" | "passcode" | "settings";
 
 function SupervisorCompanySettings({ company }: { company: CompanySettings }) {
-  const [screen, setScreen] = useState<SupervisorScreen>("checking");
+  const [screen, setScreen] = useState<SupervisorScreen>(() =>
+    typeof window !== "undefined" && localStorage.getItem("fastlink_company_device_token")
+      ? "checking"
+      : "passcode"
+  );
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [passcodeInput, setPasscodeInput] = useState("");
   const [rememberDevice, setRememberDevice] = useState(false);
@@ -578,14 +594,16 @@ function SupervisorCompanySettings({ company }: { company: CompanySettings }) {
   const updateMutation = useUpdateCompanySettings();
 
   useEffect(() => {
+    if (screen !== "checking") return;
     const deviceToken = localStorage.getItem("fastlink_company_device_token");
-    if (!deviceToken) { setScreen("passcode"); return; }
+    if (!deviceToken) return;
     validateDeviceToken(deviceToken)
       .then(() => setScreen("settings"))
       .catch(() => {
         localStorage.removeItem("fastlink_company_device_token");
         setScreen("passcode");
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePasscodeSubmit = async () => {
@@ -844,6 +862,11 @@ function PasscodesTab() {
   const [selectedSupervisor, setSelectedSupervisor] = useState<number | "">("");
   const [expiresAt, setExpiresAt] = useState("");
   const [revealCode, setRevealCode] = useState<string | null>(null);
+  const minExpiryDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  }, []);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [supervisorDropOpen, setSupervisorDropOpen] = useState(false);
   const [supervisorSearch, setSupervisorSearch] = useState("");
@@ -960,7 +983,7 @@ function PasscodesTab() {
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+              min={minExpiryDate}
               className="w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] text-(--text-primary) outline-none focus:border-[#33084E] transition-all"
               style={{ padding: "10px 14px" }}
             />
@@ -1066,6 +1089,419 @@ function PasscodesTab() {
   );
 }
 
+// ─── Activity Log helpers ─────────────────────────────────────────────────────
+
+const ACTION_CONFIG: Record<string, {
+  icon: React.ReactNode;
+  bg: string;
+  color: string;
+  label: string;
+  category: string;
+}> = {
+  "crm.lead_created":           { icon: <Briefcase size={14} />,     bg: "#f3e8ff", color: "#33084E", label: "Lead Created",       category: "CRM" },
+  "crm.lead_assigned":          { icon: <UserCheck size={14} />,     bg: "#dcfce7", color: "#074616", label: "Lead Assigned",      category: "CRM" },
+  "crm.lead_imported":          { icon: <Upload size={14} />,        bg: "#fef3c7", color: "#AF580B", label: "Leads Imported",     category: "CRM" },
+  "project.valuable_created":   { icon: <Star size={14} />,          bg: "#fef3c7", color: "#AF580B", label: "Valuable Project",   category: "Project" },
+  "project.tag_created":        { icon: <Tag size={14} />,           bg: "#f3e8ff", color: "#33084E", label: "Tag Created",        category: "Project" },
+  "project.tag_assigned":       { icon: <Tag size={14} />,           bg: "#dcfce7", color: "#074616", label: "Tag Assigned",       category: "Project" },
+  "attendance.clock_in":        { icon: <LogIn size={14} />,         bg: "#dcfce7", color: "#074616", label: "Clocked In",         category: "Attendance" },
+  "attendance.clock_out":       { icon: <LogOut size={14} />,        bg: "#fee2e2", color: "#991b1b", label: "Clocked Out",        category: "Attendance" },
+  "leave.request_created":      { icon: <CalendarClock size={14} />, bg: "#fef3c7", color: "#AF580B", label: "Leave Request",      category: "Leave" },
+  "leave.status_updated":       { icon: <CalendarClock size={14} />, bg: "#dcfce7", color: "#074616", label: "Leave Updated",      category: "Leave" },
+  "user.created_by_supervisor": { icon: <UserPlus size={14} />,      bg: "#f3e8ff", color: "#33084E", label: "User Created",       category: "Users" },
+};
+const FALLBACK_ACTION = { icon: <Bell size={14} />, bg: "#f3f4f6", color: "#6b7280", label: "System Event", category: "Other" };
+
+const ACTION_OPTIONS = [
+  { value: "", label: "All Actions" },
+  { value: "crm.lead_created",           label: "Lead Created" },
+  { value: "crm.lead_assigned",          label: "Lead Assigned" },
+  { value: "crm.lead_imported",          label: "Leads Imported" },
+  { value: "project.valuable_created",   label: "Valuable Project" },
+  { value: "project.tag_created",        label: "Tag Created" },
+  { value: "project.tag_assigned",       label: "Tag Assigned" },
+  { value: "attendance.clock_in",        label: "Clock In" },
+  { value: "attendance.clock_out",       label: "Clock Out" },
+  { value: "leave.request_created",      label: "Leave Request" },
+  { value: "leave.status_updated",       label: "Leave Updated" },
+  { value: "user.created_by_supervisor", label: "User Created" },
+];
+
+const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
+  CRM:        { bg: "#f3e8ff", color: "#33084E" },
+  Project:    { bg: "#fef3c7", color: "#AF580B" },
+  Attendance: { bg: "#dcfce7", color: "#074616" },
+  Leave:      { bg: "#fef9c3", color: "#854d0e" },
+  Users:      { bg: "#ede9fe", color: "#5b21b6" },
+  Other:      { bg: "#f3f4f6", color: "#6b7280" },
+};
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function fmtDateGroup(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+}
+
+function groupByDate(logs: ActivityLog[]): { date: string; items: ActivityLog[] }[] {
+  const map = new Map<string, ActivityLog[]>();
+  logs.forEach((log) => {
+    const key = new Date(log.created_at).toDateString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(log);
+  });
+  return Array.from(map.entries()).map(([, items]) => ({
+    date: fmtDateGroup(items[0].created_at),
+    items,
+  }));
+}
+
+// ─── Activity Logs Tab ────────────────────────────────────────────────────────
+
+function ActivityLogsTab() {
+  const [actionFilter, setActionFilter] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [perPage, setPerPage] = useState(25);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading, isFetching, refetch } = useActivityLogs(
+    actionFilter || undefined,
+    perPage,
+  );
+
+  const logs = data?.data ?? [];
+  const pagination = data?.meta?.pagination;
+  const hasMore = pagination ? pagination.current_page < pagination.last_page : false;
+  const total = pagination?.total ?? logs.length;
+
+  // Count by category for the stats strip
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    logs.forEach((log) => {
+      const cat = (ACTION_CONFIG[log.action] ?? FALLBACK_ACTION).category;
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    });
+    return counts;
+  }, [logs]);
+
+  const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const grouped = useMemo(() => groupByDate(logs), [logs]);
+
+  const activeAction = ACTION_OPTIONS.find((o) => o.value === actionFilter);
+
+  const skeletonRows = (
+    <div className="flex flex-col" style={{ gap: "0" }}>
+      {[...Array(7)].map((_, i) => (
+        <div key={i} className="flex items-start animate-pulse" style={{ padding: "16px 0", gap: "16px" }}>
+          <div className="flex flex-col items-center shrink-0" style={{ width: "40px", gap: "0" }}>
+            <div className="w-9 h-9 rounded-xl" style={{ background: "#f3f4f6" }} />
+            {i < 6 && <div className="w-px flex-1 mt-2" style={{ background: "#f0f0f5", minHeight: "32px" }} />}
+          </div>
+          <div className="flex-1 pb-4" style={{ gap: "6px", display: "flex", flexDirection: "column" }}>
+            <div className="flex items-center justify-between">
+              <div className="h-3 rounded-full w-28" style={{ background: "#f3f4f6" }} />
+              <div className="h-3 rounded-full w-16" style={{ background: "#f3f4f6" }} />
+            </div>
+            <div className="h-3 rounded-full w-3/4" style={{ background: "#f3f4f6" }} />
+            <div className="h-3 rounded-full w-1/2" style={{ background: "#f3f4f6" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col" style={{ gap: "20px" }}>
+
+      {/* ── Stats strip ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap shrink-0" style={{ gap: "10px" }}>
+        {[
+          {
+            label: "Total Events",
+            value: isLoading ? "—" : total.toLocaleString(),
+            icon: <ScrollText size={15} />,
+            bg: "#f3e8ff",
+            color: "#33084E",
+          },
+          {
+            label: "Showing",
+            value: isLoading ? "—" : logs.length.toLocaleString(),
+            icon: <Filter size={15} />,
+            bg: "#dcfce7",
+            color: "#074616",
+          },
+          {
+            label: "Top Category",
+            value: isLoading ? "—" : topCategory,
+            icon: <BarChart3 size={15} />,
+            bg: "#fef3c7",
+            color: "#AF580B",
+          },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center bg-white rounded-2xl border border-[#f0f0f5] transition-all duration-250 ease-out hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+            style={{ padding: "12px 18px", gap: "12px", flex: "1 1 140px" }}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.bg }}>
+              <span style={{ color: s.color }}>{s.icon}</span>
+            </div>
+            <div className="flex flex-col" style={{ gap: "1px" }}>
+              <span className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">{s.label}</span>
+              <span className="text-[16px] font-bold leading-none" style={{ color: s.color }}>{s.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Filter bar ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between" style={{ gap: "10px" }}>
+        {/* Action filter */}
+        <div className="flex items-center flex-wrap" style={{ gap: "8px" }}>
+          <div ref={filterRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              className="flex items-center rounded-xl border text-[12px] font-bold transition-all"
+              style={{
+                padding: "8px 14px",
+                gap: "7px",
+                borderColor: actionFilter ? "#33084E" : "#f0f0f5",
+                background: actionFilter ? "#faf5ff" : "white",
+                color: actionFilter ? "#33084E" : "#6b7280",
+              }}
+            >
+              <Filter size={12} />
+              {activeAction?.label ?? "All Actions"}
+              <ChevronDown size={12} className={filterOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
+            {filterOpen && (
+              <div
+                className="absolute z-30 rounded-2xl border border-[#f0f0f5] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden"
+                style={{ top: "calc(100% + 6px)", minWidth: "200px" }}
+              >
+                {ACTION_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { setActionFilter(opt.value); setPerPage(25); setFilterOpen(false); }}
+                    className="w-full text-left text-[12px] hover:bg-[#f8f8fc] transition-colors flex items-center"
+                    style={{
+                      padding: "9px 14px",
+                      gap: "8px",
+                      fontWeight: actionFilter === opt.value ? 700 : 500,
+                      color: actionFilter === opt.value ? "#33084E" : "#374151",
+                    }}
+                  >
+                    {actionFilter === opt.value && <Check size={11} style={{ color: "#33084E", flexShrink: 0 }} />}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {actionFilter && (
+            <button
+              type="button"
+              onClick={() => { setActionFilter(""); setPerPage(25); }}
+              className="flex items-center rounded-xl border border-[#f0f0f5] text-[11px] font-bold text-[#9ca3af] hover:text-(--text-primary) transition-all"
+              style={{ padding: "8px 12px", gap: "5px" }}
+            >
+              Clear filter
+            </button>
+          )}
+
+          {!isLoading && (
+            <span className="text-[12px] text-[#9ca3af]">
+              {logs.length} event{logs.length !== 1 ? "s" : ""}{actionFilter ? ` for "${activeAction?.label}"` : ""}
+            </span>
+          )}
+        </div>
+
+        {/* Refresh */}
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          title="Refresh"
+          className="w-8 h-8 flex items-center justify-center rounded-xl border border-[#f0f0f5] text-[#9ca3af] hover:text-(--text-primary) hover:border-[#33084E] transition-all disabled:opacity-40"
+        >
+          <RefreshCw size={13} className={isFetching ? "animate-spin" : ""} />
+        </button>
+      </div>
+
+      {/* ── Timeline ────────────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-[#f0f0f5] bg-white" style={{ padding: "24px" }}>
+        {isLoading ? skeletonRows : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center" style={{ padding: "48px 0", gap: "14px" }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "#f3f4f6" }}>
+              <ScrollText size={24} className="text-[#9ca3af]" />
+            </div>
+            <div style={{ gap: "4px", display: "flex", flexDirection: "column" }}>
+              <p className="text-[15px] font-bold text-(--text-primary)">No activity logs</p>
+              <p className="text-[12px] text-[#9ca3af]">
+                {actionFilter ? `No events found for "${activeAction?.label}".` : "Activity will appear here as your team uses FastLink."}
+              </p>
+            </div>
+            {actionFilter && (
+              <button
+                onClick={() => setActionFilter("")}
+                className="text-[12px] font-bold"
+                style={{ color: "#33084E" }}
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {grouped.map((group, gi) => (
+              <div key={group.date}>
+                {/* Date group header */}
+                <div className="flex items-center" style={{ gap: "10px", marginBottom: "4px", marginTop: gi > 0 ? "8px" : "0" }}>
+                  <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider whitespace-nowrap">{group.date}</span>
+                  <div className="flex-1 h-px" style={{ background: "#f0f0f5" }} />
+                </div>
+
+                {/* Items */}
+                {group.items.map((log, idx) => {
+                  const cfg = ACTION_CONFIG[log.action] ?? FALLBACK_ACTION;
+                  const catColors = CATEGORY_COLORS[cfg.category] ?? CATEGORY_COLORS.Other;
+                  const isLast = idx === group.items.length - 1 && gi === grouped.length - 1;
+
+                  // Build a tidy metadata summary (skip empty / internal fields)
+                  const metaEntries = Object.entries(log.metadata ?? {}).filter(
+                    ([k, v]) => v !== null && v !== undefined && v !== "" && !["id"].includes(k)
+                  ).slice(0, 3);
+
+                  return (
+                    <div key={log.id} className="flex items-start" style={{ gap: "14px", paddingTop: "12px" }}>
+                      {/* Timeline spine */}
+                      <div className="flex flex-col items-center shrink-0" style={{ width: "36px" }}>
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: cfg.bg, color: cfg.color, zIndex: 1 }}
+                        >
+                          {cfg.icon}
+                        </div>
+                        {!isLast && (
+                          <div className="w-px flex-1 mt-1" style={{ background: "#f0f0f5", minHeight: "28px" }} />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div
+                        className="flex-1 min-w-0 rounded-2xl border border-[#f0f0f5] hover:border-[#e5e7eb] hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all"
+                        style={{ padding: "12px 16px", marginBottom: isLast ? "0" : "8px", background: "white" }}
+                      >
+                        <div className="flex items-start justify-between" style={{ gap: "10px" }}>
+                          <div className="flex items-center flex-wrap" style={{ gap: "7px" }}>
+                            {/* Action badge */}
+                            <span
+                              className="inline-flex items-center rounded-lg text-[10px] font-bold"
+                              style={{ padding: "3px 8px", gap: "4px", background: cfg.bg, color: cfg.color }}
+                            >
+                              {cfg.label}
+                            </span>
+                            {/* Category badge */}
+                            <span
+                              className="inline-flex items-center rounded-lg text-[10px] font-bold"
+                              style={{ padding: "3px 8px", background: catColors.bg, color: catColors.color }}
+                            >
+                              {cfg.category}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-[#9ca3af] shrink-0 whitespace-nowrap">{fmtRelative(log.created_at)}</span>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-[13px] font-medium text-(--text-primary) mt-2 leading-snug">{log.description}</p>
+
+                        {/* Metadata pills */}
+                        {metaEntries.length > 0 && (
+                          <div className="flex flex-wrap mt-2" style={{ gap: "5px" }}>
+                            {metaEntries.map(([k, v]) => (
+                              <span
+                                key={k}
+                                className="inline-flex items-center rounded-lg text-[10px] font-medium text-[#6b7280]"
+                                style={{ padding: "2px 8px", background: "#f8f8fc", border: "1px solid #f0f0f5", gap: "3px" }}
+                              >
+                                <span className="font-bold text-[#9ca3af]">{k}:</span>
+                                {String(v).slice(0, 40)}{String(v).length > 40 ? "…" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Timestamp */}
+                        <p className="text-[10px] text-[#9ca3af] mt-2">
+                          {new Date(log.created_at).toLocaleString("en-GB", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* Load more */}
+            {hasMore && (
+              <div className="flex items-center justify-center mt-4">
+                <button
+                  onClick={() => setPerPage((p) => p + 25)}
+                  disabled={isFetching}
+                  className="flex items-center rounded-xl border border-[#f0f0f5] text-[12px] font-bold text-[#6b7280] hover:border-[#33084E] hover:text-[#33084E] transition-all disabled:opacity-50"
+                  style={{ padding: "9px 20px", gap: "7px" }}
+                >
+                  {isFetching ? <Loader2 size={13} className="animate-spin" /> : <ChevronDown size={13} />}
+                  Load more events
+                </button>
+              </div>
+            )}
+
+            {/* Subtle live refresh indicator */}
+            {isFetching && !isLoading && (
+              <div className="flex items-center justify-center mt-3" style={{ gap: "5px" }}>
+                <Loader2 size={11} className="animate-spin text-[#9ca3af]" />
+                <span className="text-[10px] text-[#9ca3af]">Refreshing…</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1077,7 +1513,10 @@ export default function SettingsPage() {
     { id: "profile", label: "Profile", icon: <User size={15} /> },
     { id: "appearance", label: "Appearance", icon: <Palette size={15} /> },
     { id: "company", label: "Company", icon: <Building2 size={15} /> },
-    ...(isAdmin ? [{ id: "passcodes" as Tab, label: "Passcodes", icon: <KeyRound size={15} /> }] : []),
+    ...(isAdmin ? [
+      { id: "passcodes" as Tab, label: "Passcodes", icon: <KeyRound size={15} /> },
+      { id: "activity-logs" as Tab, label: "Activity Logs", icon: <ScrollText size={15} /> },
+    ] : []),
   ];
 
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -1124,6 +1563,7 @@ export default function SettingsPage() {
         {activeTab === "appearance" && <AppearanceTab />}
         {activeTab === "company" && <CompanyTab role={role} />}
         {activeTab === "passcodes" && isAdmin && <PasscodesTab />}
+        {activeTab === "activity-logs" && isAdmin && <ActivityLogsTab />}
       </div>
     </div>
   );

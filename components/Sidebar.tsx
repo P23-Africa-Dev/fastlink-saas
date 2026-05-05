@@ -9,7 +9,6 @@ import {
   Layers,
   CalendarCheck,
   Users,
-  CalendarDays,
   Settings,
   ChevronRight,
   GitPullRequest,
