@@ -98,20 +98,32 @@ const mapPriorityToApi = (priority: "low" | "normal" | "high") => {
   return priority;
 };
 
+const safeText = (value: unknown, fallback = ""): string => {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed === "" ? fallback : trimmed;
+};
+
+const initialFromName = (firstName: string, lastName?: string): string => {
+  const first = firstName.trim().charAt(0);
+  const second = (lastName ?? "").trim().charAt(0);
+  return `${first || "?"}${second || ""}`.toUpperCase();
+};
+
 const mapLead = (raw: ApiLead, fallbackStatusId?: number): Lead => ({
-  id: raw.id,
-  first_name: raw.first_name,
-  last_name: raw.last_name,
-  company: raw.company,
-  email: raw.email,
-  phone: raw.phone ?? "",
+  id: Number(raw.id),
+  first_name: safeText(raw.first_name, "Imported"),
+  last_name: safeText(raw.last_name ?? ""),
+  company: safeText(raw.company ?? "", "Unknown Company"),
+  email: safeText(raw.email ?? ""),
+  phone: safeText(raw.phone ?? ""),
   estimated_value: Number(raw.estimated_value ?? 0),
-  currency: raw.currency ?? "USD",
+  currency: safeText(raw.currency ?? "", "USD"),
   priority: mapPriorityToUi(raw.priority as ApiLead["priority"]),
-  status_id: raw.status_id ?? fallbackStatusId,
-  drive_id: raw.drive_id,
+  status_id: Number(raw.status_id ?? fallbackStatusId ?? 0),
+  drive_id: Number(raw.drive_id ?? 0),
   date: raw.created_at?.split("T")[0] ?? "",
-  notes: raw.notes ?? "",
+  notes: safeText(raw.notes ?? ""),
   assigned_to: raw.assigned_to ?? undefined,
 });
 
@@ -222,7 +234,7 @@ function LeadCardContent({
       <div className="flex items-start justify-between" style={{ gap: "8px" }}>
         <div className="flex items-center" style={{ gap: "12px" }}>
           <div className="rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ width: "32px", height: "32px", background: `${status.color}15`, color: status.color }}>
-            {lead.first_name[0]}{lead.last_name[0]}
+            {initialFromName(lead.first_name, lead.last_name)}
           </div>
           <div className="min-w-0">
             <h4 className="text-[13px] font-bold text-(--text-primary) truncate group-hover:text-(--accent-purple) transition-colors">
@@ -543,8 +555,8 @@ export default function CrmPage() {
                       >
                         <td style={{ padding: "16px 24px" }}>
                           <div className="flex items-center" style={{ gap: "12px" }}>
-                            <div className="rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ width: "36px", height: "36px", background: `${status?.color}15`, color: status?.color }}>
-                              {lead.first_name[0]}{lead.last_name[0]}
+                            <div className="rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ width: "36px", height: "36px", background: `${status?.color ?? "#33084E"}15`, color: status?.color ?? "#33084E" }}>
+                              {initialFromName(lead.first_name, lead.last_name)}
                             </div>
                             <div>
                               <div className="text-[13px] font-bold text-(--text-primary) group-hover:text-(--accent-purple) transition-colors">
@@ -705,7 +717,7 @@ export default function CrmPage() {
             };
             updateLeadMutation.mutate({ id: selectedLead.id, payload: payload as Partial<ApiLead> }, {
               onSuccess: (res) => {
-                const mapped = mapLead(res as ApiLead);
+                const mapped = mapLead(res as ApiLead, defaultStatusId);
                 setSelectedLead(mapped);
                 setEditLeadOpen(false);
                 toast.success("Lead updated successfully");

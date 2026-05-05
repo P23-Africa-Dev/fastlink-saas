@@ -67,7 +67,9 @@ export function LeadDetailDrawer({
   const status = statuses.find(s => s.id === lead.status_id);
   const drive = drives.find(d => d.id === lead.drive_id);
   const priStyle = PRIORITY_STYLE[lead.priority] ?? PRIORITY_STYLE.normal;
-  const initials = `${lead.first_name[0]}${lead.last_name[0]}`.toUpperCase();
+  const first = (lead.first_name ?? "").trim().charAt(0);
+  const second = (lead.last_name ?? "").trim().charAt(0);
+  const initials = `${first || "?"}${second || ""}`.toUpperCase();
 
   return (
     <>
