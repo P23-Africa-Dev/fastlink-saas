@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\IndustryController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
@@ -40,6 +41,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/states', [LocationController::class, 'states'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/lgas', [LocationController::class, 'lgas'])
+            ->middleware('role:admin|supervisor|staff');
+
+        // Canonical industry list for lead forms/import
+        Route::get('/industries', [IndustryController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
 
         Route::get('/users/supervisors', [UserController::class, 'supervisors'])

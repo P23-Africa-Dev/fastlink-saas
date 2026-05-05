@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Industry;
 use App\Models\Lead;
 use Database\Seeders\WorkflowDefaultsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -64,4 +65,75 @@ it('supports lead CRUD, activity tracking, and import flow', function () {
 
     $list = $this->getJson('/api/v1/crm/leads?per_page=10');
     $list->assertOk()->assertJsonPath('success', true);
+});
+
+it('returns canonical industry list endpoint', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+
+    $admin = apiUser('admin');
+    Sanctum::actingAs($admin);
+
+    $response = $this->getJson('/api/v1/industries');
+
+    $response->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.0', Industry::TECHNOLOGY_SOFTWARE->value);
+});
+
+it('enforces strict industry values on manual lead creation but allows empty', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+
+    $admin = apiUser('admin');
+    Sanctum::actingAs($admin);
+
+    $valid = $this->postJson('/api/v1/crm/leads', [
+        'first_name' => 'Industry',
+        'email' => 'industry.valid@lead.test',
+        'industry' => 'technology / software',
+    ]);
+
+    $valid->assertCreated()
+        ->assertJsonPath('data.industry', Industry::TECHNOLOGY_SOFTWARE->value);
+
+    $empty = $this->postJson('/api/v1/crm/leads', [
+        'first_name' => 'NoIndustry',
+        'email' => 'industry.empty@lead.test',
+    ]);
+
+    $empty->assertCreated()->assertJsonPath('data.industry', null);
+
+    $invalid = $this->postJson('/api/v1/crm/leads', [
+        'first_name' => 'BadIndustry',
+        'email' => 'industry.invalid@lead.test',
+        'industry' => 'Space Mining',
+    ]);
+
+    $invalid->assertStatus(422)->assertJsonPath('success', false);
+});
+
+it('normalizes and safely defaults industry during import', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+
+    $admin = apiUser('admin');
+    Sanctum::actingAs($admin);
+
+    $csv = "first_name,last_name,email,company,industry\n"
+        . "Alice,Smith,industry.alice@lead.test,Globex, technology / software \n"
+        . "Bob,Lee,industry.bob@lead.test,Initech,Unknown Vertical\n"
+        . "Cara,Jones,industry.cara@lead.test,Initrode,\n";
+
+    $response = $this->postJson('/api/v1/crm/leads/import', [
+        'file' => UploadedFile::fake()->createWithContent('industry-import.csv', $csv),
+    ]);
+
+    $response->assertOk()->assertJsonPath('data.imported', 3);
+
+    expect(Lead::query()->where('email', 'industry.alice@lead.test')->value('industry'))
+        ->toBe(Industry::TECHNOLOGY_SOFTWARE->value);
+
+    expect(Lead::query()->where('email', 'industry.bob@lead.test')->value('industry'))
+        ->toBe(Industry::NOT_SPECIFIED->value);
+
+    expect(Lead::query()->where('email', 'industry.cara@lead.test')->value('industry'))
+        ->toBeNull();
 });

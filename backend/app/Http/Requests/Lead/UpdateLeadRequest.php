@@ -2,11 +2,24 @@
 
 namespace App\Http\Requests\Lead;
 
+use App\Enums\Industry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateLeadRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (!$this->has('industry')) {
+            return;
+        }
+
+        $normalized = Industry::fromInput((string) $this->input('industry'));
+        if ($normalized !== null) {
+            $this->merge(['industry' => $normalized->value]);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -25,7 +38,7 @@ class UpdateLeadRequest extends FormRequest
             'company' => ['nullable', 'string', 'max:255'],
             'employee_count' => ['nullable', 'integer', 'min:1'],
             'year_founded' => ['nullable', 'integer', 'min:1800', 'max:2100'],
-            'industry' => ['nullable', 'string', 'max:255'],
+            'industry' => ['nullable', 'string', Rule::in(Industry::values())],
             'job_title' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'url', 'max:255'],
             'company_linkedin_profile' => ['nullable', 'url', 'max:255'],

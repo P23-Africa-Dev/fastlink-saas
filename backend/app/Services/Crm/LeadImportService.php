@@ -2,6 +2,7 @@
 
 namespace App\Services\Crm;
 
+use App\Enums\Industry;
 use App\Models\Lead;
 use App\Models\LeadDrive;
 use App\Models\LeadStatus;
@@ -191,6 +192,8 @@ class LeadImportService
             $source = 'import';
         }
 
+        $industry = $this->normalizeIndustry((string) ($row['industry'] ?? ($defaults['industry'] ?? '')));
+
         $assignedTo = $defaults['assigned_to'] ?? null;
         if ($assignedTo === null && is_numeric($row['assigned_to'] ?? null)) {
             $assignedTo = (int) $row['assigned_to'];
@@ -218,7 +221,7 @@ class LeadImportService
             'employee_count' => $this->toPositiveInt($row['employee_count'] ?? null),
             'year_founded' => $this->toPositiveInt($row['year_founded'] ?? null),
             'job_title' => $this->limit((string) ($row['job_title'] ?? '')),
-            'industry' => $this->limit((string) ($row['industry'] ?? '')),
+            'industry' => $industry,
             'country' => $this->limit((string) ($row['country'] ?? '')),
             'city' => $this->limit((string) ($row['city'] ?? '')),
             'address' => $this->limit((string) ($row['address'] ?? '')),
@@ -407,6 +410,18 @@ class LeadImportService
         }
 
         return substr($currency, 0, 3);
+    }
+
+    private function normalizeIndustry(string $value): ?string
+    {
+        $raw = trim($value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $industry = Industry::fromInput($raw);
+
+        return $industry?->value ?? Industry::NOT_SPECIFIED->value;
     }
 
     private function toPositiveInt(mixed $value): ?int
