@@ -11,7 +11,19 @@ interface NewTaskModalProps {
   defaultStatus?: TaskStatus;
   defaultProject?: number;
   onClose: () => void;
-  onSave: (data: Omit<Task, "id">) => void;
+  onSave: (data: {
+    title: string;
+    description?: string;
+    project_id: number;
+    status: TaskStatus;
+    priority: Priority;
+    start_date: string;
+    due_date: string;
+    assignee_ids: number[];
+    comment_count: number;
+    order: number;
+    subtasks?: string[];
+  }) => void;
 }
 
 const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "review", "completed"];

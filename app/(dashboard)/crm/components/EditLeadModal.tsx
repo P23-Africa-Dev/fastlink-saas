@@ -51,16 +51,13 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   const [lgaId, setLgaId] = useState(lead.lga_id ? String(lead.lga_id) : "");
 
   const { data: countries = [] } = useCountries();
-  const { data: states = [] } = useStates(countryId ? Number(countryId) : undefined);
-  const { data: lgas = [] } = useLgas(stateId ? Number(stateId) : undefined);
-
-  React.useEffect(() => {
-    if (countryId || countries.length === 0) return;
+  const defaultCountryId = React.useMemo(() => {
     const defaultCountry = countries.find((country) => country.is_default) ?? countries[0];
-    if (defaultCountry) {
-      setCountryId(defaultCountry.id.toString());
-    }
-  }, [countries, countryId]);
+    return defaultCountry ? defaultCountry.id.toString() : "";
+  }, [countries]);
+  const effectiveCountryId = countryId || defaultCountryId;
+  const { data: states = [] } = useStates(effectiveCountryId ? Number(effectiveCountryId) : undefined);
+  const { data: lgas = [] } = useLgas(stateId ? Number(stateId) : undefined);
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -89,7 +86,7 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
       priority,
       notes,
       industry: industry || undefined,
-      country_id: countryId ? Number(countryId) : null,
+      country_id: effectiveCountryId ? Number(effectiveCountryId) : null,
       state_id: stateId ? Number(stateId) : null,
       lga_id: lgaId ? Number(lgaId) : null,
     });
@@ -134,7 +131,7 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
               <label className={labelCls}>Country</label>
               <CustomSelect
                 fullWidth
-                value={countryId}
+                value={effectiveCountryId}
                 onChange={(value) => {
                   setCountryId(value);
                   setStateId("");
