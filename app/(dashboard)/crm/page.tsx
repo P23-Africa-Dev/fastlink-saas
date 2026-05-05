@@ -98,7 +98,7 @@ const mapPriorityToApi = (priority: "low" | "normal" | "high") => {
   return priority;
 };
 
-const mapLead = (raw: ApiLead): Lead => ({
+const mapLead = (raw: ApiLead, fallbackStatusId?: number): Lead => ({
   id: raw.id,
   first_name: raw.first_name,
   last_name: raw.last_name,
@@ -108,7 +108,7 @@ const mapLead = (raw: ApiLead): Lead => ({
   estimated_value: Number(raw.estimated_value ?? 0),
   currency: raw.currency ?? "USD",
   priority: mapPriorityToUi(raw.priority as ApiLead["priority"]),
-  status_id: raw.status_id,
+  status_id: raw.status_id ?? fallbackStatusId,
   drive_id: raw.drive_id,
   date: raw.created_at?.split("T")[0] ?? "",
   notes: raw.notes ?? "",
@@ -287,7 +287,12 @@ export default function CrmPage() {
   // Queries
   const { data: drivesRaw, isLoading: drivesLoading } = useDrives();
   const { data: statusesRaw, isLoading: statusesLoading } = useStatuses();
-  const { data: leadsRaw, isLoading: leadsLoading } = useLeads(filters);
+  const { data: leadsRaw, isLoading: leadsLoading } = useLeads({
+    driveId: filters.driveId,
+    query: filters.query,
+    priority: filters.priority,
+    assignedTo: filters.assignedTo,
+  });
 
   // Mutations
   const createLeadMutation = useCreateLead();
@@ -305,7 +310,14 @@ export default function CrmPage() {
 
   const drives = useMemo(() => (drivesRaw || []).map(mapDrive), [drivesRaw]);
   const statuses = useMemo(() => (statusesRaw || []).map(mapStatus), [statusesRaw]);
-  const leads = useMemo(() => (leadsRaw || []).map(mapLead), [leadsRaw]);
+  const defaultStatusId = useMemo(() => {
+    const explicitDefault = statuses.find((status) => status.is_default);
+    return explicitDefault?.id ?? statuses[0]?.id;
+  }, [statuses]);
+  const leads = useMemo(
+    () => (leadsRaw || []).map((lead) => mapLead(lead, defaultStatusId)),
+    [leadsRaw, defaultStatusId]
+  );
 
   const [activities, setActivities] = useState<Record<number, Activity[]>>({});
 
@@ -522,7 +534,7 @@ export default function CrmPage() {
                 </thead>
                 <tbody>
                   {filteredLeads.map(lead => {
-                    const status = statuses.find(s => s.id === lead.status_id)!;
+                    const status = statuses.find(s => s.id === lead.status_id) ?? null;
                     return (
                       <tr
                         key={lead.id}

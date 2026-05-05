@@ -28,16 +28,18 @@ export function useStatuses() {
   });
 }
 
-export function useLeads(filters: { driveId?: number; statusId?: number; query?: string; priority?: string }) {
+export function useLeads(filters: { driveId?: number; statusId?: number; query?: string; priority?: string; assignedTo?: string }) {
   return useQuery({
     queryKey: ["crm", "leads", filters],
     queryFn: async () => {
+      const apiPriority = filters.priority === "normal" ? "medium" : filters.priority || undefined;
       const res = await api.get<ApiResponse<Lead[]>>("/crm/leads", {
         params: {
-          drive_id: filters.driveId || undefined,
+          drive_id: filters.driveId && filters.driveId > 0 ? filters.driveId : undefined,
           status_id: filters.statusId || undefined,
-          search: filters.query || undefined,
-          priority: filters.priority || undefined,
+          q: filters.query || undefined,
+          priority: apiPriority,
+          assigned_to: filters.assignedTo || undefined,
           per_page: 300,
         },
       });

@@ -3,6 +3,8 @@
 namespace App\Services\Crm;
 
 use App\Models\Lead;
+use App\Models\LeadDrive;
+use App\Models\LeadStatus;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -13,6 +15,16 @@ use Throwable;
 class LeadImportService
 {
     private const MAX_PHONE_LENGTH = 30;
+
+    /** @var array<string, int> */
+    private array $statusLookup = [];
+
+    /** @var array<string, int> */
+    private array $driveLookup = [];
+
+    private ?int $defaultStatusId = null;
+
+    private ?int $defaultDriveId = null;
 
     public function import(UploadedFile $file, array $defaults, User $actor): array
     {
@@ -176,6 +188,9 @@ class LeadImportService
             $assignedTo = (int) $row['assigned_to'];
         }
 
+        $statusId = $this->resolveStatusId($row, $defaults);
+        $driveId = $this->resolveDriveId($row, $defaults);
+
         return [
             'first_name' => $this->limit($firstName !== '' ? $firstName : ($company !== '' ? $company : 'Imported Lead')),
             'last_name' => $this->limit($lastName),
@@ -200,12 +215,125 @@ class LeadImportService
             'interested_services' => $this->toStringArray($row['interested_services'] ?? null),
             'requirements' => $this->toText($row['requirements'] ?? null),
             'lost_reason' => $this->limit((string) ($row['lost_reason'] ?? '')),
-            'drive_id' => $defaults['drive_id'] ?? null,
-            'status_id' => $defaults['status_id'] ?? null,
+            'drive_id' => $driveId,
+            'status_id' => $statusId,
             'assigned_to' => $assignedTo,
             'created_by' => $actor->id,
             'notes' => $this->toText($row['notes'] ?? null),
         ];
+    }
+
+    private function resolveStatusId(array $row, array $defaults): ?int
+    {
+        if (is_numeric($defaults['status_id'] ?? null)) {
+            return (int) $defaults['status_id'];
+        }
+
+        if (is_numeric($row['status_id'] ?? null)) {
+            return (int) $row['status_id'];
+        }
+
+        $statusValue = trim((string) ($row['status'] ?? ''));
+        if ($statusValue !== '') {
+            $lookup = $this->statusLookup();
+            $key = Str::slug($statusValue, '_');
+            if (isset($lookup[$key])) {
+                return $lookup[$key];
+            }
+        }
+
+        return $this->defaultStatusId();
+    }
+
+    private function resolveDriveId(array $row, array $defaults): ?int
+    {
+        if (is_numeric($defaults['drive_id'] ?? null)) {
+            return (int) $defaults['drive_id'];
+        }
+
+        if (is_numeric($row['drive_id'] ?? null)) {
+            return (int) $row['drive_id'];
+        }
+
+        $pipelineValue = trim((string) ($row['pipeline'] ?? $row['drive'] ?? ''));
+        if ($pipelineValue !== '') {
+            $lookup = $this->driveLookup();
+            $key = Str::slug($pipelineValue, '_');
+            if (isset($lookup[$key])) {
+                return $lookup[$key];
+            }
+        }
+
+        return $this->defaultDriveId();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function statusLookup(): array
+    {
+        if ($this->statusLookup !== []) {
+            return $this->statusLookup;
+        }
+
+        $statuses = LeadStatus::query()->select(['id', 'name', 'slug'])->get();
+        foreach ($statuses as $status) {
+            $this->statusLookup[Str::slug((string) $status->slug, '_')] = (int) $status->id;
+            $this->statusLookup[Str::slug((string) $status->name, '_')] = (int) $status->id;
+        }
+
+        return $this->statusLookup;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function driveLookup(): array
+    {
+        if ($this->driveLookup !== []) {
+            return $this->driveLookup;
+        }
+
+        $drives = LeadDrive::query()->select(['id', 'name', 'slug'])->get();
+        foreach ($drives as $drive) {
+            $this->driveLookup[Str::slug((string) $drive->slug, '_')] = (int) $drive->id;
+            $this->driveLookup[Str::slug((string) $drive->name, '_')] = (int) $drive->id;
+        }
+
+        return $this->driveLookup;
+    }
+
+    private function defaultStatusId(): ?int
+    {
+        if ($this->defaultStatusId !== null) {
+            return $this->defaultStatusId;
+        }
+
+        $default = LeadStatus::query()
+            ->ordered()
+            ->orderByDesc('is_default')
+            ->value('id');
+
+        $this->defaultStatusId = $default ? (int) $default : null;
+
+        return $this->defaultStatusId;
+    }
+
+    private function defaultDriveId(): ?int
+    {
+        if ($this->defaultDriveId !== null) {
+            return $this->defaultDriveId;
+        }
+
+        $default = LeadDrive::query()
+            ->orderByDesc('is_default')
+            ->orderBy('position')
+            ->orderBy('id')
+            ->value('id');
+
+        $this->defaultDriveId = $default ? (int) $default : null;
+
+        return $this->defaultDriveId;
     }
 
     /**

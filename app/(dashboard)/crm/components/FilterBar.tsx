@@ -4,26 +4,26 @@ import React from "react";
 import { Search, LayoutGrid, List, Settings2 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
-interface Drive  { id: number; name: string; }
+interface Drive { id: number; name: string; }
 
 export interface FilterState {
-  driveId:    number;
-  query:      string;
-  priority:   string;
+  driveId: number;
+  query: string;
+  priority: string;
   assignedTo: string;
-  perPage:    number;
-  page:       number;
+  perPage: number;
+  page: number;
 }
 
 interface FilterBarProps {
-  drives:        Drive[];
-  filters:       FilterState;
-  totalLeads:    number;
-  viewMode:      "kanban" | "list";
+  drives: Drive[];
+  filters: FilterState;
+  totalLeads: number;
+  viewMode: "kanban" | "list";
   onFiltersChange: (next: Partial<FilterState>) => void;
-  onViewChange:  (mode: "kanban" | "list") => void;
+  onViewChange: (mode: "kanban" | "list") => void;
   onManagePipelines: () => void;
-  onManageStatuses:  () => void;
+  onManageStatuses: () => void;
 }
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -34,18 +34,18 @@ export function FilterBar({
 }: FilterBarProps) {
   const totalPages = Math.max(1, Math.ceil(totalLeads / filters.perPage));
 
-  const driveOptions    = drives.map(d => ({ value: d.id.toString(), label: d.name }));
+  const driveOptions = [{ value: "0", label: "All Pipelines" }, ...drives.map(d => ({ value: d.id.toString(), label: d.name }))];
   const priorityOptions = [
     { value: "", label: "All Priorities" },
-    { value: "high",   label: "High" },
+    { value: "high", label: "High" },
     { value: "normal", label: "Normal" },
-    { value: "low",    label: "Low" },
+    { value: "low", label: "Low" },
   ];
   const assigneeOptions = [
     { value: "", label: "All Assignees" },
     { value: "1", label: "Me" },
   ];
-  const perPageOptions  = PER_PAGE_OPTIONS.map(n => ({ value: n.toString(), label: `${n} per page` }));
+  const perPageOptions = PER_PAGE_OPTIONS.map(n => ({ value: n.toString(), label: `${n} per page` }));
 
   return (
     <div className="flex flex-col" style={{ gap: "0" }}>
