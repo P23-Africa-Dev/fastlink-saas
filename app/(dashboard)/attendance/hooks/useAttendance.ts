@@ -125,7 +125,7 @@ export function useSupervisors() {
   return useQuery({
     queryKey: ["users", "supervisors"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<any[]>>("/users/supervisors", {
+      const res = await api.get<ApiResponse<{ id: number; name: string; email: string }[]>>("/users/supervisors", {
         params: { exclude_self: true },
       });
       return res.data.data;

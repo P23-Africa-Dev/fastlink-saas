@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, User } from "@/lib/types";
+import type { ApiResponse } from "@/lib/types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -208,5 +208,41 @@ export function useSupervisors() {
       return all;
     },
     staleTime: 5 * 60_000,
+  });
+}
+
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+
+export interface ActivityLog {
+  id: number;
+  user_id: number | null;
+  action: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+interface ActivityLogsResponse {
+  data: ActivityLog[];
+  meta: {
+    pagination?: {
+      current_page: number;
+      last_page: number;
+      per_page: number;
+      total: number;
+    };
+  };
+}
+
+export function useActivityLogs(action?: string, perPage = 25) {
+  return useQuery({
+    queryKey: ["activity-logs", action ?? "all", perPage],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { per_page: perPage };
+      if (action) params.action = action;
+      const res = await api.get<ActivityLogsResponse>("/activity-logs", { params });
+      return res.data;
+    },
+    staleTime: 30_000,
   });
 }
