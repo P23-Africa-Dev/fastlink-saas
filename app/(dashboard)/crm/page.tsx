@@ -43,9 +43,34 @@ import { StatusItem } from "./components/ManageStatusesModal";
 import { CrmSkeleton } from "@/components/CrmSkeleton";
 import { toast } from "sonner";
 
-type ApiError = { response?: { data?: { message?: string } } };
+type ApiError = {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+      errors?: Record<string, string[] | string>;
+    };
+  };
+};
 function errMsg(err: unknown, fallback: string) {
-  return (err as ApiError)?.response?.data?.message || fallback;
+  const parsed = err as ApiError;
+  const topMessage = parsed?.response?.data?.message;
+  if (topMessage) {
+    return topMessage;
+  }
+
+  const validationErrors = parsed?.response?.data?.errors;
+  if (validationErrors && typeof validationErrors === "object") {
+    const first = Object.values(validationErrors)[0];
+    if (Array.isArray(first) && first[0]) {
+      return first[0];
+    }
+    if (typeof first === "string" && first) {
+      return first;
+    }
+  }
+
+  return parsed?.message || fallback;
 }
 
 interface BackendUser {
@@ -636,20 +661,21 @@ export default function CrmPage() {
       )}
 
       {isImportOpen && (
-        <ImportLeadsModal 
-          drives={drives} 
-          statuses={statuses} 
-          onClose={() => setImportOpen(false)} 
-          onImport={(formData) => {
-            importLeadsMutation.mutate(formData, {
-              onSuccess: () => {
-                setImportOpen(false);
-                toast.success("Leads imported successfully");
-              },
-              onError: (err: unknown) => {
-                toast.error(errMsg(err, "Import failed"));
-              }
-            });
+        <ImportLeadsModal
+          drives={drives}
+          statuses={statuses}
+          onClose={() => setImportOpen(false)}
+          onImport={async (formData) => {
+            const result = await importLeadsMutation.mutateAsync(formData);
+            if (result.imported > 0 && result.errors.length === 0) {
+              toast.success("Leads imported successfully");
+            } else if (result.imported > 0) {
+              toast.warning(`Imported ${result.imported} leads with ${result.skipped} skipped.`);
+            } else {
+              toast.error(result.errors[0] || "No leads were imported. Please review the file data.");
+            }
+
+            return result;
           }}
         />
       )}

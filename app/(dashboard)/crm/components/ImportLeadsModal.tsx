@@ -4,21 +4,16 @@ import React, { useRef, useState, useCallback } from "react";
 import { X, FileUp, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import type { LeadImportResult } from "../hooks/useCrm";
 
 interface Drive { id: number; name: string; }
 interface Status { id: number; name: string; }
 
 interface ImportLeadsModalProps {
-  drives:   Drive[];
+  drives: Drive[];
   statuses: Status[];
-  onClose:  () => void;
-  onImport: (formData: FormData) => void;
-}
-
-interface ImportResult {
-  imported: number;
-  skipped:  number;
-  errors:   string[];
+  onClose: () => void;
+  onImport: (formData: FormData) => Promise<LeadImportResult>;
 }
 
 const ACCEPTED_EXTENSIONS = [".csv", ".txt", ".xls", ".xlsx"];
@@ -35,26 +30,26 @@ function isValid(file: File) {
   return ACCEPTED_TYPES.includes(file.type) || ACCEPTED_EXTENSIONS.includes(ext);
 }
 
-const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] font-medium outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function ImportLeadsModal({ drives, statuses, onClose, onImport }: ImportLeadsModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep]               = useState<"upload" | "result">("upload");
-  const [isDragOver, setIsDragOver]   = useState(false);
-  const [file, setFile]               = useState<File | null>(null);
-  const [fileError, setFileError]     = useState<string | null>(null);
-  const [errorsOpen, setErrorsOpen]   = useState(false);
-  const [result] = useState<ImportResult>({ imported: 0, skipped: 0, errors: [] });
+  const [step, setStep] = useState<"upload" | "result">("upload");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [errorsOpen, setErrorsOpen] = useState(false);
+  const [result, setResult] = useState<LeadImportResult>({ imported: 0, skipped: 0, errors: [] });
 
-  const [impDriveId,   setImpDriveId]   = useState("");
-  const [impStatusId,  setImpStatusId]  = useState("");
-  const [impPriority,  setImpPriority]  = useState("");
-  const [impCurrency,  setImpCurrency]  = useState("");
-  const [impAssignTo,  setImpAssignTo]  = useState("");
+  const [impDriveId, setImpDriveId] = useState("");
+  const [impStatusId, setImpStatusId] = useState("");
+  const [impPriority, setImpPriority] = useState("");
+  const [impCurrency, setImpCurrency] = useState("");
+  const [impAssignTo, setImpAssignTo] = useState("");
 
-  const driveOptions    = [{ value: "", label: "Do not override" }, ...drives.map(d => ({ value: d.id.toString(), label: d.name }))];
-  const statusOptions   = [{ value: "", label: "Do not override" }, ...statuses.map(s => ({ value: s.id.toString(), label: s.name }))];
+  const driveOptions = [{ value: "", label: "Do not override" }, ...drives.map(d => ({ value: d.id.toString(), label: d.name }))];
+  const statusOptions = [{ value: "", label: "Do not override" }, ...statuses.map(s => ({ value: s.id.toString(), label: s.name }))];
   const priorityOptions = [
     { value: "", label: "Do not override" },
     ...PRIORITIES.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) })),
@@ -79,8 +74,12 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
     if (f) handleFile(f);
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!file) return;
+
+    setIsSubmitting(true);
+    setFileError(null);
+
     const formData = new FormData();
     formData.append("file", file);
     if (impDriveId) formData.append("drive_id", impDriveId);
@@ -89,7 +88,20 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
     if (impCurrency) formData.append("currency", impCurrency);
     if (impAssignTo) formData.append("assigned_to", impAssignTo);
 
-    onImport(formData);
+    try {
+      const importResult = await onImport(formData);
+      setResult({
+        imported: Number(importResult?.imported ?? 0),
+        skipped: Number(importResult?.skipped ?? 0),
+        errors: Array.isArray(importResult?.errors) ? importResult.errors : [],
+      });
+      setErrorsOpen(false);
+      setStep("result");
+    } catch (error: unknown) {
+      setFileError(extractApiErrorMessage(error, "Import failed. Please check your file and try again."));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /* ── Step 1: Upload ─────────────────────────────────────────── */
@@ -212,8 +224,8 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
         {/* Footer */}
         <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
           <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
-          <ModalButton variant="primary" disabled={!file} onClick={handleImport}>
-            Import Data
+          <ModalButton variant="primary" disabled={!file || isSubmitting} onClick={handleImport}>
+            {isSubmitting ? "Importing..." : "Import Data"}
           </ModalButton>
         </div>
       </div>
@@ -285,4 +297,39 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
       </div>
     </div>
   );
+}
+
+type ApiErrorShape = {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+      errors?: Record<string, string[] | string>;
+    };
+  };
+};
+
+function extractApiErrorMessage(error: unknown, fallback: string): string {
+  const err = error as ApiErrorShape;
+  const topMessage = err?.response?.data?.message;
+  if (topMessage) {
+    return topMessage;
+  }
+
+  const validationErrors = err?.response?.data?.errors;
+  if (validationErrors && typeof validationErrors === "object") {
+    const first = Object.values(validationErrors)[0];
+    if (Array.isArray(first) && first[0]) {
+      return first[0];
+    }
+    if (typeof first === "string" && first) {
+      return first;
+    }
+  }
+
+  if (err?.message) {
+    return err.message;
+  }
+
+  return fallback;
 }

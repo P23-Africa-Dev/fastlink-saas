@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { ApiResponse, Lead, Drive, LeadStatus } from "@/lib/types";
 
+export interface LeadImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
 export function useDrives() {
   return useQuery({
     queryKey: ["crm", "drives"],
@@ -81,11 +87,15 @@ export function useDeleteLead() {
 export function useImportLeads() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (formData: FormData) => {
-      const res = await api.post<ApiResponse<unknown>>("/crm/leads/import", formData, {
+    mutationFn: async (formData: FormData): Promise<LeadImportResult> => {
+      const res = await api.post<ApiResponse<LeadImportResult>>("/crm/leads/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      return res.data.data;
+      return {
+        imported: Number(res.data.data?.imported ?? 0),
+        skipped: Number(res.data.data?.skipped ?? 0),
+        errors: Array.isArray(res.data.data?.errors) ? res.data.data.errors : [],
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crm", "leads"] });
