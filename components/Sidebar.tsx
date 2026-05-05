@@ -25,7 +25,8 @@ const navItems = [
 
 const bottomItems = [
   // { icon: CalendarDays, label: "Calendar", href: "/calendar" },
-  { icon: Users, label: "Settings", href: "/settings" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: Users, label: "User Management", href: "/user-management" },
 ];
 
 interface SidebarProps {
