@@ -25,6 +25,8 @@ export function TaskCard({ task, project, onClick, onMenuClick }: TaskCardProps)
   const assignees   = MOCK_TEAM.filter(m => task.assignee_ids.includes(m.id));
   const visibleAssignees = assignees.slice(0, 3);
   const overflow    = assignees.length - 3;
+  const progress = task.subtask_progress;
+  const hasSubtasks = (progress?.total ?? 0) > 0;
 
   return (
     <div
@@ -60,6 +62,15 @@ export function TaskCard({ task, project, onClick, onMenuClick }: TaskCardProps)
         <p className="text-[11px] text-[#9ca3af] leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {task.description}
         </p>
+      )}
+
+      {hasSubtasks && (
+        <div className="flex items-center justify-between rounded-lg border border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "6px 8px" }}>
+          <span className="text-[10px] font-semibold text-[#9ca3af]">Subtasks</span>
+          <span className="text-[10px] font-bold text-(--text-primary)">
+            {progress?.completed}/{progress?.total} ({progress?.percentage}%)
+          </span>
+        </div>
       )}
 
       {/* Priority + due date */}

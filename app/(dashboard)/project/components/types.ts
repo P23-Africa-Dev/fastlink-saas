@@ -24,6 +24,25 @@ export interface Task {
   assignee_ids: number[];
   comment_count?: number;
   order?:       number;
+  subtasks?: Subtask[];
+  subtask_progress?: SubtaskProgress;
+}
+
+export interface Subtask {
+  id: number;
+  task_id: number;
+  title: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubtaskProgress {
+  total: number;
+  completed: number;
+  percentage: number;
 }
 
 export interface Comment {
