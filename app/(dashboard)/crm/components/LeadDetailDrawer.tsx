@@ -21,6 +21,7 @@ export interface Lead {
   drive_id: number;
   date: string;
   notes?: string;
+  industry?: string;
   assigned_to?: string | number;
   country_id?: number | null;
   state_id?: number | null;
@@ -172,6 +173,7 @@ export function LeadDetailDrawer({
             <InfoRow icon={<Mail size={15} />} label="Email" value={lead.email} />
             <InfoRow icon={<Phone size={15} />} label="Phone" value={lead.phone} />
             <InfoRow icon={<LayoutGrid size={15} />} label="Pipeline" value={drive?.name} />
+            <InfoRow icon={<LayoutGrid size={15} />} label="Industry" value={lead.industry} />
             <InfoRow icon={<User size={15} />} label="Assigned To" value={lead.assigned_to} />
             <InfoRow icon={<LayoutGrid size={15} />} label="Country" value={lead.country_name} />
             <InfoRow icon={<LayoutGrid size={15} />} label="State" value={lead.state_name} />

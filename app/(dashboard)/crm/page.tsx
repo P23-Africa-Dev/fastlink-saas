@@ -13,6 +13,7 @@ import type {
 import {
   useDrives,
   useStatuses,
+  useIndustries,
   useLeads,
   useCountries,
   useStates,
@@ -143,6 +144,7 @@ const mapLead = (raw: ApiLead, fallbackStatusId?: number): Lead => ({
   drive_id: Number(raw.drive_id ?? 0),
   date: raw.created_at?.split("T")[0] ?? "",
   notes: safeText(raw.notes ?? ""),
+  industry: safeText(raw.industry ?? ""),
   assigned_to: raw.assigned_to ?? undefined,
   country_id: raw.country_id ?? undefined,
   state_id: raw.state_id ?? undefined,
@@ -329,6 +331,7 @@ export default function CrmPage() {
   // Queries
   const { data: drivesRaw, isLoading: drivesLoading } = useDrives();
   const { data: statusesRaw, isLoading: statusesLoading } = useStatuses();
+  const { data: industriesRaw, isLoading: industriesLoading } = useIndustries();
   const { data: countriesRaw, isLoading: countriesLoading } = useCountries();
   const { data: statesRaw, isLoading: statesLoading } = useStates(filters.countryId || undefined);
   const { data: lgasRaw, isLoading: lgasLoading } = useLgas(filters.stateId || undefined);
@@ -358,6 +361,7 @@ export default function CrmPage() {
 
   const drives = useMemo(() => (drivesRaw || []).map(mapDrive), [drivesRaw]);
   const statuses = useMemo(() => (statusesRaw || []).map(mapStatus), [statusesRaw]);
+  const industries = useMemo(() => industriesRaw || [], [industriesRaw]);
   const countries = useMemo(() => countriesRaw || [], [countriesRaw]);
   const states = useMemo(() => statesRaw || [], [statesRaw]);
   const lgas = useMemo(() => lgasRaw || [], [lgasRaw]);
@@ -470,7 +474,7 @@ export default function CrmPage() {
 
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
 
-  const loading = drivesLoading || statusesLoading || leadsLoading || countriesLoading || statesLoading || lgasLoading;
+  const loading = drivesLoading || statusesLoading || industriesLoading || leadsLoading || countriesLoading || statesLoading || lgasLoading;
 
   if (loading) {
     return <CrmSkeleton />;
@@ -719,6 +723,7 @@ export default function CrmPage() {
         <NewLeadModal
           statuses={statuses}
           drives={drives}
+          industries={industries}
           onClose={() => setNewLeadOpen(false)}
           onSave={(payload) => {
             createLeadMutation.mutate(payload as Partial<ApiLead>, {
@@ -759,6 +764,7 @@ export default function CrmPage() {
           lead={selectedLead}
           statuses={statuses}
           drives={drives}
+          industries={industries}
           onClose={() => setEditLeadOpen(false)}
           onSave={(updated) => {
             const payload = {

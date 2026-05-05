@@ -28,6 +28,16 @@ export function useStatuses() {
   });
 }
 
+export function useIndustries() {
+  return useQuery({
+    queryKey: ["crm", "industries"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<string[]>>("/industries");
+      return res.data.data;
+    },
+  });
+}
+
 export function useCountries() {
   return useQuery({
     queryKey: ["crm", "countries"],

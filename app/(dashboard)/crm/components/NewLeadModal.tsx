@@ -12,6 +12,7 @@ interface Drive { id: number; name: string; }
 interface NewLeadModalProps {
   statuses: Status[];
   drives: Drive[];
+  industries: string[];
   onClose: () => void;
   onSave: (payload: {
     first_name: string;
@@ -26,6 +27,7 @@ interface NewLeadModalProps {
     currency?: string;
     priority: "low" | "medium" | "high";
     notes?: string;
+    industry?: string;
     country_id?: number;
     state_id?: number;
     lga_id?: number;
@@ -45,7 +47,7 @@ const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string;
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
-export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModalProps) {
+export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: NewLeadModalProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,6 +55,7 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
   const [company, setCompany] = useState("");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [industry, setIndustry] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
   const [driveId, setDriveId] = useState(() => drives[0]?.id.toString() ?? "");
   const [statusId, setStatusId] = useState(() => statuses[0]?.id.toString() ?? "");
@@ -90,6 +93,10 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
     value: lga.id.toString(),
     label: lga.name,
   }));
+  const industryOptions = [
+    { value: "", label: "Not Specified" },
+    ...industries.map((value) => ({ value, label: value })),
+  ];
 
   const handleSave = () => {
     if (!firstName.trim()) return;
@@ -107,6 +114,7 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
       currency,
       priority: priority === "normal" ? "medium" : priority,
       notes: notes.trim() || undefined,
+      industry: industry || undefined,
       country_id: countryId ? Number(countryId) : undefined,
       state_id: stateId ? Number(stateId) : undefined,
       lga_id: lgaId ? Number(lgaId) : undefined,
@@ -167,6 +175,17 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
               <label className={labelCls}>Pipeline</label>
               <CustomSelect fullWidth value={driveId} onChange={setDriveId} options={driveOptions} searchPlaceholder="Search pipelines…" />
             </div>
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Industry</label>
+            <CustomSelect
+              fullWidth
+              value={industry}
+              onChange={setIndustry}
+              options={industryOptions}
+              searchPlaceholder="Search industries…"
+            />
           </div>
 
           {/* Row 4 */}

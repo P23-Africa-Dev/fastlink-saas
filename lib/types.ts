@@ -124,6 +124,7 @@ export interface Lead {
   status_id: number;
   drive_id: number;
   notes: string | null;
+  industry?: string | null;
   assigned_to: number | null;
   country_id?: number | null;
   state_id?: number | null;

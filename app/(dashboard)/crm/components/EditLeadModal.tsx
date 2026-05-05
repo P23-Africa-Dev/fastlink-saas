@@ -14,6 +14,7 @@ interface EditLeadModalProps {
   lead: Lead;
   statuses: Status[];
   drives: Drive[];
+  industries: string[];
   onClose: () => void;
   onSave: (updated: Partial<Lead>) => void;
 }
@@ -31,7 +32,7 @@ const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string;
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
-export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditLeadModalProps) {
+export function EditLeadModal({ lead, statuses, drives, industries, onClose, onSave }: EditLeadModalProps) {
   const [firstName, setFirstName] = useState(lead.first_name);
   const [lastName, setLastName] = useState(lead.last_name);
   const [email, setEmail] = useState(lead.email);
@@ -39,6 +40,7 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
   const [company, setCompany] = useState(lead.company);
   const [value, setValue] = useState(String(lead.estimated_value ?? ""));
   const [notes, setNotes] = useState(lead.notes ?? "");
+  const [industry, setIndustry] = useState(lead.industry ?? "");
   const [priority, setPriority] = useState<Priority>(lead.priority as Priority);
   const [driveId, setDriveId] = useState(lead.drive_id.toString());
   const [statusId, setStatusId] = useState(lead.status_id.toString());
@@ -67,6 +69,10 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
   const countryOptions = countries.map((country) => ({ value: country.id.toString(), label: country.name }));
   const stateOptions = states.map((state) => ({ value: state.id.toString(), label: state.name }));
   const lgaOptions = lgas.map((lga) => ({ value: lga.id.toString(), label: lga.name }));
+  const industryOptions = [
+    { value: "", label: "Not Specified" },
+    ...industries.map((value) => ({ value, label: value })),
+  ];
 
   const handleSave = () => {
     onSave({
@@ -82,6 +88,7 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
       currency,
       priority,
       notes,
+      industry: industry || undefined,
       country_id: countryId ? Number(countryId) : null,
       state_id: stateId ? Number(stateId) : null,
       lga_id: lgaId ? Number(lgaId) : null,
@@ -182,6 +189,17 @@ export function EditLeadModal({ lead, statuses, drives, onClose, onSave }: EditL
               <label className={labelCls}>Pipeline</label>
               <CustomSelect fullWidth value={driveId} onChange={setDriveId} options={driveOptions} searchPlaceholder="Search pipelines…" />
             </div>
+          </div>
+
+          <div className="flex flex-col" style={{ gap: "8px" }}>
+            <label className={labelCls}>Industry</label>
+            <CustomSelect
+              fullWidth
+              value={industry}
+              onChange={setIndustry}
+              options={industryOptions}
+              searchPlaceholder="Search industries…"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "20px" }}>

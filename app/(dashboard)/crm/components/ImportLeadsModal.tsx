@@ -224,6 +224,9 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
             CSV location columns are supported: <strong>country</strong>, <strong>state</strong>, <strong>lga</strong>.
             Unknown values are imported as empty location fields.
           </div>
+          <div className="rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[12px] text-[#6b7280]" style={{ padding: "12px 14px" }}>
+            CSV <strong>industry</strong> values are matched case-insensitively; unknown values are normalized to <strong>Not Specified</strong>.
+          </div>
         </div>
 
         {/* Footer */}
