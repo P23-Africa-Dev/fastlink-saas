@@ -92,6 +92,25 @@ export interface LeadStatus {
   is_lost: boolean;
 }
 
+export interface LocationCountry {
+  id: number;
+  name: string;
+  code: string;
+  is_default?: boolean;
+}
+
+export interface LocationState {
+  id: number;
+  country_id: number;
+  name: string;
+}
+
+export interface LocationLga {
+  id: number;
+  state_id: number;
+  name: string;
+}
+
 export interface Lead {
   id: number;
   first_name: string;
@@ -106,6 +125,14 @@ export interface Lead {
   drive_id: number;
   notes: string | null;
   assigned_to: number | null;
+  country_id?: number | null;
+  state_id?: number | null;
+  lga_id?: number | null;
+  country?: LocationCountry | string | null;
+  state?: LocationState | null;
+  lga?: LocationLga | null;
+  city?: string | null;
+  address?: string | null;
   created_at: string;
   updated_at: string;
   statusDefinition?: LeadStatus;

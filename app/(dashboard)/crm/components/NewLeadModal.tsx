@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { useCountries, useLgas, useStates } from "../hooks/useCrm";
 
 interface Status { id: number; name: string; }
 interface Drive { id: number; name: string; }
@@ -25,6 +26,9 @@ interface NewLeadModalProps {
     currency?: string;
     priority: "low" | "medium" | "high";
     notes?: string;
+    country_id?: number;
+    state_id?: number;
+    lga_id?: number;
   }) => void;
 }
 
@@ -54,11 +58,38 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
   const [statusId, setStatusId] = useState(() => statuses[0]?.id.toString() ?? "");
   const [assignedTo, setAssignedTo] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [countryId, setCountryId] = useState("");
+  const [stateId, setStateId] = useState("");
+  const [lgaId, setLgaId] = useState("");
+
+  const { data: countries = [] } = useCountries();
+  const { data: states = [] } = useStates(countryId ? Number(countryId) : undefined);
+  const { data: lgas = [] } = useLgas(stateId ? Number(stateId) : undefined);
+
+  React.useEffect(() => {
+    if (countryId || countries.length === 0) return;
+    const defaultCountry = countries.find((country) => country.is_default) ?? countries[0];
+    if (defaultCountry) {
+      setCountryId(defaultCountry.id.toString());
+    }
+  }, [countries, countryId]);
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
   const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
+  const countryOptions = countries.map((country) => ({
+    value: country.id.toString(),
+    label: country.name,
+  }));
+  const stateOptions = states.map((state) => ({
+    value: state.id.toString(),
+    label: state.name,
+  }));
+  const lgaOptions = lgas.map((lga) => ({
+    value: lga.id.toString(),
+    label: lga.name,
+  }));
 
   const handleSave = () => {
     if (!firstName.trim()) return;
@@ -76,6 +107,9 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
       currency,
       priority: priority === "normal" ? "medium" : priority,
       notes: notes.trim() || undefined,
+      country_id: countryId ? Number(countryId) : undefined,
+      state_id: stateId ? Number(stateId) : undefined,
+      lga_id: lgaId ? Number(lgaId) : undefined,
     });
     onClose();
   };
@@ -188,6 +222,47 @@ export function NewLeadModal({ statuses, drives, onClose, onSave }: NewLeadModal
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Location */}
+          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: "20px" }}>
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <label className={labelCls}>Country</label>
+              <CustomSelect
+                fullWidth
+                value={countryId}
+                onChange={(value) => {
+                  setCountryId(value);
+                  setStateId("");
+                  setLgaId("");
+                }}
+                options={countryOptions}
+                searchPlaceholder="Search countries…"
+              />
+            </div>
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <label className={labelCls}>State</label>
+              <CustomSelect
+                fullWidth
+                value={stateId}
+                onChange={(value) => {
+                  setStateId(value);
+                  setLgaId("");
+                }}
+                options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select country first" }]}
+                searchPlaceholder="Search states…"
+              />
+            </div>
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <label className={labelCls}>LGA</label>
+              <CustomSelect
+                fullWidth
+                value={lgaId}
+                onChange={setLgaId}
+                options={lgaOptions.length > 0 ? lgaOptions : [{ value: "", label: "Select state first" }]}
+                searchPlaceholder="Search LGAs…"
+              />
             </div>
           </div>
 

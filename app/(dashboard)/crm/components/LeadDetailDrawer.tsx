@@ -22,6 +22,12 @@ export interface Lead {
   date: string;
   notes?: string;
   assigned_to?: string | number;
+  country_id?: number | null;
+  state_id?: number | null;
+  lga_id?: number | null;
+  country_name?: string;
+  state_name?: string;
+  lga_name?: string;
 }
 
 interface Status { id: number; name: string; color: string; }
@@ -167,6 +173,9 @@ export function LeadDetailDrawer({
             <InfoRow icon={<Phone size={15} />} label="Phone" value={lead.phone} />
             <InfoRow icon={<LayoutGrid size={15} />} label="Pipeline" value={drive?.name} />
             <InfoRow icon={<User size={15} />} label="Assigned To" value={lead.assigned_to} />
+            <InfoRow icon={<LayoutGrid size={15} />} label="Country" value={lead.country_name} />
+            <InfoRow icon={<LayoutGrid size={15} />} label="State" value={lead.state_name} />
+            <InfoRow icon={<LayoutGrid size={15} />} label="LGA" value={lead.lga_name} />
             <InfoRow icon={<Calendar size={15} />} label="Created" value={lead.date} />
           </div>
 
