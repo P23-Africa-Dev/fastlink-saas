@@ -24,6 +24,7 @@ class UpdateProjectRequest extends FormRequest
             'priority' => ['sometimes', 'string', Rule::in(['low', 'medium', 'high', 'urgent'])],
             'start_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'is_valuable' => ['sometimes', 'boolean'],
         ];
     }
 }

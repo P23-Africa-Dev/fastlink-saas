@@ -7,6 +7,8 @@ use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
 use App\Notifications\UserAccountCreatedNotification;
+use App\Services\ActivityLogService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +18,11 @@ use Throwable;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function supervisors(Request $request): JsonResponse
     {
         $query = User::query()
@@ -97,6 +104,28 @@ class UserController extends Controller
         } catch (Throwable $e) {
             report($e);
         }
+
+        if ($request->user()->hasRole('supervisor')) {
+            $adminIds = $this->notificationService->roleUserIds('admin')
+                ->filter(fn ($id) => (int) $id !== (int) $request->user()->id);
+
+            $this->notificationService->notifyUsers(
+                $adminIds,
+                'user.created_by_supervisor',
+                'User created by supervisor',
+                "{$request->user()->name} created user {$user->name} ({$user->email}).",
+                ['user_id' => $user->id, 'created_role' => $payload['role']],
+                'high',
+                'user.created_by_supervisor:' . $user->id
+            );
+        }
+
+        $this->activityLogService->log(
+            $request->user(),
+            'user.created',
+            "User {$user->email} created",
+            ['user_id' => $user->id, 'role' => $payload['role']]
+        );
 
         return $this->success($user->load('roles:id,name'), 'User created.', 201);
     }

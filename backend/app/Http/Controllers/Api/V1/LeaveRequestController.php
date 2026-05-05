@@ -9,6 +9,8 @@ use App\Http\Requests\Leave\UpdateLeaveRequest;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Notifications\LeaveRequestWorkflowNotification;
+use App\Services\ActivityLogService;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,11 @@ use Throwable;
 
 class LeaveRequestController extends Controller
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly ActivityLogService $activityLogService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -60,6 +67,14 @@ class LeaveRequestController extends Controller
 
         $leaveRequest->load(['user:id,name,email', 'supervisor:id,name,email']);
         $this->notifyLeaveStakeholders($leaveRequest, 'created', $request->user(), $leaveRequest->supervisor_id, $leaveRequest->user_id);
+
+        $this->notifyInAppLeaveCreated($leaveRequest, $request->user());
+        $this->activityLogService->log(
+            $request->user(),
+            'leave.request_created',
+            'Leave request created',
+            ['leave_request_id' => $leaveRequest->id, 'status' => $leaveRequest->status]
+        );
 
         return $this->success($leaveRequest, 'Leave request created.', 201);
     }
@@ -161,6 +176,14 @@ class LeaveRequestController extends Controller
             $this->sendLeaveNotification(collect([$requester]), $leaveRequest, $leaveRequest->status, $request->user(), $leaveRequest->decision_note ?? $leaveRequest->supervisor_note);
         }
 
+        $this->notifyInAppLeaveStatusToRequester($leaveRequest, $request->user());
+        $this->activityLogService->log(
+            $request->user(),
+            'leave.status_updated',
+            "Leave request #{$leaveRequest->id} status set to {$leaveRequest->status}",
+            ['leave_request_id' => $leaveRequest->id, 'status' => $leaveRequest->status]
+        );
+
         return $this->success($leaveRequest, 'Leave request decision saved.');
     }
 
@@ -238,6 +261,42 @@ class LeaveRequestController extends Controller
 
         $users = User::query()->whereIn('id', $recipientIds)->get();
         $this->sendLeaveNotification($users, $leaveRequest, $event, $actor, $note);
+    }
+
+    private function notifyInAppLeaveCreated(LeaveRequest $leaveRequest, User $actor): void
+    {
+        $recipientIds = User::query()->role(['admin', 'supervisor'])->pluck('id');
+
+        $this->notificationService->notifyUsers(
+            $recipientIds,
+            'leave.request_created',
+            'New leave request',
+            "{$actor->name} submitted a leave request.",
+            [
+                'leave_request_id' => $leaveRequest->id,
+                'status' => $leaveRequest->status,
+                'type' => $leaveRequest->type,
+            ],
+            'medium',
+            'leave.request_created:' . $leaveRequest->id
+        );
+    }
+
+    private function notifyInAppLeaveStatusToRequester(LeaveRequest $leaveRequest, User $actor): void
+    {
+        $this->notificationService->notifyUsers(
+            [$leaveRequest->user_id],
+            'leave.status_updated',
+            'Your leave request was updated',
+            "Your leave request status is now {$leaveRequest->status}.",
+            [
+                'leave_request_id' => $leaveRequest->id,
+                'status' => $leaveRequest->status,
+                'updated_by' => $actor->id,
+            ],
+            'medium',
+            'leave.status_updated:' . $leaveRequest->id . ':' . $leaveRequest->status
+        );
     }
 
     private function sendLeaveNotification(iterable $users, LeaveRequest $leaveRequest, string $event, User $actor, ?string $note = null): void

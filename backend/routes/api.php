@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -8,7 +9,9 @@ use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProjectController;
+use App\Http\Controllers\Api\V1\ProjectTagController;
 use App\Http\Controllers\Api\V1\Settings\CompanySettingController;
 use App\Http\Controllers\Api\V1\Settings\ProfileController;
 use App\Http\Controllers\Api\V1\Settings\SupervisorPasscodeController;
@@ -17,33 +20,18 @@ use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes — FastLink SaaS Backend
-|--------------------------------------------------------------------------
-|
-| All routes are prefixed with /api automatically via bootstrap/app.php.
-| Authentication will be added via Sanctum once users/auth flow is built.
-|
-*/
-
 Route::prefix('v1')->group(function () {
-
-    // Public endpoints
     Route::get('/health', [HealthController::class, 'check'])->name('api.health');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
 
     Route::middleware('auth:sanctum')->group(function () {
-        // Authentication
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
-        // Dashboard
         Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.dashboard.stats');
 
-        // User management
         Route::get('/users/supervisors', [UserController::class, 'supervisors'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/users', [UserController::class, 'index'])
@@ -57,7 +45,6 @@ Route::prefix('v1')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
 
-        // CRM: drives and statuses
         Route::apiResource('crm/drives', LeadDriveController::class)
             ->parameters(['drives' => 'drive'])
             ->middleware('role:admin|supervisor');
@@ -66,7 +53,6 @@ Route::prefix('v1')->group(function () {
             ->parameters(['statuses' => 'status'])
             ->middleware('role:admin|supervisor');
 
-        // CRM: leads and activities
         Route::get('/crm/leads', [LeadController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/crm/leads', [LeadController::class, 'store'])
@@ -79,7 +65,6 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:admin|supervisor|staff');
         Route::delete('/crm/leads/{lead}', [LeadController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
-
         Route::get('/crm/leads/{lead}/activities', [LeadController::class, 'activities'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/crm/leads/{lead}/activities', [LeadController::class, 'storeActivity'])
@@ -87,7 +72,6 @@ Route::prefix('v1')->group(function () {
         Route::patch('/crm/activities/{activity}', [LeadController::class, 'updateActivity'])
             ->middleware('role:admin|supervisor|staff');
 
-        // Spreadsheet module
         Route::get('/spreadsheets', [SpreadsheetController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/spreadsheets', [SpreadsheetController::class, 'store'])
@@ -101,7 +85,6 @@ Route::prefix('v1')->group(function () {
         Route::delete('/spreadsheets/{spreadsheet}', [SpreadsheetController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
 
-        // Projects + Gantt
         Route::get('/projects/gantt', [ProjectController::class, 'gantt'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/projects', [ProjectController::class, 'index'])
@@ -115,7 +98,13 @@ Route::prefix('v1')->group(function () {
         Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
 
-        // Tasks + Kanban
+        Route::get('/projects/tags', [ProjectTagController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/projects/tags', [ProjectTagController::class, 'store'])
+            ->middleware('role:admin|supervisor');
+        Route::post('/projects/tags/{tag}/assign', [ProjectTagController::class, 'assign'])
+            ->middleware('role:admin|supervisor');
+
         Route::get('/tasks/kanban', [TaskController::class, 'kanban'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/tasks', [TaskController::class, 'index'])
@@ -135,7 +124,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/tasks/{task}/assign', [TaskController::class, 'assign'])
             ->middleware('role:admin|supervisor');
 
-        // Attendance
         Route::get('/attendance', [AttendanceController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/attendance/sign-in', [AttendanceController::class, 'signIn'])
@@ -145,7 +133,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/attendance/calendar', [AttendanceController::class, 'calendar'])
             ->middleware('role:admin|supervisor|staff');
 
-        // Leave requests
         Route::get('/leave-requests/calendar', [LeaveRequestController::class, 'calendar'])
             ->middleware('role:admin|supervisor|staff');
         Route::get('/leave-requests', [LeaveRequestController::class, 'index'])
@@ -163,33 +150,36 @@ Route::prefix('v1')->group(function () {
         Route::post('/leave-requests/{leaveRequest}/respond', [LeaveRequestController::class, 'respond'])
             ->middleware('role:admin|supervisor|staff');
 
-        // ── Settings ────────────────────────────────────────────────────────
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])
+            ->middleware('role:admin|supervisor|staff');
 
-        // User profile (all roles)
+        Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+            ->middleware('role:admin');
+
         Route::get('/settings/profile', [ProfileController::class, 'show'])
             ->middleware('role:admin|supervisor|staff');
         Route::patch('/settings/profile', [ProfileController::class, 'update'])
             ->middleware('role:admin|supervisor|staff');
         Route::patch('/settings/appearance', [ProfileController::class, 'updateAppearance'])
             ->middleware('role:admin|supervisor|staff');
-
-        // Company settings — read is open to all roles
         Route::get('/settings/company', [CompanySettingController::class, 'show'])
             ->middleware('role:admin|supervisor|staff');
-
-        // Company settings — write is gated by the company.settings.access middleware
         Route::patch('/settings/company', [CompanySettingController::class, 'update'])
             ->middleware(['role:admin|supervisor', 'company.settings.access']);
-
-        // Supervisor passcode management (admin: generate / revoke)
         Route::get('/settings/company/passcodes', [SupervisorPasscodeController::class, 'index'])
             ->middleware('role:admin');
         Route::post('/settings/company/passcodes', [SupervisorPasscodeController::class, 'generate'])
             ->middleware('role:admin');
         Route::delete('/settings/company/passcodes/{passcode}', [SupervisorPasscodeController::class, 'revoke'])
             ->middleware('role:admin');
-
-        // Supervisor passcode verification (supervisor only)
         Route::post('/settings/company/verify-passcode', [SupervisorPasscodeController::class, 'verifyPasscode'])
             ->middleware('role:supervisor');
         Route::post('/settings/company/validate-device-token', [SupervisorPasscodeController::class, 'validateDeviceToken'])

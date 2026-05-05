@@ -9,14 +9,19 @@ use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Requests\Lead\UpdateLeadRequest;
 use App\Models\Lead;
 use App\Models\LeadActivity;
+use App\Services\ActivityLogService;
 use App\Services\Crm\LeadImportService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class LeadController extends Controller
 {
-    public function __construct(private readonly LeadImportService $leadImportService)
-    {
+    public function __construct(
+        private readonly LeadImportService $leadImportService,
+        private readonly NotificationService $notificationService,
+        private readonly ActivityLogService $activityLogService,
+    ) {
     }
 
     public function index(Request $request): JsonResponse
@@ -57,6 +62,36 @@ class LeadController extends Controller
             'is_completed' => true,
         ]);
 
+        $adminIds = $this->notificationService->roleUserIds('admin');
+        $this->notificationService->notifyUsers(
+            $adminIds,
+            'crm.lead_created',
+            'New lead created',
+            "{$request->user()->name} created lead {$lead->first_name} {$lead->last_name}.",
+            ['lead_id' => $lead->id],
+            'medium',
+            'crm.lead_created:' . $lead->id
+        );
+
+        if (! empty($lead->assigned_to)) {
+            $this->notificationService->notifyUsers(
+                $adminIds->push((int) $lead->assigned_to),
+                'crm.lead_assigned',
+                'Lead assigned',
+                "Lead {$lead->first_name} {$lead->last_name} was assigned.",
+                ['lead_id' => $lead->id, 'assigned_to' => (int) $lead->assigned_to],
+                'medium',
+                'crm.lead_assigned:' . $lead->id . ':' . (int) $lead->assigned_to
+            );
+        }
+
+        $this->activityLogService->log(
+            $request->user(),
+            'crm.lead_created',
+            "Lead #{$lead->id} created",
+            ['lead_id' => $lead->id, 'assigned_to' => $lead->assigned_to]
+        );
+
         return $this->success(
             $lead->load(['assignedUser:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color']),
             'Lead created.',
@@ -83,6 +118,7 @@ class LeadController extends Controller
         $payload = $request->validated();
 
         $oldStatus = $lead->status;
+        $oldAssignedTo = (int) ($lead->assigned_to ?? 0);
         $lead->update($payload);
 
         if (array_key_exists('status', $payload) && $payload['status'] !== $oldStatus) {
@@ -94,6 +130,27 @@ class LeadController extends Controller
                 'new_value' => (string) $payload['status'],
                 'is_completed' => true,
             ]);
+        }
+
+        $newAssignedTo = (int) ($lead->assigned_to ?? 0);
+        if (array_key_exists('assigned_to', $payload) && $newAssignedTo > 0 && $oldAssignedTo !== $newAssignedTo) {
+            $adminIds = $this->notificationService->roleUserIds('admin');
+            $this->notificationService->notifyUsers(
+                $adminIds->push($newAssignedTo),
+                'crm.lead_assigned',
+                'Lead assigned',
+                "Lead {$lead->first_name} {$lead->last_name} was assigned to a new owner.",
+                ['lead_id' => $lead->id, 'assigned_to' => $newAssignedTo],
+                'medium',
+                'crm.lead_assigned:' . $lead->id . ':' . $newAssignedTo
+            );
+
+            $this->activityLogService->log(
+                $request->user(),
+                'crm.lead_assigned',
+                "Lead #{$lead->id} assigned",
+                ['lead_id' => $lead->id, 'old_assigned_to' => $oldAssignedTo ?: null, 'new_assigned_to' => $newAssignedTo]
+            );
         }
 
         return $this->success(
@@ -141,6 +198,32 @@ class LeadController extends Controller
             $request->file('file'),
             $request->safe()->except(['file']),
             $request->user()
+        );
+
+        if (($result['imported'] ?? 0) > 0) {
+            $adminIds = $this->notificationService->roleUserIds('admin');
+            $this->notificationService->notifyUsers(
+                $adminIds,
+                'crm.lead_imported',
+                'Bulk lead import completed',
+                "{$request->user()->name} imported {$result['imported']} leads.",
+                [
+                    'imported' => $result['imported'],
+                    'skipped' => $result['skipped'] ?? 0,
+                    'errors' => $result['errors'] ?? [],
+                    'device_recommended' => true,
+                    'critical' => true,
+                ],
+                'high',
+                'crm.lead_imported:' . md5((string) $request->user()->id . ':' . ($result['imported'] ?? 0) . ':' . ($result['skipped'] ?? 0))
+            );
+        }
+
+        $this->activityLogService->log(
+            $request->user(),
+            'crm.lead_imported',
+            'Bulk lead import executed',
+            $result
         );
 
         return $this->success($result, 'Lead import completed.');

@@ -17,12 +17,14 @@ class Project extends Model
         'description',
         'status',
         'priority',
+        'is_valuable',
         'start_date',
         'due_date',
         'created_by',
     ];
 
     protected $casts = [
+        'is_valuable' => 'boolean',
         'start_date' => 'date',
         'due_date' => 'date',
     ];

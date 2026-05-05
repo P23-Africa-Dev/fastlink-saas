@@ -6,14 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\SignInRequest;
 use App\Http\Requests\Attendance\SignOutRequest;
 use App\Models\Attendance;
+use App\Services\ActivityLogService;
 use App\Services\AttendanceService;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
 {
-    public function __construct(private readonly AttendanceService $attendanceService) {}
+    public function __construct(
+        private readonly AttendanceService $attendanceService,
+        private readonly NotificationService $notificationService,
+        private readonly ActivityLogService $activityLogService,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -48,6 +54,26 @@ class AttendanceController extends Controller
             $request->ip()
         );
 
+        $recipients = $this->notificationService->roleUserIds('admin', 'supervisor')
+            ->filter(fn ($id) => (int) $id !== (int) $request->user()->id);
+
+        $this->notificationService->notifyUsers(
+            $recipients,
+            'attendance.clock_in',
+            'User clocked in',
+            "{$request->user()->name} clocked in.",
+            ['attendance_id' => $attendance->id, 'user_id' => $request->user()->id],
+            'medium',
+            'attendance.clock_in:' . $attendance->id
+        );
+
+        $this->activityLogService->log(
+            $request->user(),
+            'attendance.clock_in',
+            'User clocked in',
+            ['attendance_id' => $attendance->id]
+        );
+
         return $this->success($attendance->load('user:id,name,email'), 'Signed in successfully.');
     }
 
@@ -59,6 +85,26 @@ class AttendanceController extends Controller
             $request->user(),
             $request->string('note')->toString() ?: null,
             $request->ip()
+        );
+
+        $recipients = $this->notificationService->roleUserIds('admin', 'supervisor')
+            ->filter(fn ($id) => (int) $id !== (int) $request->user()->id);
+
+        $this->notificationService->notifyUsers(
+            $recipients,
+            'attendance.clock_out',
+            'User clocked out',
+            "{$request->user()->name} clocked out.",
+            ['attendance_id' => $attendance->id, 'user_id' => $request->user()->id],
+            'medium',
+            'attendance.clock_out:' . $attendance->id
+        );
+
+        $this->activityLogService->log(
+            $request->user(),
+            'attendance.clock_out',
+            'User clocked out',
+            ['attendance_id' => $attendance->id]
         );
 
         return $this->success($attendance->load('user:id,name,email'), 'Signed out successfully.');

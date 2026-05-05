@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Http\Requests\Project\UpdateProjectRequest;
 use App\Models\Project;
+use App\Services\ActivityLogService;
+use App\Services\NotificationService;
 use App\Services\TaskBoardService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -13,8 +15,11 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    public function __construct(private readonly TaskBoardService $taskBoardService)
-    {
+    public function __construct(
+        private readonly TaskBoardService $taskBoardService,
+        private readonly NotificationService $notificationService,
+        private readonly ActivityLogService $activityLogService,
+    ) {
     }
 
     public function index(Request $request): JsonResponse
@@ -44,6 +49,26 @@ class ProjectController extends Controller
 
         $project = Project::create($payload);
 
+        $this->activityLogService->log(
+            $request->user(),
+            'project.created',
+            "Project {$project->name} created",
+            ['project_id' => $project->id, 'is_valuable' => (bool) $project->is_valuable]
+        );
+
+        if ($project->is_valuable) {
+            $adminIds = $this->notificationService->roleUserIds('admin');
+            $this->notificationService->notifyUsers(
+                $adminIds,
+                'project.valuable_created',
+                'Valuable project created',
+                "{$request->user()->name} created valuable project {$project->name}.",
+                ['project_id' => $project->id],
+                'high',
+                'project.valuable_created:' . $project->id
+            );
+        }
+
         return $this->success($project->load('creator:id,name,email'), 'Project created.', 201);
     }
 
@@ -62,6 +87,13 @@ class ProjectController extends Controller
     public function update(UpdateProjectRequest $request, Project $project): JsonResponse
     {
         $project->update($request->validated());
+
+        $this->activityLogService->log(
+            $request->user(),
+            'project.updated',
+            "Project {$project->name} updated",
+            ['project_id' => $project->id]
+        );
 
         return $this->success($project->fresh(), 'Project updated.');
     }
