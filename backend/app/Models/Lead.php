@@ -86,6 +86,11 @@ class Lead extends Model
         return $this->hasMany(LeadActivity::class)->latest();
     }
 
+    public function followups(): HasMany
+    {
+        return $this->hasMany(LeadFollowup::class)->latest();
+    }
+
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class, 'country_id');

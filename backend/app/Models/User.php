@@ -101,4 +101,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Spreadsheet::class, 'last_edited_by');
     }
+
+    public function leadFollowups(): HasMany
+    {
+        return $this->hasMany(LeadFollowup::class, 'created_by');
+    }
+
+    public function requestedLeadFollowupUpdates(): HasMany
+    {
+        return $this->hasMany(LeadFollowupUpdateRequest::class, 'requested_by');
+    }
+
+    public function approvedLeadFollowupUpdates(): HasMany
+    {
+        return $this->hasMany(LeadFollowupUpdateRequest::class, 'approver_id');
+    }
+
+    public function leadFollowupUploads(): HasMany
+    {
+        return $this->hasMany(LeadFollowupAttachment::class, 'uploaded_by');
+    }
 }

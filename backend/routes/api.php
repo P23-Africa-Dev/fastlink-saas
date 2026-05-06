@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\IndustryController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\LeadFollowupController;
 use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
@@ -103,6 +104,33 @@ Route::prefix('v1')->group(function () {
         Route::post('/crm/leads/{lead}/activities', [LeadController::class, 'storeActivity'])
             ->middleware('role:admin|supervisor|staff');
         Route::patch('/crm/activities/{activity}', [LeadController::class, 'updateActivity'])
+            ->middleware('role:admin|supervisor|staff');
+
+        Route::get('/crm/leads/{lead}/followups', [LeadFollowupController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/crm/leads/{lead}/followups', [LeadFollowupController::class, 'store'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::put('/crm/followups/{followup}', [LeadFollowupController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/crm/followups/{followup}/approve', [LeadFollowupController::class, 'approve'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/crm/followups/{followup}/reject', [LeadFollowupController::class, 'reject'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/crm/followups/{followup}/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachment'])
+            ->middleware('role:admin|supervisor|staff');
+
+        // Backward-compatible aliases for follow-up workflow endpoints.
+        Route::get('/leads/{lead}/followups', [LeadFollowupController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/leads/{lead}/followups', [LeadFollowupController::class, 'store'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::put('/followups/{followup}', [LeadFollowupController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/followups/{followup}/approve', [LeadFollowupController::class, 'approve'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/followups/{followup}/reject', [LeadFollowupController::class, 'reject'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/followups/{followup}/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachment'])
             ->middleware('role:admin|supervisor|staff');
 
         Route::get('/spreadsheets', [SpreadsheetController::class, 'index'])
