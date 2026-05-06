@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\IndustryController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -34,6 +35,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.dashboard.stats');
+        Route::get('/dashboard/pipeline-stats', [DashboardController::class, 'pipelineStats'])
+            ->middleware('role:admin|supervisor|staff')
+            ->name('api.dashboard.pipeline-stats');
+
+        // Calendar events aggregation (read) and task creation (write)
+        Route::get('/calendar/events', [CalendarController::class, 'events'])
+            ->middleware('role:admin|supervisor|staff')
+            ->name('api.calendar.events');
+        Route::post('/calendar/tasks', [CalendarController::class, 'storeTask'])
+            ->middleware('role:admin|supervisor')
+            ->name('api.calendar.store-task');
 
         // Location hierarchy (read-only, available to all authenticated users)
         Route::get('/countries', [LocationController::class, 'countries'])

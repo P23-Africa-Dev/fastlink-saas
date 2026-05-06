@@ -58,10 +58,27 @@ class LocationController extends Controller
 
         $states = State::query()
             ->where('country_id', $countryId)
+            ->withCount('lgas')
             ->orderBy('name')
+            ->orderByDesc('lgas_count')
+            ->orderBy('id')
             ->get(['id', 'country_id', 'name']);
 
-        return $this->success($states, 'States fetched.');
+        // Some databases may contain duplicate state rows after repeated seeding.
+        // Return one canonical row per state name, preferring the row that has LGAs.
+        $canonical = [];
+        foreach ($states as $state) {
+            $key = mb_strtolower(trim((string) $state->name));
+            if (!isset($canonical[$key])) {
+                $canonical[$key] = [
+                    'id' => $state->id,
+                    'country_id' => $state->country_id,
+                    'name' => $state->name,
+                ];
+            }
+        }
+
+        return $this->success(array_values($canonical), 'States fetched.');
     }
 
     /**
@@ -71,14 +88,43 @@ class LocationController extends Controller
      */
     public function lgas(Request $request): JsonResponse
     {
+        // Accept both snake_case and camelCase for compatibility with existing clients.
+        if (!$request->filled('state_id') && $request->filled('stateId')) {
+            $request->merge(['state_id' => $request->input('stateId')]);
+        }
+
         $request->validate([
             'state_id' => ['required', 'integer', 'exists:states,id'],
         ]);
 
+        $stateId = (int) $request->input('state_id');
+
         $lgas = Lga::query()
-            ->where('state_id', (int) $request->input('state_id'))
+            ->where('state_id', $stateId)
             ->orderBy('name')
             ->get(['id', 'state_id', 'name']);
+
+        // If selected state has no LGAs, attempt to resolve a same-name sibling state
+        // in the same country that does have LGAs (handles duplicated state rows).
+        if ($lgas->isEmpty()) {
+            $state = State::query()->find($stateId);
+
+            if ($state !== null) {
+                $fallbackStateId = State::query()
+                    ->where('country_id', $state->country_id)
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $state->name)])
+                    ->whereKeyNot($state->id)
+                    ->whereHas('lgas')
+                    ->value('id');
+
+                if ($fallbackStateId !== null) {
+                    $lgas = Lga::query()
+                        ->where('state_id', (int) $fallbackStateId)
+                        ->orderBy('name')
+                        ->get(['id', 'state_id', 'name']);
+                }
+            }
+        }
 
         return $this->success($lgas, 'LGAs fetched.');
     }
