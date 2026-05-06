@@ -25,6 +25,8 @@ class LeadController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $perPage = (int) $request->integer('per_page', 15);
+
         $query = Lead::query()
             ->with(['assignedUser:id,name,email', 'creator:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color', 'country:id,name,code', 'state:id,name', 'lga:id,name'])
             ->when($request->string('q')->toString(), function ($builder, $q) {
@@ -44,7 +46,13 @@ class LeadController extends Controller
             ->when($request->filled('lga_id'), fn($builder) => $builder->where('lga_id', (int) $request->input('lga_id')))
             ->orderByDesc('id');
 
-        $leads = $query->paginate((int) $request->integer('per_page', 15));
+        // Frontend CRM board requests per_page=300 and derives totals from returned array length.
+        // Return full filtered dataset in this mode so CRM totals match dashboard totals.
+        if ($perPage >= 300) {
+            return $this->success($query->get(), 'Leads fetched.');
+        }
+
+        $leads = $query->paginate($perPage);
 
         return $this->paginated($leads, $leads->items(), 'Leads fetched.');
     }

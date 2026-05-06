@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Dashboard\DailyTasksRequest;
 use App\Http\Requests\Dashboard\PipelineStatsRequest;
 use App\Services\DashboardService;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,19 @@ class DashboardController extends Controller
                 $request->string('status')->toString() ?: null,
             ),
             'Dashboard pipeline stats fetched.'
+        );
+    }
+
+    public function dailyTasks(DailyTasksRequest $request): JsonResponse
+    {
+        return $this->success(
+            $this->dashboardService->dailyTasks(
+                $request->user(),
+                $request->string('date')->toString() ?: null,
+                $request->string('status')->toString() ?: null,
+                (int) $request->integer('limit', 50),
+            ),
+            'Dashboard daily tasks fetched.'
         );
     }
 }

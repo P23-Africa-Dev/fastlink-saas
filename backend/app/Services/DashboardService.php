@@ -3,20 +3,18 @@
 namespace App\Services;
 
 use App\Models\Attendance;
-use App\Models\Lead;
-use App\Models\LeadStatus;
 use App\Models\LeaveRequest;
 use App\Models\Project;
 use App\Models\Spreadsheet;
-use App\Models\State;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 
 class DashboardService
 {
+    public function __construct(private readonly LeadMetricsService $leadMetricsService) {}
+
     public function stats(): array
     {
         $today = Carbon::today();
@@ -26,11 +24,12 @@ class DashboardService
         $usersTotal = User::count();
         $usersActive = User::active()->count();
 
-        $leadsTotal = Lead::count();
-        $leadsNew = Lead::where('status', 'new')->count();
-        $leadsWon = Lead::where('status', 'won')->count();
-        $leadsLost = Lead::where('status', 'lost')->count();
-        $pipelineValue = (float) Lead::whereNotNull('estimated_value')->sum('estimated_value');
+        $leadsTotal = $this->leadMetricsService->total();
+        $leadsThisWeek = $this->leadMetricsService->createdThisWeek();
+        $leadsNew = $this->leadMetricsService->countByStatus('new');
+        $leadsWon = $this->leadMetricsService->countByStatus('won');
+        $leadsLost = $this->leadMetricsService->countByStatus('lost');
+        $pipelineValue = $this->leadMetricsService->pipelineValue();
 
         $projectsTotal = Project::count();
         $projectsActive = Project::where('status', 'in_progress')->count();
@@ -46,7 +45,9 @@ class DashboardService
 
         $conversionRate = $leadsTotal > 0 ? round(($leadsWon / $leadsTotal) * 100, 2) : 0.0;
 
-        $monthlyLeads = Lead::whereBetween('created_at', [$monthStart, $monthEnd])->count();
+        $monthlyLeads = $this->leadMetricsService->baseQuery()
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->count();
         $monthlyTasksCompleted = Task::where('status', 'completed')
             ->whereBetween('updated_at', [$monthStart, $monthEnd])
             ->count();
@@ -56,6 +57,7 @@ class DashboardService
                 'users_total' => $usersTotal,
                 'users_active' => $usersActive,
                 'leads_total' => $leadsTotal,
+                'leads_this_week' => $leadsThisWeek,
                 'projects_total' => $projectsTotal,
                 'tasks_total' => $tasksTotal,
                 'attendance_today' => $attendanceToday,
@@ -75,7 +77,9 @@ class DashboardService
                 'pending_tasks' => $tasksTodo,
             ],
             'monthly' => [
-                'new_leads' => $monthlyLeads,
+                // Keep key name for frontend compatibility; value is weekly leads for the "Leads This Week" card.
+                'new_leads' => $leadsThisWeek,
+                'new_leads_monthly' => $monthlyLeads,
                 'completed_tasks' => $monthlyTasksCompleted,
             ],
         ];
@@ -83,100 +87,62 @@ class DashboardService
 
     public function pipelineStats(?int $stateId = null, ?string $status = null): array
     {
-        $resolvedStatus = $this->resolveStatusFilter($status);
+        return $this->leadMetricsService->pipelineStats($stateId, $status);
+    }
 
-        $baseQuery = Lead::query()
-            ->when($stateId, fn(Builder $query) => $query->where('state_id', $stateId));
+    public function dailyTasks(User $user, ?string $date = null, ?string $status = null, int $limit = 50): array
+    {
+        $targetDate = $date
+            ? Carbon::createFromFormat('Y-m-d', $date, config('app.timezone'))->startOfDay()
+            : Carbon::today(config('app.timezone'));
 
-        $baseQuery = $this->applyStatusFilter($baseQuery, $resolvedStatus);
-
-        $totalLeads = (clone $baseQuery)->count();
-
-        $topStates = (clone $baseQuery)
-            ->join('states', 'states.id', '=', 'leads.state_id')
-            ->selectRaw('states.id as state_id, states.name as state_name, COUNT(*) as lead_count')
-            ->groupBy('states.id', 'states.name')
-            ->orderByDesc('lead_count')
-            ->limit(3)
-            ->get()
-            ->map(fn($row): array => [
-                'state_id' => (int) $row->state_id,
-                'state' => (string) $row->state_name,
-                'lead_count' => (int) $row->lead_count,
+        $query = Task::query()
+            ->with([
+                'creator:id,name,email',
+                'assignees:id,name,email',
             ])
-            ->values()
-            ->all();
+            ->whereDate('start_date', '<=', $targetDate->toDateString())
+            ->whereDate('due_date', '>=', $targetDate->toDateString())
+            ->when($status, fn(Builder $builder) => $builder->where('status', $status));
 
-        $topEntries = (clone $baseQuery)
-            ->with(['state:id,name'])
-            ->select(['id', 'first_name', 'last_name', 'company', 'status', 'state_id', 'created_at'])
+        if ($user->hasRole('staff') && ! $user->hasAnyRole(['admin', 'supervisor'])) {
+            $query->where(function (Builder $builder) use ($user) {
+                $builder->where('created_by', $user->id)
+                    ->orWhereHas('assignees', fn(Builder $subQuery) => $subQuery->where('users.id', $user->id));
+            });
+        }
+
+        $tasks = $query
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'urgent' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")
+            ->orderBy('due_date')
             ->orderByDesc('id')
-            ->limit(3)
-            ->get()
-            ->map(function (Lead $lead): array {
-                $fullName = trim(($lead->first_name ?? '') . ' ' . ($lead->last_name ?? ''));
-                $name = $fullName !== '' ? $fullName : ((string) ($lead->company ?? 'Lead #' . $lead->id));
-
-                return [
-                    'id' => $lead->id,
-                    'name' => $name,
-                    'status' => (string) $lead->status,
-                    'state' => $lead->state?->name,
-                    'created_at' => optional($lead->created_at)?->toISOString(),
-                ];
-            })
-            ->values()
-            ->all();
+            ->limit(max(1, min($limit, 200)))
+            ->get();
 
         return [
-            'total_leads' => $totalLeads,
-            'filters' => [
-                'state_id' => $stateId,
-                'status' => $status,
-                'resolved_status' => $resolvedStatus,
-            ],
-            'top_states' => $topStates,
-            'top_entries' => $topEntries,
+            'date' => $targetDate->toDateString(),
+            'total_tasks' => $tasks->count(),
+            'tasks' => $tasks->map(function (Task $task): array {
+                $assignee = $task->assignees->first();
+
+                return [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'status' => $task->status,
+                    'start_date' => optional($task->start_date)?->toDateString(),
+                    'due_date' => optional($task->due_date)?->toDateString(),
+                    'assigned_to' => $assignee ? [
+                        'id' => $assignee->id,
+                        'name' => $assignee->name,
+                        'email' => $assignee->email,
+                    ] : null,
+                    'created_by' => $task->creator ? [
+                        'id' => $task->creator->id,
+                        'name' => $task->creator->name,
+                        'email' => $task->creator->email,
+                    ] : null,
+                ];
+            })->values()->all(),
         ];
-    }
-
-    /**
-     * @return array{type: 'status'|'status_id'|null, value: string|int|null}
-     */
-    private function resolveStatusFilter(?string $status): array
-    {
-        $value = trim((string) $status);
-        if ($value === '') {
-            return ['type' => null, 'value' => null];
-        }
-
-        $normalized = Str::lower($value);
-
-        $statusRow = LeadStatus::query()
-            ->whereRaw('LOWER(name) = ?', [$normalized])
-            ->orWhereRaw('LOWER(slug) = ?', [Str::slug($normalized)])
-            ->first(['id', 'slug']);
-
-        if ($statusRow !== null) {
-            return ['type' => 'status_id', 'value' => (int) $statusRow->id];
-        }
-
-        return ['type' => 'status', 'value' => $normalized];
-    }
-
-    /**
-     * @param  array{type: 'status'|'status_id'|null, value: string|int|null}  $resolvedStatus
-     */
-    private function applyStatusFilter(Builder $query, array $resolvedStatus): Builder
-    {
-        if ($resolvedStatus['type'] === 'status_id' && is_int($resolvedStatus['value'])) {
-            return $query->where('status_id', $resolvedStatus['value']);
-        }
-
-        if ($resolvedStatus['type'] === 'status' && is_string($resolvedStatus['value'])) {
-            return $query->whereRaw('LOWER(status) = ?', [$resolvedStatus['value']]);
-        }
-
-        return $query;
     }
 }

@@ -38,6 +38,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/dashboard/pipeline-stats', [DashboardController::class, 'pipelineStats'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.dashboard.pipeline-stats');
+        Route::get('/dashboard/daily-tasks', [DashboardController::class, 'dailyTasks'])
+            ->middleware('role:admin|supervisor|staff')
+            ->name('api.dashboard.daily-tasks');
 
         // Calendar events aggregation (read) and task creation (write)
         Route::get('/calendar/events', [CalendarController::class, 'events'])
