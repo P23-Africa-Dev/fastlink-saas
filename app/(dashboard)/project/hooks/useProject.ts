@@ -1,6 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Project, Subtask, Task } from "@/lib/types";
+import type { ApiResponse, Project, Subtask, Task, User } from "@/lib/types";
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: async () => {
+      try {
+        const res = await api.get<ApiResponse<User[]>>("/users/assignable");
+        const data = res.data?.data;
+        return Array.isArray(data) ? data : [];
+      } catch {
+        // Backward-compatible fallback for environments that do not expose /users/assignable yet.
+        const res = await api.get<ApiResponse<User[]>>("/users", { params: { assignable: 1 } });
+        const data = res.data?.data;
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unable to load assignable users.");
+        }
+
+        return data.filter((user) => user.suspended_at == null);
+      }
+    },
+    retry: 1,
+  });
+}
 
 export function useProjects() {
   return useQuery({

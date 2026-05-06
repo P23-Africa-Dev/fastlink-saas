@@ -1,20 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { X, Pencil, Trash2, Calendar, Layers, Users, Plus, Check, XIcon } from "lucide-react";
-import { Task, Project, Comment, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
+import { Task, Project, Comment, TASK_STATUS_CONFIG, PRIORITY_CONFIG } from "./types";
+import { useUsers } from "../hooks/useProject";
 import { CommentSection } from "./CommentSection";
 import { AssigneePicker } from "./AssigneePicker";
+import type { User } from "@/lib/types";
 
 interface TaskDetailDrawerProps {
-  task:       Task;
-  project?:   Project;
-  comments:   Comment[];
-  onClose:    () => void;
-  onEdit:     () => void;
-  onDelete:   () => void;
-  onComment:  (text: string) => void;
-  onAssign:   (ids: number[]) => void;
+  task: Task;
+  project?: Project;
+  comments: Comment[];
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onComment: (text: string) => void;
+  onAssign: (ids: number[]) => void;
   onAddSubtasks: (titles: string[]) => void;
   onToggleSubtask: (subtaskId: number, isCompleted: boolean) => void;
   onRenameSubtask: (subtaskId: number, title: string) => void;
@@ -56,10 +58,22 @@ export function TaskDetailDrawer({
   const [subtaskInput, setSubtaskInput] = useState("");
   const [editingSubtaskId, setEditingSubtaskId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const { data: users = [] } = useUsers();
 
-  const statusCfg   = TASK_STATUS_CONFIG[task.status];
+  const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#047857", "#dc2626", "#7c3aed"];
+
+  const getInitials = (name: string): string =>
+    name.split(" ").map(p => p[0]).join("").toUpperCase().slice(0, 2);
+
+  const getUserColor = (userId: number): string =>
+    colors[userId % colors.length];
+
+  const statusCfg = TASK_STATUS_CONFIG[task.status];
   const priorityCfg = PRIORITY_CONFIG[task.priority];
-  const assignees   = MOCK_TEAM.filter(m => task.assignee_ids.includes(m.id));
+  const assignees = useMemo(() =>
+    users.filter((u: User) => task.assignee_ids.includes(u.id)),
+    [users, task.assignee_ids]
+  );
   const subtasks = task.subtasks ?? [];
   const progress = task.subtask_progress ?? { total: subtasks.length, completed: subtasks.filter((item) => item.is_completed).length, percentage: 0 };
 
@@ -137,9 +151,9 @@ export function TaskDetailDrawer({
 
           {/* Info grid */}
           <div className="rounded-2xl border border-[#f0f0f5] overflow-hidden" style={{ padding: "0 16px" }}>
-            <InfoRow icon={<Layers size={15} />}   label="Project"    value={project?.name} />
+            <InfoRow icon={<Layers size={15} />} label="Project" value={project?.name} />
             <InfoRow icon={<Calendar size={15} />} label="Start Date" value={formatDate(task.start_date)} />
-            <InfoRow icon={<Calendar size={15} />} label="Due Date"   value={formatDate(task.due_date)} />
+            <InfoRow icon={<Calendar size={15} />} label="Due Date" value={formatDate(task.due_date)} />
           </div>
 
           {/* Description */}
@@ -302,14 +316,21 @@ export function TaskDetailDrawer({
 
             {assignees.length > 0 ? (
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-                {assignees.map((m, i) => (
-                  <div key={m.id} className="flex items-center" style={{ padding: "10px 14px", gap: "10px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}>
-                    <div className="rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ width: "30px", height: "30px", background: m.color }}>
-                      {m.initials}
+                {assignees.map((m: User, i: number) => {
+                  const initials = getInitials(m.name);
+                  const color = getUserColor(m.id);
+                  return (
+                    <div key={m.id} className="flex items-center" style={{ padding: "10px 14px", gap: "10px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}>
+                      <div className="rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ width: "30px", height: "30px", background: color }}>
+                        {initials}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-semibold text-(--text-primary)">{m.name}</span>
+                        <span className="text-[11px] text-[#9ca3af]">{m.email}</span>
+                      </div>
                     </div>
-                    <span className="text-[13px] font-semibold text-(--text-primary)">{m.name}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div

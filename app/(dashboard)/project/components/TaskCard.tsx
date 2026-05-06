@@ -2,14 +2,16 @@
 
 import React from "react";
 import { Calendar, MessageSquare, MoreVertical } from "lucide-react";
-import { Task, Project, PRIORITY_CONFIG, TASK_STATUS_CONFIG, MOCK_TEAM } from "./types";
+import { Task, Project, PRIORITY_CONFIG, TASK_STATUS_CONFIG } from "./types";
 
 interface TaskCardProps {
-  task:        Task;
-  project?:    Project;
-  onClick:     () => void;
+  task: Task;
+  project?: Project;
+  onClick: () => void;
   onMenuClick: (e: React.MouseEvent<HTMLButtonElement>, task: Task) => void;
 }
+
+const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#047857", "#dc2626", "#7c3aed"];
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -19,12 +21,15 @@ function isOverdue(due: string) {
   return new Date(due) < new Date() ? true : false;
 }
 
+function getUserColor(userId: number): string {
+  return colors[userId % colors.length];
+}
+
 export function TaskCard({ task, project, onClick, onMenuClick }: TaskCardProps) {
   const priorityCfg = PRIORITY_CONFIG[task.priority];
-  const overdue     = isOverdue(task.due_date) && task.status !== "completed";
-  const assignees   = MOCK_TEAM.filter(m => task.assignee_ids.includes(m.id));
-  const visibleAssignees = assignees.slice(0, 3);
-  const overflow    = assignees.length - 3;
+  const overdue = isOverdue(task.due_date) && task.status !== "completed";
+  const visibleAssignees = task.assignee_ids.slice(0, 3);
+  const overflow = task.assignee_ids.length - 3;
   const progress = task.subtask_progress;
   const hasSubtasks = (progress?.total ?? 0) > 0;
 
@@ -96,14 +101,14 @@ export function TaskCard({ task, project, onClick, onMenuClick }: TaskCardProps)
         <div className="flex items-center">
           {visibleAssignees.length > 0 ? (
             <div className="flex" style={{ gap: "-4px" }}>
-              {visibleAssignees.map((m, i) => (
+              {visibleAssignees.map((userId, i) => (
                 <div
-                  key={m.id}
-                  title={m.name}
+                  key={userId}
+                  title={`User ${userId}`}
                   className="rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-white"
-                  style={{ width: "24px", height: "24px", background: m.color, marginLeft: i > 0 ? "-6px" : "0", zIndex: visibleAssignees.length - i }}
+                  style={{ width: "24px", height: "24px", background: getUserColor(userId), marginLeft: i > 0 ? "-6px" : "0", zIndex: visibleAssignees.length - i }}
                 >
-                  {m.initials}
+                  {String(userId).slice(-2)}
                 </div>
               ))}
               {overflow > 0 && (
