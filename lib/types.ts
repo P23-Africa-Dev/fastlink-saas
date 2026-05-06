@@ -70,6 +70,34 @@ export interface DashboardStats {
     completed_tasks: number;
   };
 }
+
+export interface DashboardPipelineTopState {
+  state_id: number;
+  state: string;
+  lead_count: number;
+}
+
+export interface DashboardPipelineTopEntry {
+  id: number;
+  name: string;
+  status: string;
+  state: string;
+  created_at: string;
+}
+
+export interface DashboardPipelineStats {
+  total_leads: number;
+  filters: {
+    state_id?: number | null;
+    status?: string | null;
+    resolved_status?: {
+      type: string;
+      value: string;
+    } | null;
+  };
+  top_states: DashboardPipelineTopState[];
+  top_entries: DashboardPipelineTopEntry[];
+}
 // ─── CRM ──────────────────────────────────────────────────────────────────────
 export interface Drive {
   id: number;
@@ -222,6 +250,35 @@ export interface AttendanceCalendarPayload {
   attendances: Attendance[];
   leave_requests: LeaveRequest[];
   tasks: Task[];
+}
+
+export type CalendarEventType = "attendance" | "leave" | "project" | "task";
+
+export interface CalendarEvent {
+  id: string;
+  type: CalendarEventType;
+  title: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  meta: Record<string, unknown>;
+}
+
+export interface CalendarEventsParams {
+  start_date: string;
+  end_date: string;
+  type?: CalendarEventType;
+}
+
+export interface CreateCalendarTaskPayload {
+  title: string;
+  start_date: string;
+  due_date: string;
+  description?: string;
+  project_id?: number;
+  status?: "todo" | "in_progress" | "review" | "completed";
+  priority?: "low" | "medium" | "high" | "urgent";
+  assigned_to?: number;
 }
 
 // ─── Leave Requests ────────────────────────────────────────────────────────

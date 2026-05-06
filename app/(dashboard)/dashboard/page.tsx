@@ -6,10 +6,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { useDashboardStats } from "./hooks/useDashboard";
+import { useDashboardPipelineStats, useDashboardStats } from "./hooks/useDashboard";
 import type { Lead as ApiLead, Attendance as ApiAttendance, DashboardStats } from "@/lib/types";
 import { useTasks } from "../project/hooks/useProject";
-import { useLeads } from "../crm/hooks/useCrm";
+import { useLeads, useStates } from "../crm/hooks/useCrm";
 import { useAttendance } from "../attendance/hooks/useAttendance";
 import {
   ArrowUpRight,
@@ -205,8 +205,12 @@ export default function DashboardPage() {
   const { data: leadsRaw, isLoading: leadsLoading } = useLeads({});
   const { data: attendanceRaw, isLoading: attLoading } = useAttendance({});
 
-  const [activePipeline, setActivePipeline] = useState<string>("All Leads");
+  const [crmViewMode, setCrmViewMode] = useState<"pipeline" | "location">("pipeline");
+  const [selectedStateId, setSelectedStateId] = useState<string>("0");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const selectedStateIdNumber = selectedStateId !== "0" ? Number(selectedStateId) : undefined;
+  const { data: states = [] } = useStates();
+  const { data: pipelineStats } = useDashboardPipelineStats({ stateId: selectedStateIdNumber });
 
   const loading = isStatsLoading || tasksLoading || leadsLoading || attLoading;
 
@@ -254,24 +258,6 @@ export default function DashboardPage() {
       }));
   }, [tasksRaw, activeDate]);
 
-  const crmLeadList = useMemo(() => {
-    return (leadsRaw || []).map((l: ApiLead) => {
-      const status = l.statusDefinition ?? l.status_definition;
-      const fullName = `${l.first_name} ${l.last_name}`.trim();
-      return {
-        id: String(l.id),
-        name: fullName,
-        initials: initials(fullName),
-        email: l.email,
-        department: status?.name ?? "Unclassified",
-        value: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(l.estimated_value ?? 0)),
-        date: l.created_at?.split("T")[0] ?? "",
-        score: 0,
-        avatarColor: status?.color ?? "#33084E",
-      };
-    });
-  }, [leadsRaw]);
-
   const attendanceList = useMemo(() => {
     return (attendanceRaw || [])
       .filter(row => row.date === activeDate)
@@ -286,30 +272,46 @@ export default function DashboardPage() {
       });
   }, [attendanceRaw, activeDate]);
 
-  const crmStatuses = useMemo(() => {
-    const statusMap = new Map();
-    (leadsRaw || []).forEach((l: ApiLead) => {
-      const s = l.statusDefinition ?? l.status_definition;
-      if (s && !statusMap.has(s.id)) statusMap.set(s.id, s);
+  const filteredLeads = useMemo(() => {
+    return (leadsRaw || []).filter((lead) => {
+      if (!selectedStateIdNumber) return true;
+      return lead.state_id === selectedStateIdNumber;
     });
-    return Array.from(statusMap.values());
-  }, [leadsRaw]);
-  const leads =
-    activePipeline === "All Leads"
-      ? crmLeadList
-      : crmLeadList.filter((lead) => lead.department === activePipeline);
-  const pipelineColor = crmStatuses.find(s => s.name === activePipeline)?.color ?? "#33084E";
-  const totalAmount = leads.reduce((sum, lead) => {
-    const numeric = Number(lead.value.replace(/[^0-9.]/g, ""));
-    return Number.isFinite(numeric) && numeric > 0 ? sum + numeric : sum;
-  }, 0);
-  const amountLabel = totalAmount > 0 ? `$${totalAmount.toLocaleString()}` : "--";
-  console.log(amountLabel); // Use it to avoid unused warning if not used elsewhere
+  }, [leadsRaw, selectedStateIdNumber]);
 
-  const pipelineSelectOptions: SelectOption[] = [
-    { value: "All Leads", label: "All Leads", color: "#33084E" },
-    ...crmStatuses.map((s) => ({ value: s.name, label: s.name, color: s.color })),
+  const pipelineCards = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredLeads.forEach((lead: ApiLead) => {
+      const status = lead.statusDefinition?.name ?? lead.status_definition?.name ?? "Unclassified";
+      counts.set(status, (counts.get(status) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, leadCount]) => ({ name, leadCount, kind: "pipeline" as const }))
+      .sort((a, b) => b.leadCount - a.leadCount)
+      .slice(0, 5);
+  }, [filteredLeads]);
+
+  const locationCards = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredLeads.forEach((lead: ApiLead) => {
+      const stateName = lead.state?.name ?? "Unknown";
+      counts.set(stateName, (counts.get(stateName) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, leadCount]) => ({ name, leadCount, kind: "location" as const }))
+      .sort((a, b) => b.leadCount - a.leadCount)
+      .slice(0, 5);
+  }, [filteredLeads]);
+
+  const locationSelectOptions: SelectOption[] = [
+    { value: "0", label: "All locations" },
+    ...states.map((state) => ({ value: String(state.id), label: state.name })),
   ];
+
+  const crmCardsToRender = crmViewMode === "pipeline" ? pipelineCards : locationCards;
+  const crmSectionTitle = crmViewMode === "pipeline" ? "Top Pipelines" : "Top Locations";
+  const crmAccentPalette = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d"];
+  const crmTopLeadCount = crmCardsToRender[0]?.leadCount ?? 1;
 
   // Single pass over attendanceData instead of three separate filters
   const { present: presentCount = 0, absent: absentCount = 0, late: lateCount = 0 } =
@@ -467,94 +469,124 @@ export default function DashboardPage() {
 
         {/* CRM Pipeline */}
         <div className="crm-card">
-          <div className="crm-header flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 sm:gap-0">
+          <div className="crm-header flex flex-row items-center justify-between gap-4">
             <div>
               <h2 className="crm-title">CRM Pipeline</h2>
               <p className="crm-sub">
                 <span
                   className="crm-stage-indicator"
-                  style={{ background: `${pipelineColor}18`, color: pipelineColor }}
+                  style={{
+                    background: crmViewMode === "pipeline" ? "#33084E18" : "#AF580B18",
+                    color: crmViewMode === "pipeline" ? "#33084E" : "#AF580B",
+                  }}
                 >
-                  <span className="crm-stage-dot" style={{ background: pipelineColor }} />
-                  {activePipeline} · {leads.length} lead{leads.length !== 1 ? "s" : ""}
+                  <span className="crm-stage-dot" style={{ background: crmViewMode === "pipeline" ? "#33084E" : "#AF580B" }} />
+                  {crmSectionTitle} · {pipelineStats?.total_leads ?? filteredLeads.length} total leads
                 </span>
               </p>
             </div>
-            <div className="w-full sm:w-auto mt-3 sm:mt-0">
-              <CustomSelect
-                value={activePipeline}
-                onChange={setActivePipeline}
-                options={pipelineSelectOptions}
-                searchPlaceholder="Search pipelines…"
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="inline-flex rounded-xl border border-[#ececf2] bg-[#f8f8fc] p-1 w-full sm:w-auto">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-bold cursor-pointer transition-all"
+                  style={{
+                    background: crmViewMode === "pipeline" ? "#33084E" : "transparent",
+                    color: crmViewMode === "pipeline" ? "#ffffff" : "#6b7280",
+                    boxShadow: crmViewMode === "pipeline" ? "0 4px 12px rgba(51, 8, 78, 0.22)" : "none",
+                  }}
+                  onClick={() => setCrmViewMode("pipeline")}
+                >
+                  Pipeline
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-bold cursor-pointer transition-all"
+                  style={{
+                    background: crmViewMode === "location" ? "#33084E" : "transparent",
+                    color: crmViewMode === "location" ? "#ffffff" : "#6b7280",
+                    boxShadow: crmViewMode === "location" ? "0 4px 12px rgba(51, 8, 78, 0.22)" : "none",
+                  }}
+                  onClick={() => setCrmViewMode("location")}
+                >
+                  Location
+                </button>
+              </div>
+              {/* <div className="w-full sm:min-w-[190px]">
+                <CustomSelect
+                  value={selectedStateId}
+                  onChange={setSelectedStateId}
+                  options={locationSelectOptions}
+                  searchPlaceholder="Filter by location…"
+                  fullWidth
+                />
+              </div> */}
             </div>
           </div>
 
-          {/* Leads Table */}
-          <div className="crm-leads-table">
-            <div className="crm-leads-thead">
-              <span className="crm-th">Name</span>
-              <span className="crm-th crm-th--hide-sm">Department</span>
-              <span className="crm-th">Value</span>
-              <span className="crm-th crm-th--hide-sm">Added</span>
-              <span className="crm-th">Score</span>
-            </div>
-            <div className="crm-leads-body">
-              {leads.length === 0 ? (
-                <div className="crm-leads-empty">No leads in this stage</div>
-              ) : (
-                leads.map(lead => {
-                  const scoreColor = lead.score >= 80 ? "#074616" : lead.score >= 60 ? "#AF580B" : "#ef4444";
-                  return (
-                    <div key={lead.id} className="crm-lead-row">
-                      <div className="crm-lead-identity">
-                        <div className="crm-lead-avatar" style={{ background: lead.avatarColor }}>
-                          {lead.initials}
-                        </div>
-                        <div className="crm-lead-info">
-                          <span className="crm-lead-name">{lead.name}</span>
-                          <span className="crm-lead-email">{lead.email}</span>
-                        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            {crmCardsToRender.length === 0 ? (
+              <div className="col-span-full rounded-xl border border-dashed border-[#e6e7ee] text-center text-[12px] text-[#9ca3af]" style={{ padding: "16px 12px" }}>
+                No data found for this filter.
+              </div>
+            ) : (
+              crmCardsToRender.map((card, index) => {
+                const accent = crmAccentPalette[index % crmAccentPalette.length];
+                const ratio = Math.max(8, Math.round((card.leadCount / crmTopLeadCount) * 100));
+
+                return (
+                  <div
+                    key={`${card.kind}-${card.name}`}
+                    className="rounded-xl border bg-white transition-all hover:-translate-y-[1px]"
+                    style={{
+                      padding: "14px",
+                      borderColor: `${accent}33`,
+                      boxShadow: `0 8px 20px ${accent}12`,
+                      background: `linear-gradient(180deg, ${accent}10 0%, #ffffff 44%)`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="text-[10px] font-bold uppercase rounded-md"
+                        style={{ padding: "3px 6px", background: `${accent}1a`, color: accent }}
+                      >
+                        #{index + 1}
                       </div>
-                      <span className="crm-lead-dept crm-td--hide-sm">
-                        <span className="crm-lead-dept-badge">{lead.department}</span>
+                      <span className="text-[10px] font-semibold" style={{ color: accent }}>
+                        {Math.round((card.leadCount / crmTopLeadCount) * 100)}%
                       </span>
-                      <span className="crm-lead-value">{lead.value}</span>
-                      <span className="crm-lead-date crm-td--hide-sm">{lead.date}</span>
-                      <div className="crm-lead-score">
-                        <div className="crm-lead-score-track">
-                          <div
-                            className="crm-lead-score-fill"
-                            style={{ width: `${lead.score}%`, background: scoreColor }}
-                          />
-                        </div>
-                        <span className="crm-lead-score-num" style={{ color: scoreColor }}>{lead.score}</span>
-                      </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    <div className="text-[14px] font-bold text-(--text-primary) truncate" style={{ marginTop: "10px" }}>
+                      {card.name}
+                    </div>
+                    <div className="text-[12px] text-[#6b7280]" style={{ marginTop: "5px" }}>
+                      {card.leadCount} lead{card.leadCount === 1 ? "" : "s"}
+                    </div>
+                    <div className="h-[5px] rounded-full" style={{ marginTop: "10px", background: `${accent}1f` }}>
+                      <div className="h-full rounded-full" style={{ width: `${ratio}%`, background: accent }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
-          {/* <div className="crm-footer">
-            <div className="crm-footer-stat">
-              <span className="crm-footer-label">Total leads</span>
-              <span className="crm-footer-val">{leads.length}</span>
-            </div>
-            <div className="crm-footer-stat">
-              <span className="crm-footer-label">Amount</span>
-              <span className="crm-footer-val" style={{ color: pipelineColor }}>
-                {amountLabel}
-              </span>
-            </div>
-            <div className="crm-footer-stat">
-              <span className="crm-footer-label">Pipeline</span>
-              <span className="crm-footer-val" style={{ color: pipelineColor, fontSize: 14 }}>
-                {activePipeline}
-              </span>
+          {/* <div className="rounded-xl border border-[#ececf2] bg-[#fafafe] flex flex-col gap-2" style={{ padding: "12px", marginTop: "12px" }}>
+            <p className="text-[11px] font-bold uppercase text-[#9ca3af]">Recent Leads (API)</p>
+            <div className="flex flex-col gap-1">
+              {(pipelineStats?.top_entries ?? []).slice(0, 3).map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between text-[12px]">
+                  <span className="font-semibold text-(--text-primary) truncate">{entry.name}</span>
+                  <span className="text-[#6b7280]">{entry.state || "Unknown"}</span>
+                </div>
+              ))}
             </div>
           </div> */}
+          <div className="flex justify-end" style={{ marginTop: "12px" }}>
+            <Link href="/crm" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#33084E] hover:text-[#4d0b75]">
+              View all <ChevronRight size={13} />
+            </Link>
+          </div>
         </div>
       </div>
 

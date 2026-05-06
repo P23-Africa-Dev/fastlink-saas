@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Briefcase,
   Layers,
+  CalendarDays,
   CalendarCheck,
   Users,
   Settings,
@@ -23,7 +24,7 @@ const navItems = [
 ];
 
 const bottomItems = [
-  // { icon: CalendarDays, label: "Calendar", href: "/calendar" },
+  { icon: CalendarDays, label: "Calendar", href: "/calendar" },
   { icon: Settings, label: "Settings", href: "/settings" },
   { icon: Users, label: "User Management", href: "/user-management" },
 ];
