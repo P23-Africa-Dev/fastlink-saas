@@ -6,9 +6,23 @@ export function useUsers() {
   return useQuery({
     queryKey: ["users", "assignable"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<User[]>>("/users/assignable");
-      return res.data.data;
+      try {
+        const res = await api.get<ApiResponse<User[]>>("/users/assignable");
+        const data = res.data?.data;
+        return Array.isArray(data) ? data : [];
+      } catch {
+        // Backward-compatible fallback for environments that do not expose /users/assignable yet.
+        const res = await api.get<ApiResponse<User[]>>("/users", { params: { assignable: 1 } });
+        const data = res.data?.data;
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unable to load assignable users.");
+        }
+
+        return data.filter((user) => user.suspended_at == null);
+      }
     },
+    retry: 1,
   });
 }
 

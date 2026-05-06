@@ -16,7 +16,7 @@ const colors = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d", "#047857"
 
 export function AssigneePicker({ currentIds, onClose, onSave }: AssigneePickerProps) {
   const [selected, setSelected] = useState<number[]>(currentIds);
-  const { data: users = [], isLoading } = useUsers();
+  const { data: users = [], isLoading, isError } = useUsers();
 
   const toggle = (id: number) =>
     setSelected(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
@@ -41,6 +41,10 @@ export function AssigneePicker({ currentIds, onClose, onSave }: AssigneePickerPr
           {isLoading ? (
             <div className="flex items-center justify-center" style={{ padding: "20px" }}>
               <p className="text-[13px] text-[#9ca3af]">Loading users...</p>
+            </div>
+          ) : isError ? (
+            <div className="flex items-center justify-center" style={{ padding: "20px" }}>
+              <p className="text-[13px] text-[#b91c1c]">Unable to load users. Please refresh and try again.</p>
             </div>
           ) : users.length === 0 ? (
             <div className="flex items-center justify-center" style={{ padding: "20px" }}>

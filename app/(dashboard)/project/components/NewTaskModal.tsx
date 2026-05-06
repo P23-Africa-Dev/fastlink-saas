@@ -58,7 +58,7 @@ const getUserColor = (userId: number): string => {
 };
 
 export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject, onClose, onSave }: NewTaskModalProps) {
-  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: users = [], isLoading: usersLoading, isError: usersError } = useUsers();
   const [title, setTitle] = useState("");
   const [description, setDesc] = useState("");
   const [projectId, setProjectId] = useState<number>(defaultProject ?? (projects[0]?.id ?? 0));
@@ -211,6 +211,10 @@ export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject,
             {usersLoading ? (
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] p-3">
                 <p className="text-[13px] text-[#9ca3af]">Loading users...</p>
+              </div>
+            ) : usersError ? (
+              <div className="flex flex-col rounded-xl border border-[#fee2e2] bg-[#fef2f2] p-3">
+                <p className="text-[13px] text-[#b91c1c]">Unable to load users. Please refresh and try again.</p>
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col rounded-xl border border-[#f0f0f5] p-3">

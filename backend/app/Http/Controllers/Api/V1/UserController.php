@@ -43,6 +43,16 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        if ($request->boolean('assignable')) {
+            $users = User::query()
+                ->select(['id', 'name', 'email'])
+                ->whereNull('suspended_at')
+                ->orderBy('name')
+                ->get();
+
+            return $this->success($users, 'Users fetched.');
+        }
+
         $query = User::query()
             ->with('roles:id,name')
             ->when($request->string('q')->toString(), function ($builder, $q) {
