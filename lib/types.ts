@@ -98,6 +98,28 @@ export interface DashboardPipelineStats {
   top_states: DashboardPipelineTopState[];
   top_entries: DashboardPipelineTopEntry[];
 }
+
+export interface DashboardDailyTaskUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface DashboardDailyTaskItem {
+  id: number;
+  title: string;
+  status: "todo" | "in_progress" | "review" | "completed";
+  start_date: string;
+  due_date: string;
+  assigned_to?: DashboardDailyTaskUser | null;
+  created_by?: DashboardDailyTaskUser | null;
+}
+
+export interface DashboardDailyTasksPayload {
+  date: string;
+  total_tasks: number;
+  tasks: DashboardDailyTaskItem[];
+}
 // ─── CRM ──────────────────────────────────────────────────────────────────────
 export interface Drive {
   id: number;
