@@ -107,7 +107,7 @@ class UserController extends Controller
 
         if ($request->user()->hasRole('supervisor')) {
             $adminIds = $this->notificationService->roleUserIds('admin')
-                ->filter(fn ($id) => (int) $id !== (int) $request->user()->id);
+                ->filter(fn($id) => (int) $id !== (int) $request->user()->id);
 
             $this->notificationService->notifyUsers(
                 $adminIds,
@@ -184,5 +184,23 @@ class UserController extends Controller
         $user->delete();
 
         return $this->success(null, 'User deleted.');
+    }
+
+    /**
+     * Get all active users available for task assignment.
+     * Returns minimal user data (id, name, email) for dropdown/assignment selection.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function assignable(Request $request): JsonResponse
+    {
+        $users = User::query()
+            ->select(['id', 'name', 'email'])
+            ->whereNull('suspended_at')
+            ->orderBy('name')
+            ->get();
+
+        return $this->success($users, 'Assignable users fetched.');
     }
 }

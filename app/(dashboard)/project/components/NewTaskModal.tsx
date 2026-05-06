@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import { X, Plus, Minus } from "lucide-react";
 import { ModalButton } from "./ModalButton";
-import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG, MOCK_TEAM } from "./types";
+import { Task, Project, TaskStatus, Priority, TASK_STATUS_CONFIG, PRIORITY_CONFIG } from "./types";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { useUsers } from "../hooks/useProject";
 
 interface NewTaskModalProps {
   projects: Project[];
@@ -31,7 +32,33 @@ const PRIORITIES: Priority[] = ["low", "normal", "high"];
 const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
+// Helper function to generate initials
+const getInitials = (name: string): string => {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// Helper function to generate a color based on user id
+const getUserColor = (userId: number): string => {
+  const colors = [
+    "#33084E",
+    "#AF580B",
+    "#074616",
+    "#1d4ed8",
+    "#be185d",
+    "#d97706",
+    "#059669",
+    "#0891b2",
+  ];
+  return colors[userId % colors.length];
+};
+
 export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject, onClose, onSave }: NewTaskModalProps) {
+  const { data: users = [], isLoading: usersLoading } = useUsers();
   const [title, setTitle] = useState("");
   const [description, setDesc] = useState("");
   const [projectId, setProjectId] = useState<number>(defaultProject ?? (projects[0]?.id ?? 0));
@@ -181,17 +208,34 @@ export function NewTaskModal({ projects, defaultStatus = "todo", defaultProject,
           {/* Assignees */}
           <div className="flex flex-col" style={{ gap: "10px" }}>
             <label className={labelCls}>Assign To</label>
-            <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
-              {MOCK_TEAM.map((m, i) => (
-                <label key={m.id} className="flex items-center gap-3 cursor-pointer hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}>
-                  <input type="checkbox" checked={assignees.includes(m.id)} onChange={() => toggleAssignee(m.id)} className="rounded" />
-                  <div className="rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ width: "28px", height: "28px", background: m.color }}>
-                    {m.initials}
-                  </div>
-                  <span className="text-[13px] font-semibold text-(--text-primary)">{m.name}</span>
-                </label>
-              ))}
-            </div>
+            {usersLoading ? (
+              <div className="flex flex-col rounded-xl border border-[#f0f0f5] p-3">
+                <p className="text-[13px] text-[#9ca3af]">Loading users...</p>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="flex flex-col rounded-xl border border-[#f0f0f5] p-3">
+                <p className="text-[13px] text-[#9ca3af]">No users available</p>
+              </div>
+            ) : (
+              <div className="flex flex-col rounded-xl border border-[#f0f0f5] overflow-hidden">
+                {users.map((user, i) => {
+                  const initials = getInitials(user.name);
+                  const color = getUserColor(user.id);
+                  return (
+                    <label key={user.id} className="flex items-center gap-3 cursor-pointer hover:bg-[#f8f8fc] transition-colors" style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid #f0f0f5" : "none" }}>
+                      <input type="checkbox" checked={assignees.includes(user.id)} onChange={() => toggleAssignee(user.id)} className="rounded" />
+                      <div className="rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ width: "28px", height: "28px", background: color }}>
+                        {initials}
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-[13px] font-semibold text-(--text-primary)">{user.name}</span>
+                        <span className="text-[12px] text-[#9ca3af] truncate">{user.email}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Project, Subtask, Task } from "@/lib/types";
+import type { ApiResponse, Project, Subtask, Task, User } from "@/lib/types";
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<User[]>>("/users/assignable");
+      return res.data.data;
+    },
+  });
+}
 
 export function useProjects() {
   return useQuery({

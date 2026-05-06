@@ -44,7 +44,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:admin|supervisor|staff')
             ->name('api.calendar.events');
         Route::post('/calendar/tasks', [CalendarController::class, 'storeTask'])
-            ->middleware('role:admin|supervisor')
+            ->middleware('auth:sanctum')
             ->name('api.calendar.store-task');
 
         // Location hierarchy (read-only, available to all authenticated users)
@@ -61,6 +61,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/users/supervisors', [UserController::class, 'supervisors'])
             ->middleware('role:admin|supervisor|staff');
+        Route::get('/users/assignable', [UserController::class, 'assignable'])
+            ->middleware('auth:sanctum')
+            ->name('api.users.assignable');
         Route::get('/users', [UserController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/users', [UserController::class, 'store'])
@@ -137,7 +140,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/tasks', [TaskController::class, 'index'])
             ->middleware('role:admin|supervisor|staff');
         Route::post('/tasks', [TaskController::class, 'store'])
-            ->middleware('role:admin|supervisor');
+            ->middleware('auth:sanctum');
         Route::get('/tasks/{task}', [TaskController::class, 'show'])
             ->middleware('role:admin|supervisor|staff');
         Route::patch('/tasks/{task}', [TaskController::class, 'update'])
