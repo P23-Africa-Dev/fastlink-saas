@@ -1,25 +1,51 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useAttendanceCalendar } from "../attendance/hooks/useAttendance";
-import { useAuthStore } from "@/lib/stores/authStore";
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, X } from "lucide-react";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
+import { useAuthStore } from "@/lib/stores/authStore";
+import { useProjects } from "../project/hooks/useProject";
+import { useUsers } from "../attendance/hooks/useAttendance";
+import { useCalendarEvents, useCreateCalendarTask } from "./hooks/useCalendar";
+import { toast } from "sonner";
+import type { CalendarEvent, CalendarEventType } from "@/lib/types";
+import { CreateCalendarTaskModal } from "./components/CreateCalendarTaskModal";
 
-type EventType = "attendance" | "leave" | "task_start" | "task_due";
+const EVENT_STYLE: Record<CalendarEventType, { bg: string; color: string; label: string }> = {
+  attendance: { bg: "#dbeafe", color: "#1d4ed8", label: "Attendance" },
+  leave: { bg: "#fef3c7", color: "#AF580B", label: "Leave" },
+  project: { bg: "#ede9fe", color: "#33084E", label: "Project" },
+  task: { bg: "#dcfce7", color: "#074616", label: "Task" },
+};
 
-interface CalendarEvent {
-  id: string;
-  type: EventType;
-  label: string;
+const TYPE_OPTIONS = [
+  { value: "all", label: "All Events" },
+  { value: "attendance", label: "Attendance" },
+  { value: "leave", label: "Leave" },
+  { value: "project", label: "Projects" },
+  { value: "task", label: "Tasks" },
+];
+
+type CalendarCell = {
+  date: string;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+};
+
+type EventMeta = Record<string, unknown>;
+
+function toIso(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-const EVENT_STYLE: Record<EventType, { bg: string; color: string }> = {
-  attendance: { bg: "#dbeafe", color: "#1d4ed8" },
-  leave: { bg: "#fef3c7", color: "#AF580B" },
-  task_start: { bg: "#ede9fe", color: "#33084E" },
-  task_due: { bg: "#dcfce7", color: "#074616" },
-};
+function fromMonth(month: string) {
+  const [year, mo] = month.split("-").map(Number);
+  return new Date(year, mo - 1, 1);
+}
 
 function currentMonth() {
   const d = new Date();
@@ -45,124 +71,242 @@ function monthLabel(month: string) {
 
 function dayRange(start: string, end: string): string[] {
   const result: string[] = [];
-  const cursor = new Date(start + "T00:00:00");
-  const target = new Date(end + "T00:00:00");
+  const cursor = new Date(`${start}T00:00:00`);
+  const target = new Date(`${end}T00:00:00`);
 
   while (cursor <= target) {
-    result.push(cursor.toISOString().split("T")[0]);
+    result.push(toIso(cursor));
     cursor.setDate(cursor.getDate() + 1);
   }
 
   return result;
 }
 
-export default function CalendarPage() {
-  const currentUser = useAuthStore((s) => s.user);
-  const [month, setMonth] = useState(currentMonth());
+function formatClockTime(time: string) {
+  const parts = time.split(":");
+  if (parts.length < 2) return "";
+  const hour24 = Number(parts[0]);
+  const minute = Number(parts[1]);
+  if (Number.isNaN(hour24) || Number.isNaN(minute)) return "";
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return minute === 0 ? `${hour12} ${period}` : `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+}
 
-  const { data, isLoading } = useAttendanceCalendar({
-    month,
-    userId: currentUser?.id,
+function eventStartTimeLabel(event: CalendarEvent) {
+  const meta = event.meta as EventMeta;
+  const attendanceStart = typeof meta.signed_in_at === "string" ? meta.signed_in_at : null;
+  const genericStart = typeof meta.start_time === "string" ? meta.start_time : null;
+  const sourceTime = attendanceStart || genericStart;
+  if (!sourceTime) return "";
+  return formatClockTime(sourceTime);
+}
+
+function EventDetailsModal({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+  const metaEntries = Object.entries((event.meta as EventMeta) ?? {});
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      style={{ padding: "16px" }}
+      onClick={(clickedEvent) => {
+        if (clickedEvent.target === clickedEvent.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#f0f0f5] overflow-hidden">
+        <div className="flex items-center justify-between bg-[#f8f8fc] border-b border-[#f0f0f5]" style={{ padding: "16px 18px" }}>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#9ca3af]">{event.type}</p>
+            <h3 className="text-[16px] font-bold text-(--text-primary)">{event.title}</h3>
+          </div>
+          <button onClick={onClose} className="text-[#9ca3af] hover:text-(--text-primary)">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col" style={{ padding: "16px 18px", gap: "12px" }}>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-[#f0f0f5] bg-[#fcfcff]" style={{ padding: "10px" }}>
+              <p className="text-[10px] font-bold uppercase text-[#9ca3af]">Start</p>
+              <p className="text-[12px] font-semibold text-(--text-primary)">{event.start_date}</p>
+            </div>
+            <div className="rounded-lg border border-[#f0f0f5] bg-[#fcfcff]" style={{ padding: "10px" }}>
+              <p className="text-[10px] font-bold uppercase text-[#9ca3af]">End</p>
+              <p className="text-[12px] font-semibold text-(--text-primary)">{event.end_date}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#f0f0f5] bg-[#fcfcff]" style={{ padding: "10px" }}>
+            <p className="text-[10px] font-bold uppercase text-[#9ca3af]">Status</p>
+            <p className="text-[12px] font-semibold text-(--text-primary)">{event.status || "N/A"}</p>
+          </div>
+
+          <div className="rounded-lg border border-[#f0f0f5]" style={{ padding: "10px" }}>
+            <p className="text-[10px] font-bold uppercase text-[#9ca3af]" style={{ marginBottom: "8px" }}>
+              Details
+            </p>
+            <div className="max-h-48 overflow-auto flex flex-col gap-2">
+              {metaEntries.length === 0 ? (
+                <p className="text-[12px] text-[#9ca3af]">No extra metadata.</p>
+              ) : (
+                metaEntries.map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-3 rounded-md bg-[#f8f8fc]" style={{ padding: "6px 8px" }}>
+                    <span className="text-[11px] font-semibold text-[#6b7280]">{key}</span>
+                    <span className="text-[11px] font-bold text-(--text-primary) truncate">{String(value ?? "—")}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CalendarPage() {
+  const [month, setMonth] = useState(currentMonth());
+  const [typeFilter, setTypeFilter] = useState<"all" | CalendarEventType>("all");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const firstDay = useMemo(() => fromMonth(month), [month]);
+  const todayIso = useMemo(() => toIso(new Date()), []);
+  const user = useAuthStore((state) => state.user);
+  const canCreateTask = useMemo(() => {
+    const roles = user?.roles?.map((role) => role.name) ?? [];
+    return roles.includes("admin") || roles.includes("supervisor");
+  }, [user?.roles]);
+  const monthStart = useMemo(() => toIso(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1)), [firstDay]);
+  const monthEnd = useMemo(() => toIso(new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)), [firstDay]);
+
+  const createTaskMutation = useCreateCalendarTask();
+  const { data: projects = [] } = useProjects();
+  const { data: users = [] } = useUsers();
+  const { data = [], isLoading, isFetching, isError, refetch } = useCalendarEvents({
+    start_date: monthStart,
+    end_date: monthEnd,
+    type: typeFilter === "all" ? undefined : typeFilter,
   });
+
+  async function handleCreateTask(payload: Parameters<typeof createTaskMutation.mutateAsync>[0]) {
+    await createTaskMutation.mutateAsync(payload, {
+      onSuccess: () => {
+        toast.success("Task created from calendar.");
+      },
+      onError: () => {
+        toast.error("Task creation failed. Check required fields and try again.");
+      },
+    });
+  }
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-
     const push = (date: string, event: CalendarEvent) => {
       if (!map.has(date)) map.set(date, []);
       map.get(date)!.push(event);
     };
 
-    (data?.attendances || []).forEach((attendance) => {
-      const date = String(attendance.date).split("T")[0];
-      push(date, {
-        id: `a-${attendance.id}`,
-        type: "attendance",
-        label: `Attendance: ${attendance.status}`,
+    data.forEach((event) => {
+      dayRange(event.start_date, event.end_date).forEach((date) => {
+        push(date, event);
       });
     });
 
-    (data?.leave_requests || []).forEach((leave) => {
-      const effectiveStart = leave.modified_start_date || leave.start_date;
-      const effectiveEnd = leave.modified_end_date || leave.end_date;
-
-      dayRange(effectiveStart, effectiveEnd).forEach((date) => {
-        push(date, {
-          id: `l-${leave.id}-${date}`,
-          type: "leave",
-          label: `Leave: ${leave.type || leave.leave_type}`,
-        });
-      });
-    });
-
-    (data?.tasks || []).forEach((task) => {
-      if (task.start_date) {
-        push(task.start_date, {
-          id: `ts-${task.id}`,
-          type: "task_start",
-          label: `Task start: ${task.title}`,
-        });
-      }
-
-      if (task.due_date) {
-        push(task.due_date, {
-          id: `td-${task.id}`,
-          type: "task_due",
-          label: `Task due: ${task.title}`,
-        });
-      }
-    });
-
+    map.forEach((value) => value.sort((a, b) => a.title.localeCompare(b.title)));
     return map;
   }, [data]);
 
-  const gridCells = useMemo(() => {
-    const [y, mo] = month.split("-").map(Number);
-    const first = new Date(y, mo - 1, 1);
-    const startDow = first.getDay();
-    const daysInMo = new Date(y, mo, 0).getDate();
-    const cells: Array<{ date: string } | null> = [];
+  const gridCells = useMemo<CalendarCell[]>(() => {
+    const firstOfMonth = new Date(firstDay.getFullYear(), firstDay.getMonth(), 1);
+    const firstCell = new Date(firstOfMonth);
+    firstCell.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+    const cells: CalendarCell[] = [];
 
-    for (let i = 0; i < startDow; i++) cells.push(null);
-
-    for (let d = 1; d <= daysInMo; d++) {
-      const date = `${month}-${String(d).padStart(2, "0")}`;
-      cells.push({ date });
+    for (let i = 0; i < 42; i += 1) {
+      const cursor = new Date(firstCell);
+      cursor.setDate(firstCell.getDate() + i);
+      const date = toIso(cursor);
+      cells.push({
+        date,
+        isCurrentMonth: cursor.getMonth() === firstDay.getMonth(),
+        isToday: date === todayIso,
+      });
     }
-
-    while (cells.length % 7 !== 0) cells.push(null);
-
     return cells;
-  }, [month]);
+  }, [firstDay, todayIso]);
 
-  if (isLoading) {
-    return <AttendanceSkeleton />;
-  }
+  if (isLoading) return <AttendanceSkeleton />;
 
   return (
     <div className="content-area">
-      <div className="content-main">
+      <div className="content-main col-span-2">
         <div className="chart-card animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div className="flex items-center justify-between" style={{ gap: "8px" }}>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="chart-card-title">Calendar</h2>
-            <div className="flex items-center" style={{ gap: "8px" }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-full sm:w-[180px]">
+                <CustomSelect value={typeFilter} onChange={(value) => setTypeFilter(value as "all" | CalendarEventType)} options={TYPE_OPTIONS} fullWidth />
+              </div>
               <button
-                onClick={() => setMonth(prevMonth(month))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#9ca3af] hover:text-(--text-primary)"
+                onClick={() => setMonth(currentMonth())}
+                className="h-8 inline-flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#9ca3af] hover:text-(--text-primary)"
+                style={{ padding: "0 10px", gap: "6px" }}
               >
-                <ChevronLeft size={16} />
+                <RotateCcw size={13} />
+                <span className="text-[11px] font-semibold">Today</span>
               </button>
-              <span className="text-[13px] font-bold text-(--text-primary)">{monthLabel(month)}</span>
-              <button
-                onClick={() => setMonth(nextMonth(month))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#9ca3af] hover:text-(--text-primary)"
-              >
-                <ChevronRight size={16} />
-              </button>
+              <div className="flex items-center rounded-lg border border-[#f0f0f5]" style={{ padding: "2px 4px", gap: "6px" }}>
+                <button
+                  onClick={() => setMonth(prevMonth(month))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-(--text-primary)"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-[13px] font-bold text-(--text-primary) min-w-[132px] text-center">{monthLabel(month)}</span>
+                <button
+                  onClick={() => setMonth(nextMonth(month))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-(--text-primary)"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              {canCreateTask && (
+                <button
+                  onClick={() => setSelectedDate(toIso(new Date()))}
+                  className="h-8 inline-flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#6b7280] hover:text-(--text-primary)"
+                  style={{ padding: "0 10px", gap: "6px" }}
+                >
+                  <Plus size={13} />
+                  <span className="text-[11px] font-semibold">Add Task</span>
+                </button>
+              )}
             </div>
           </div>
 
-          <p className="stat-card-label">Attendance, leave requests, and task dates are reflected directly from backend data.</p>
+          <p className="stat-card-label">Unified events from attendance, leave, projects, and tasks. Click through months to inspect activity windows.</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {(Object.keys(EVENT_STYLE) as CalendarEventType[]).map((type) => (
+              <span
+                key={type}
+                className="text-[10px] font-semibold rounded-md"
+                style={{ padding: "4px 8px", background: EVENT_STYLE[type].bg, color: EVENT_STYLE[type].color }}
+              >
+                {EVENT_STYLE[type].label}
+              </span>
+            ))}
+            {isFetching && <span className="text-[11px] font-semibold text-[#9ca3af]">Refreshing events...</span>}
+          </div>
+
+          {isError && (
+            <div className="rounded-xl border border-[#f9d7da] bg-[#fef2f2] text-[12px] text-[#991b1b] flex items-center justify-between gap-2" style={{ padding: "10px 12px" }}>
+              <span>Could not load calendar events for this month.</span>
+              <button className="text-[11px] font-semibold underline" onClick={() => refetch()}>
+                Retry
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-7 rounded-xl border border-[#f0f0f5] overflow-hidden">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
@@ -172,50 +316,127 @@ export default function CalendarPage() {
             ))}
 
             {gridCells.map((cell, idx) => {
-              if (!cell) {
-                return <div key={`empty-${idx}`} style={{ minHeight: "92px", borderTop: "1px solid #f0f0f5", borderRight: idx % 7 !== 6 ? "1px solid #f0f0f5" : "none", background: "#fafafa" }} />;
-              }
-
               const dayEvents = eventsByDate.get(cell.date) || [];
               const dayNum = Number(cell.date.slice(-2));
+              const isPastDay = cell.date < todayIso;
+              const canOpenCreateTask = canCreateTask && !isPastDay;
 
               return (
                 <div
                   key={cell.date}
+                  role={canOpenCreateTask ? "button" : undefined}
+                  tabIndex={canOpenCreateTask ? 0 : undefined}
+                  onClick={() => {
+                    setExpandedDay(null);
+                    if (canOpenCreateTask) setSelectedDate(cell.date);
+                  }}
+                  onKeyDown={(event) => {
+                    if (canOpenCreateTask && (event.key === "Enter" || event.key === " ")) {
+                      event.preventDefault();
+                      setSelectedDate(cell.date);
+                    }
+                  }}
                   style={{
-                    minHeight: "92px",
+                    minHeight: "96px",
                     padding: "6px",
                     borderTop: "1px solid #f0f0f5",
                     borderRight: idx % 7 !== 6 ? "1px solid #f0f0f5" : "none",
                     display: "flex",
                     flexDirection: "column",
                     gap: "4px",
+                    background: cell.isCurrentMonth ? "#ffffff" : "#fafafa",
+                    cursor: canOpenCreateTask ? "pointer" : "default",
+                    position: "relative",
                   }}
                 >
-                  <span className="text-[11px] font-bold text-[#6b7280]">{dayNum}</span>
+                  <span className={`text-[11px] font-bold ${cell.isToday ? "text-[#33084E]" : "text-[#6b7280]"} ${!cell.isCurrentMonth ? "opacity-55" : ""}`}>{dayNum}</span>
                   {dayEvents.slice(0, 3).map((event) => (
-                    <span
-                      key={event.id}
-                      className="text-[10px] font-semibold truncate rounded-md"
+                    <button
+                      type="button"
+                      key={`${event.id}-${cell.date}`}
+                      className="text-[10px] font-semibold truncate rounded-md text-left"
                       style={{
                         padding: "2px 6px",
                         background: EVENT_STYLE[event.type].bg,
                         color: EVENT_STYLE[event.type].color,
                       }}
-                      title={event.label}
+                      title={`${EVENT_STYLE[event.type].label}: ${event.title}`}
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        setExpandedDay(null);
+                        setSelectedEvent(event);
+                      }}
                     >
-                      {event.label}
-                    </span>
+                      {event.title}
+                      {eventStartTimeLabel(event) ? ` ${eventStartTimeLabel(event)}` : ""}
+                    </button>
                   ))}
                   {dayEvents.length > 3 && (
-                    <span className="text-[10px] font-semibold text-[#9ca3af]">+{dayEvents.length - 3} more</span>
+                    <button
+                      type="button"
+                      className="text-[10px] font-semibold text-[#9ca3af] text-left hover:text-[#6b7280] underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedDay((prev) => (prev === cell.date ? null : cell.date));
+                      }}
+                    >
+                      +{dayEvents.length - 3} more
+                    </button>
+                  )}
+                  {expandedDay === cell.date && (
+                    <div
+                      className="absolute z-20 rounded-xl border border-[#ececf2] bg-white shadow-xl"
+                      style={{ top: "24px", left: "6px", right: "6px", padding: "8px" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="max-h-48 overflow-auto flex flex-col gap-1">
+                        {dayEvents.map((event) => (
+                          <button
+                            type="button"
+                            key={`${event.id}-expanded-${cell.date}`}
+                            className="text-[10px] font-semibold truncate rounded-md text-left"
+                            style={{
+                              padding: "3px 6px",
+                              background: EVENT_STYLE[event.type].bg,
+                              color: EVENT_STYLE[event.type].color,
+                            }}
+                            title={`${EVENT_STYLE[event.type].label}: ${event.title}`}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
+                          >
+                            {event.title}
+                            {eventStartTimeLabel(event) ? ` ${eventStartTimeLabel(event)}` : ""}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {!isError && data.length === 0 && (
+            <div className="rounded-xl border border-dashed border-[#e6e7ee] text-center text-[12px] text-[#9ca3af]" style={{ padding: "18px 12px" }}>
+              No events found for {monthLabel(month)} with the selected filter.
+            </div>
+          )}
         </div>
       </div>
+
+      {canCreateTask && selectedDate && (
+        <CreateCalendarTaskModal
+          selectedDate={selectedDate}
+          projects={projects}
+          users={users}
+          onClose={() => setSelectedDate("")}
+          onSave={handleCreateTask}
+        />
+      )}
+
+      {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     </div>
   );
 }

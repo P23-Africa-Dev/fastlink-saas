@@ -1511,7 +1511,7 @@ export default function SettingsPage() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "profile", label: "Profile", icon: <User size={15} /> },
-    { id: "appearance", label: "Appearance", icon: <Palette size={15} /> },
+    // { id: "appearance", label: "Appearance", icon: <Palette size={15} /> },
     { id: "company", label: "Company", icon: <Building2 size={15} /> },
     ...(isAdmin ? [
       { id: "passcodes" as Tab, label: "Passcodes", icon: <KeyRound size={15} /> },

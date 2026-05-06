@@ -224,6 +224,35 @@ export interface AttendanceCalendarPayload {
   tasks: Task[];
 }
 
+export type CalendarEventType = "attendance" | "leave" | "project" | "task";
+
+export interface CalendarEvent {
+  id: string;
+  type: CalendarEventType;
+  title: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  meta: Record<string, unknown>;
+}
+
+export interface CalendarEventsParams {
+  start_date: string;
+  end_date: string;
+  type?: CalendarEventType;
+}
+
+export interface CreateCalendarTaskPayload {
+  title: string;
+  start_date: string;
+  due_date: string;
+  description?: string;
+  project_id?: number;
+  status?: "todo" | "in_progress" | "review" | "completed";
+  priority?: "low" | "medium" | "high" | "urgent";
+  assigned_to?: number;
+}
+
 // ─── Leave Requests ────────────────────────────────────────────────────────
 export interface LeaveRequest {
   id: number;
