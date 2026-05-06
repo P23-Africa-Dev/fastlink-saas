@@ -6,10 +6,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { useDashboardPipelineStats, useDashboardStats } from "./hooks/useDashboard";
+import { useDashboardDailyTasks, useDashboardPipelineStats, useDashboardStats } from "./hooks/useDashboard";
 import type { Lead as ApiLead, Attendance as ApiAttendance, DashboardStats } from "@/lib/types";
 import { useTasks } from "../project/hooks/useProject";
-import { useLeads, useStates } from "../crm/hooks/useCrm";
+import { useLeads } from "../crm/hooks/useCrm";
 import { useAttendance } from "../attendance/hooks/useAttendance";
 import {
   ArrowUpRight,
@@ -206,13 +206,16 @@ export default function DashboardPage() {
   const { data: attendanceRaw, isLoading: attLoading } = useAttendance({});
 
   const [crmViewMode, setCrmViewMode] = useState<"pipeline" | "location">("pipeline");
-  const [selectedStateId, setSelectedStateId] = useState<string>("0");
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const selectedStateIdNumber = selectedStateId !== "0" ? Number(selectedStateId) : undefined;
-  const { data: states = [] } = useStates();
-  const { data: pipelineStats } = useDashboardPipelineStats({ stateId: selectedStateIdNumber });
+  const [dailyStatus, setDailyStatus] = useState<"all" | "todo" | "in_progress" | "review" | "completed">("all");
+  const { data: pipelineStats } = useDashboardPipelineStats({});
+  const { data: dailyTasksPayload, isLoading: dailyTasksLoading } = useDashboardDailyTasks({
+    date: activeDate,
+    status: dailyStatus === "all" ? undefined : dailyStatus,
+    limit: 50,
+  });
 
-  const loading = isStatsLoading || tasksLoading || leadsLoading || attLoading;
+  const loading = isStatsLoading || tasksLoading || leadsLoading || attLoading || dailyTasksLoading;
 
   const weeklyData = useMemo(() => {
     const weeklySeed: { day: string; Completed: number; InProgress: number; Pending: number }[] = [
@@ -244,19 +247,20 @@ export default function DashboardPage() {
       todo: Calendar,
     } as const;
 
-    return (tasksRaw || [])
-      .filter((t) => t.due_date === activeDate)
-      .slice(0, 20)
+    return (dailyTasksPayload?.tasks || [])
       .map((t) => ({
         id: String(t.id),
         title: t.title,
-        time: t.due_date ? new Date(`${t.due_date}T09:00:00`).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--",
+        time: t.start_date && t.due_date
+          ? `${new Date(`${t.start_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(`${t.due_date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+          : "--",
+        assignee: t.assigned_to?.name ?? t.created_by?.name ?? "Unassigned",
         status: t.status === "in_progress" ? "in-progress" : t.status === "completed" ? "completed" : "pending",
         color: t.status === "completed" ? "#074616" : t.status === "in_progress" ? "#33084E" : "#AF580B",
         icon: iconByStatus[t.status as keyof typeof iconByStatus] || Calendar,
-        date: t.due_date ?? activeDate,
+        date: dailyTasksPayload?.date ?? activeDate,
       }));
-  }, [tasksRaw, activeDate]);
+  }, [dailyTasksPayload, activeDate]);
 
   const attendanceList = useMemo(() => {
     return (attendanceRaw || [])
@@ -272,12 +276,7 @@ export default function DashboardPage() {
       });
   }, [attendanceRaw, activeDate]);
 
-  const filteredLeads = useMemo(() => {
-    return (leadsRaw || []).filter((lead) => {
-      if (!selectedStateIdNumber) return true;
-      return lead.state_id === selectedStateIdNumber;
-    });
-  }, [leadsRaw, selectedStateIdNumber]);
+  const filteredLeads = useMemo(() => leadsRaw || [], [leadsRaw]);
 
   const pipelineCards = useMemo(() => {
     const counts = new Map<string, number>();
@@ -302,11 +301,6 @@ export default function DashboardPage() {
       .sort((a, b) => b.leadCount - a.leadCount)
       .slice(0, 5);
   }, [filteredLeads]);
-
-  const locationSelectOptions: SelectOption[] = [
-    { value: "0", label: "All locations" },
-    ...states.map((state) => ({ value: String(state.id), label: state.name })),
-  ];
 
   const crmCardsToRender = crmViewMode === "pipeline" ? pipelineCards : locationCards;
   const crmSectionTitle = crmViewMode === "pipeline" ? "Top Pipelines" : "Top Locations";
@@ -426,16 +420,50 @@ export default function DashboardPage() {
           </div>
 
           {/* Daily Task Activity */}
-          <div className="chart-card flex flex-col gap-6 animate-fade-in-delay-2">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h2 className="text-base font-bold text-[var(--text-primary)]">Daily Tasks</h2>
-              <div className="w-full sm:w-auto">
-                <DatePicker value={activeDate} onChange={setActiveDate} />
+          <div
+            className="chart-card flex flex-col gap-2 animate-fade-in-delay-2"
+            style={{
+              background: "linear-gradient(180deg, #ffffff 0%, #fcfcff 100%)",
+              border: "1px solid #ececf2",
+              boxShadow: "0 10px 28px rgba(20, 20, 45, 0.05)",
+            }}
+          >
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-row items-center gap-2">
+                <h2 className="text-base font-bold text-[var(--text-primary)] whitespace-nowrap">
+                  Daily Tasks
+                </h2>
+                <span
+                  className="px-2.5 py-1 rounded-full text-[11px] font-bold"
+                  style={{ background: "#33084E14", color: "#33084E" }}
+                >
+                  {dailyTasksPayload?.total_tasks ?? dailyData.length}
+                </span>
+              </div>
+              <div className="w-full flex flex-row items-center gap-2">
+                <div className="w-full">
+                  <CustomSelect
+                    value={dailyStatus}
+                    onChange={(v) => setDailyStatus(v as "all" | "todo" | "in_progress" | "review" | "completed")}
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "todo", label: "To Do" },
+                      { value: "in_progress", label: "In Progress" },
+                      { value: "review", label: "Review" },
+                      { value: "completed", label: "Completed" },
+                    ]}
+                    searchPlaceholder="Filter status…"
+                    fullWidth
+                  />
+                </div>
+                <div className="w-full sm:justify-self-end flex sm:justify-end">
+                  <DatePicker value={activeDate} onChange={setActiveDate} />
+                </div>
               </div>
             </div>
-            <div className="flex flex-col gap-3 flex-1 max-h-[300px] overflow-y-auto px-1 pb-2">
+            <div className="flex flex-col gap-2 flex-1 max-h-[150px] overflow-y-auto px-1">
               {(() => {
-                const tasks = dailyData.filter(t => t.date === activeDate);
+                const tasks = dailyData;
 
                 if (tasks.length === 0) {
                   return <div className="p-10 text-center text-[14px] text-[var(--text-muted)]">No tasks scheduled for this date</div>;
@@ -444,20 +472,27 @@ export default function DashboardPage() {
                 return tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-[20px] rounded-2xl bg-white hover:bg-[#f8f8fc] transition-all cursor-pointer group"
+                    className="flex items-center justify-between px-[10px] py-[5px] rounded-2xl border border-transparent bg-white/80 hover:bg-white hover:border-[#ececf2] transition-all cursor-pointer group"
+                    style={{ boxShadow: "0 4px 14px rgba(20, 20, 45, 0.03)" }}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
                       <div className="flex-1 flex flex-col gap-1 min-w-0">
-                        <span className="text-[13px] font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
+                        <span className="text-[10px] font-semibold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-purple)] transition-colors">
                           {task.title}
                         </span>
-                        <span className="text-[12px] font-medium text-[var(--text-muted)] flex items-center gap-1.5">
+                        <span className="text-[8px] font-medium text-[var(--text-muted)] flex items-center gap-1.5">
                           <Clock size={12} strokeWidth={2.5} />
                           {task.time}
                         </span>
+                        <span className="text-[9px] text-[var(--text-muted)] truncate">
+                          {/* {task.assignee} */}
+                        </span>
                       </div>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase shrink-0 ml-3" style={{ background: `${task.color}15`, color: task.color }}>
+                    <span
+                      className="px-3.5 py-1.5 rounded-full text-[8px] font-bold tracking-wide uppercase shrink-0 ml-3"
+                      style={{ background: `${task.color}14`, color: task.color }}
+                    >
                       {task.status.replace('-', ' ')}
                     </span>
                   </div>
