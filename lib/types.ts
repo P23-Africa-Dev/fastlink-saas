@@ -70,6 +70,34 @@ export interface DashboardStats {
     completed_tasks: number;
   };
 }
+
+export interface DashboardPipelineTopState {
+  state_id: number;
+  state: string;
+  lead_count: number;
+}
+
+export interface DashboardPipelineTopEntry {
+  id: number;
+  name: string;
+  status: string;
+  state: string;
+  created_at: string;
+}
+
+export interface DashboardPipelineStats {
+  total_leads: number;
+  filters: {
+    state_id?: number | null;
+    status?: string | null;
+    resolved_status?: {
+      type: string;
+      value: string;
+    } | null;
+  };
+  top_states: DashboardPipelineTopState[];
+  top_entries: DashboardPipelineTopEntry[];
+}
 // ─── CRM ──────────────────────────────────────────────────────────────────────
 export interface Drive {
   id: number;
