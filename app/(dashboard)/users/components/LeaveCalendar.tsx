@@ -80,7 +80,7 @@ export function LeaveCalendar({ month, requests, onPrev, onNext, onRequestClick 
       </div>
 
       {/* Weekday headers */}
-      <div className="grid grid-cols-7 border-b border-[#f0f0f5]" style={{ background: "#f8f8fc" }}>
+      <div className="grid grid-cols-7 border-b border-[#f0f0f5] shrink-0" style={{ background: "#f8f8fc" }}>
         {WEEKDAYS.map(d => (
           <div key={d} className="flex items-center justify-center" style={{ padding: "9px 4px" }}>
             <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider">{d}</span>
@@ -89,7 +89,7 @@ export function LeaveCalendar({ month, requests, onPrev, onNext, onRequestClick 
       </div>
 
       {/* Day grid */}
-      <div className="flex-1 grid grid-cols-7" style={{ alignContent: "start" }}>
+      <div className="grid grid-cols-7 overflow-y-auto" style={{ alignContent: "start", flex: 1, minHeight: 0 }}>
         {cells.map((dateStr, i) => {
           if (!dateStr) {
             return <div key={i} className="border-b border-r border-[#f0f0f5]" style={{ minHeight: "90px", background: "#fafafa" }} />;
