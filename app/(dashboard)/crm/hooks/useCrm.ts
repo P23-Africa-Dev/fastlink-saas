@@ -322,11 +322,9 @@ export function useCreateFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ leadId, payload }: { leadId: number; payload: FormData | Record<string, unknown> }) => {
-      const isFormData = payload instanceof FormData;
       const res = await api.post<ApiResponse<FollowUp>>(
         `/crm/leads/${leadId}/followups`,
         payload,
-        isFormData ? { headers: { "Content-Type": "multipart/form-data" } } : undefined,
       );
       return res.data.data;
     },
@@ -340,11 +338,9 @@ export function useUpdateFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, leadId, payload }: { id: number; leadId: number; payload: FormData | Record<string, unknown> }) => {
-      const isFormData = payload instanceof FormData;
       const res = await api.put<ApiResponse<FollowUpUpdateResponse>>(
         `/crm/followups/${id}`,
         payload,
-        isFormData ? { headers: { "Content-Type": "multipart/form-data" } } : undefined,
       );
       return res.data.data;
     },

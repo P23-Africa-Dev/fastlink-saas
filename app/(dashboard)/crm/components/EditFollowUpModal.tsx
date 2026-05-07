@@ -60,6 +60,15 @@ export function EditFollowUpModal({ followUp, leadName, onClose, onSave, isSavin
       follow_up_date: followUpDate || undefined,
     };
 
+    const formSchema = {
+      fields: [
+        { label: "Title", type: "text", required: true },
+        { label: "Description", type: "textarea", required: false },
+        { label: "Channel", type: "select", required: false, options: CHANNELS },
+        { label: "Follow-up Date", type: "date", required: false },
+      ],
+    };
+
     const hasChanges = newFiles.length > 0 || removeIds.length > 0;
 
     let payload: FormData | Record<string, unknown>;
@@ -68,6 +77,7 @@ export function EditFollowUpModal({ followUp, leadName, onClose, onSave, isSavin
       const fd = new FormData();
       fd.append("title", title.trim());
       fd.append("content", JSON.stringify(content));
+      fd.append("form_schema", JSON.stringify(formSchema));
       newFiles.forEach(f => fd.append("attachments_add[]", f));
       removeIds.forEach(id => fd.append("attachment_ids_remove[]", String(id)));
       payload = fd;

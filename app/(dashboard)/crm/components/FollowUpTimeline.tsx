@@ -45,10 +45,12 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
 
 function AttachmentChip({ followUpId, attachment }: { followUpId: number; attachment: FollowUp["attachments"][0] }) {
   const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState(false);
 
   const handleDownload = async () => {
-    if (downloading) return;
+    if (downloading || error) return;
     setDownloading(true);
+    setError(false);
     try {
       const res = await api.get(
         `/crm/followups/${followUpId}/attachments/${attachment.id}/download`,
@@ -60,8 +62,10 @@ function AttachmentChip({ followUpId, attachment }: { followUpId: number; attach
       a.download = attachment.original_filename;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch {
-      // silent — user will notice nothing downloaded
+    } catch (err) {
+      console.error("Download failed:", err);
+      setError(true);
+      setTimeout(() => setError(false), 3000);
     } finally {
       setDownloading(false);
     }
@@ -70,9 +74,13 @@ function AttachmentChip({ followUpId, attachment }: { followUpId: number; attach
   return (
     <button
       onClick={handleDownload}
-      disabled={downloading}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-[#f0f0f5] bg-[#f8f8fc] text-[11px] font-semibold text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple) transition-all disabled:opacity-50"
+      disabled={downloading || error}
+      className={`inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold transition-all ${error
+          ? "border-red-300 bg-red-50 text-red-600"
+          : "border-[#f0f0f5] bg-[#f8f8fc] text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple)"
+        }`}
       style={{ padding: "5px 10px" }}
+      title={error ? "Download failed" : undefined}
     >
       <FileText size={12} className="shrink-0" />
       <span className="truncate max-w-[120px]">{attachment.original_filename}</span>
