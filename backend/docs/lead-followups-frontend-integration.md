@@ -260,10 +260,134 @@ Typical `422` messages:
 - no pending approval request found
 - actor not authorized to approve/reject
 
-## Attachment Notes
-- Upload on create/update using multipart form data
-- Download via authenticated endpoint
-- Rejected pending updates clean up temporary uploaded files
+## Attachment Uploads — Multipart/Form-Data Guide
+
+### Why `multipart/form-data` is required
+Browsers cannot send binary files in a JSON body.  Any request that includes
+one or more file attachments **must** use `Content-Type: multipart/form-data`.
+When that content-type is active every non-file field arrives in PHP as a plain
+string, so `content` and `form_schema` must be sent as **JSON-serialised
+strings** — the backend automatically decodes them before validation runs.
+
+### Correct request format
+
+```javascript
+const formData = new FormData();
+
+// Required fields
+formData.append("title", "Email Sent");
+
+// Arrays MUST be JSON-stringified — do NOT pass a raw object
+formData.append("content", JSON.stringify({
+  title: "Email Sent",
+  description: "Pricing proposal emailed to client.",
+  channel: "Email",
+  follow_up_date: "2026-06-05",
+}));
+
+// Optional — also JSON-stringified when present
+formData.append("form_schema", JSON.stringify({
+  fields: [
+    { label: "Title",       type: "text",     required: true  },
+    { label: "Description", type: "textarea", required: true  },
+    { label: "Channel",     type: "select",   required: false,
+      options: ["Email", "Phone", "WhatsApp"] },
+  ],
+}));
+
+// Files — use the `attachments[]` key (note the brackets)
+attachments.forEach(file => {
+  formData.append("attachments[]", file);
+});
+
+// Fetch / Axios — do NOT set Content-Type manually; let the browser set the
+// multipart boundary.
+await fetch(`/api/v1/crm/leads/${leadId}/followups`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${token}` },
+  body: formData,
+});
+```
+
+> **Never** send `Content-Type: application/json` when including files.
+> If you have no files, you may send a JSON body and omit the
+> `JSON.stringify()` wrapping — the backend accepts both formats.
+
+### Allowed file types and limits
+
+| Constraint        | Value                                               |
+|-------------------|-----------------------------------------------------|
+| Max files         | 10 per request                                      |
+| Max size per file | 10 MB                                               |
+| Allowed MIME types | `jpeg`, `jpg`, `png`, `gif`, `webp`, `pdf`, `doc`, `docx`, `xls`, `xlsx`, `zip`, `txt`, `csv` |
+
+Requests with disallowed MIME types, files exceeding 10 MB, or more than 10
+files will receive a `422` validation error.
+
+### Response — attachment objects
+
+Each attachment in the response includes:
+
+```json
+{
+  "id": 7,
+  "followup_id": 12,
+  "uploaded_by": 3,
+  "original_filename": "proposal.pdf",
+  "mime_type": "application/pdf",
+  "file_size": 204800,
+  "created_at": "2026-05-07T10:00:00.000000Z",
+  "download_url": "/api/v1/crm/followups/12/attachments/7/download"
+}
+```
+
+Use `download_url` to fetch the file through the authenticated download
+endpoint — files are stored privately and are not publicly accessible.
+
+### Update request — adding and removing attachments
+
+```javascript
+const formData = new FormData();
+
+// Optionally update fields
+formData.append("title", "Updated title");
+formData.append("content", JSON.stringify({ /* ... */ }));
+
+// Add new files
+newFiles.forEach(file => formData.append("attachments_add[]", file));
+
+// Remove existing attachments by ID
+attachmentIdsToRemove.forEach(id =>
+  formData.append("attachment_ids_remove[]", String(id))
+);
+
+await fetch(`/api/v1/crm/followups/${followupId}`, {
+  method: "PUT",
+  headers: { Authorization: `Bearer ${token}` },
+  body: formData,
+});
+```
+
+### Storage and access control
+Attachments are stored in private server storage and served exclusively through
+the authenticated download endpoint.  No direct `/storage/...` URL is exposed.
+To display a file in the browser use:
+
+```javascript
+// Authenticated blob download
+const response = await fetch(attachment.download_url, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+const blob = await response.blob();
+const objectUrl = URL.createObjectURL(blob);
+window.open(objectUrl);            // or assign to <a href> / <img src>
+URL.revokeObjectURL(objectUrl);    // clean up after use
+```
+
+## Backward Compatibility
+- Existing lead activity APIs remain unchanged
+- New follow-up APIs are additive and isolated
+- Existing notification endpoint contract is unchanged
 
 ## Backward Compatibility
 - Existing lead activity APIs remain unchanged

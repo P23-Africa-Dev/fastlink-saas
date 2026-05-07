@@ -22,9 +22,13 @@ export interface FollowUpCreator {
 
 export interface FollowUpAttachmentData {
   id: number;
-  filename: string;
-  size?: number;
+  followup_id: number;
+  uploaded_by?: number;
+  original_filename: string;
   mime_type?: string;
+  file_size?: number;
+  created_at: string;
+  download_url: string;
 }
 
 export interface FollowUpAuditActivity {

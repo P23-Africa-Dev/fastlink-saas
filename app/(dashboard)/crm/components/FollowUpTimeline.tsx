@@ -38,7 +38,7 @@ function formatDatetime(raw: string) {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  pending:  { bg: "#FEF3C7", color: "#D97706", label: "Pending Approval" },
+  pending: { bg: "#FEF3C7", color: "#D97706", label: "Pending Approval" },
   approved: { bg: "#D1FAE5", color: "#059669", label: "Approved" },
   rejected: { bg: "#FEE2E2", color: "#DC2626", label: "Rejected" },
 };
@@ -57,7 +57,7 @@ function AttachmentChip({ followUpId, attachment }: { followUpId: number; attach
       const url = window.URL.createObjectURL(new Blob([res.data as BlobPart]));
       const a = document.createElement("a");
       a.href = url;
-      a.download = attachment.filename;
+      a.download = attachment.original_filename;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {
@@ -75,7 +75,7 @@ function AttachmentChip({ followUpId, attachment }: { followUpId: number; attach
       style={{ padding: "5px 10px" }}
     >
       <FileText size={12} className="shrink-0" />
-      <span className="truncate max-w-[120px]">{attachment.filename}</span>
+      <span className="truncate max-w-[120px]">{attachment.original_filename}</span>
       <Download size={11} className="shrink-0 text-[#9ca3af]" />
     </button>
   );

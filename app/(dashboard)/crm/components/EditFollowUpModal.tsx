@@ -195,8 +195,8 @@ export function EditFollowUpModal({ followUp, leadName, onClose, onSave, isSavin
                   >
                     <div className="flex items-center min-w-0" style={{ gap: "8px" }}>
                       <FileText size={14} className="text-[#9ca3af] shrink-0" />
-                      <span className="text-[12px] font-semibold text-(--text-primary) truncate">{a.filename}</span>
-                      {a.size && <span className="text-[11px] text-[#9ca3af] shrink-0">{formatBytes(a.size)}</span>}
+                      <span className="text-[12px] font-semibold text-(--text-primary) truncate">{a.original_filename}</span>
+                      {a.file_size && <span className="text-[11px] text-[#9ca3af] shrink-0">{formatBytes(a.file_size)}</span>}
                     </div>
                     <button onClick={() => removeExisting(a.id)} className="text-[#9ca3af] hover:text-red-500 transition-colors shrink-0">
                       <XCircle size={15} />
