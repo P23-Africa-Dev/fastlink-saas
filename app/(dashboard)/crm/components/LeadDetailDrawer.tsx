@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   X, Pencil, Trash2, Building2, Mail, Phone, DollarSign,
   Calendar, User, LayoutGrid,
 } from "lucide-react";
 import { ActivityFeed, Activity } from "./ActivityFeed";
+import { FollowUpTimeline } from "./FollowUpTimeline";
+import type { FollowUp, FollowUpUpdateRequest } from "../hooks/useCrm";
 
 export interface Lead {
   id: number;
@@ -39,11 +41,18 @@ interface LeadDetailDrawerProps {
   statuses: Status[];
   drives: Drive[];
   activities: Activity[];
+  followUps: FollowUp[];
+  followUpsLoading: boolean;
+  currentUserId?: number;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onLogActivity: () => void;
   onEditActivity: (a: Activity) => void;
+  onLogFollowUp: () => void;
+  onEditFollowUp: (f: FollowUp) => void;
+  onApproveFollowUp: (f: FollowUp, req: FollowUpUpdateRequest) => void;
+  onRejectFollowUp: (f: FollowUp, req: FollowUpUpdateRequest) => void;
 }
 
 const PRIORITY_STYLE: Record<string, { bg: string; color: string }> = {
@@ -67,10 +76,17 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
+type Tab = "details" | "activity" | "followups";
+
 export function LeadDetailDrawer({
   lead, statuses, drives, activities,
-  onClose, onEdit, onDelete, onLogActivity, onEditActivity,
+  followUps, followUpsLoading, currentUserId,
+  onClose, onEdit, onDelete,
+  onLogActivity, onEditActivity,
+  onLogFollowUp, onEditFollowUp, onApproveFollowUp, onRejectFollowUp,
 }: LeadDetailDrawerProps) {
+  const [tab, setTab] = useState<Tab>("details");
+
   const status = statuses.find(s => s.id === lead.status_id);
   const drive = drives.find(d => d.id === lead.drive_id);
   const priStyle = PRIORITY_STYLE[lead.priority] ?? PRIORITY_STYLE.normal;
@@ -78,13 +94,18 @@ export function LeadDetailDrawer({
   const second = (lead.last_name ?? "").trim().charAt(0);
   const initials = `${first || "?"}${second || ""}`.toUpperCase();
 
+  const pendingFollowUps = followUps.filter(f => f.update_requests.some(r => r.status === "pending")).length;
+
+  const TAB_DEF: { key: Tab; label: string; badge?: number }[] = [
+    { key: "details", label: "Details" },
+    { key: "activity", label: "Activity", badge: activities.length || undefined },
+    { key: "followups", label: "Follow-Ups", badge: pendingFollowUps || undefined },
+  ];
+
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/30 z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
       {/* Panel */}
       <div
@@ -121,10 +142,8 @@ export function LeadDetailDrawer({
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-
-          {/* Lead Hero */}
+        {/* Lead Hero — always visible */}
+        <div className="shrink-0 border-b border-[#f0f0f5]" style={{ padding: "20px 24px" }}>
           <div className="flex items-start" style={{ gap: "16px" }}>
             <div
               className="rounded-2xl flex items-center justify-center text-[18px] font-bold shrink-0"
@@ -140,7 +159,6 @@ export function LeadDetailDrawer({
                 <Building2 size={13} />
                 <span className="truncate">{lead.company}</span>
               </div>
-              {/* Badges row */}
               <div className="flex flex-wrap items-center" style={{ gap: "6px", marginTop: "4px" }}>
                 {status && (
                   <span
@@ -167,34 +185,86 @@ export function LeadDetailDrawer({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Info grid */}
-          <div className="rounded-2xl border border-[#f0f0f5] overflow-hidden" style={{ padding: "0 16px" }}>
-            <InfoRow icon={<Mail size={15} />} label="Email" value={lead.email} />
-            <InfoRow icon={<Phone size={15} />} label="Phone" value={lead.phone} />
-            <InfoRow icon={<LayoutGrid size={15} />} label="Pipeline" value={drive?.name} />
-            <InfoRow icon={<LayoutGrid size={15} />} label="Industry" value={lead.industry} />
-            <InfoRow icon={<User size={15} />} label="Assigned To" value={lead.assigned_to} />
-            <InfoRow icon={<LayoutGrid size={15} />} label="Country" value={lead.country_name} />
-            <InfoRow icon={<LayoutGrid size={15} />} label="State" value={lead.state_name} />
-            <InfoRow icon={<LayoutGrid size={15} />} label="LGA" value={lead.lga_name} />
-            <InfoRow icon={<Calendar size={15} />} label="Created" value={lead.date} />
-          </div>
+        {/* Tab bar */}
+        <div className="flex shrink-0 border-b border-[#f0f0f5] bg-white" style={{ padding: "0 20px" }}>
+          {TAB_DEF.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className="relative inline-flex items-center gap-1.5 text-[13px] font-bold transition-colors"
+              style={{
+                padding: "12px 16px",
+                color: tab === t.key ? "#33084E" : "#9ca3af",
+                borderBottom: tab === t.key ? "2px solid #33084E" : "2px solid transparent",
+                marginBottom: "-1px",
+              }}
+            >
+              {t.label}
+              {t.badge !== undefined && (
+                <span
+                  className="rounded-full text-[10px] font-bold"
+                  style={{
+                    padding: "1px 6px",
+                    background: t.key === "followups" && pendingFollowUps > 0 ? "#FEF3C7" : "#f0f0f5",
+                    color: t.key === "followups" && pendingFollowUps > 0 ? "#D97706" : "#9ca3af",
+                  }}
+                >
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-          {/* Notes */}
-          <div className="flex flex-col" style={{ gap: "8px" }}>
-            <h3 className="text-[13px] font-bold text-(--text-primary) uppercase tracking-wider">Notes</h3>
-            <div className="rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[13px]" style={{ padding: "14px 16px", minHeight: "64px", color: lead.notes ? "#1a1a2e" : "#9ca3af" }}>
-              {lead.notes || "No notes added."}
-            </div>
-          </div>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
 
-          {/* Activity feed */}
-          <ActivityFeed
-            activities={activities}
-            onLog={onLogActivity}
-            onEdit={onEditActivity}
-          />
+          {tab === "details" && (
+            <>
+              {/* Info grid */}
+              <div className="rounded-2xl border border-[#f0f0f5] overflow-hidden" style={{ padding: "0 16px" }}>
+                <InfoRow icon={<Mail size={15} />} label="Email" value={lead.email} />
+                <InfoRow icon={<Phone size={15} />} label="Phone" value={lead.phone} />
+                <InfoRow icon={<LayoutGrid size={15} />} label="Pipeline" value={drive?.name} />
+                <InfoRow icon={<LayoutGrid size={15} />} label="Industry" value={lead.industry} />
+                <InfoRow icon={<User size={15} />} label="Assigned To" value={lead.assigned_to} />
+                <InfoRow icon={<LayoutGrid size={15} />} label="Country" value={lead.country_name} />
+                <InfoRow icon={<LayoutGrid size={15} />} label="State" value={lead.state_name} />
+                <InfoRow icon={<LayoutGrid size={15} />} label="LGA" value={lead.lga_name} />
+                <InfoRow icon={<Calendar size={15} />} label="Created" value={lead.date} />
+              </div>
+
+              {/* Notes */}
+              <div className="flex flex-col" style={{ gap: "8px" }}>
+                <h3 className="text-[13px] font-bold text-(--text-primary) uppercase tracking-wider">Notes</h3>
+                <div className="rounded-xl border border-[#f0f0f5] bg-[#f8f8fc] text-[13px]" style={{ padding: "14px 16px", minHeight: "64px", color: lead.notes ? "#1a1a2e" : "#9ca3af" }}>
+                  {lead.notes || "No notes added."}
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === "activity" && (
+            <ActivityFeed
+              activities={activities}
+              onLog={onLogActivity}
+              onEdit={onEditActivity}
+            />
+          )}
+
+          {tab === "followups" && (
+            <FollowUpTimeline
+              followUps={followUps}
+              isLoading={followUpsLoading}
+              currentUserId={currentUserId}
+              onLogFollowUp={onLogFollowUp}
+              onEditFollowUp={onEditFollowUp}
+              onApprove={onApproveFollowUp}
+              onReject={onRejectFollowUp}
+            />
+          )}
         </div>
       </div>
     </>
