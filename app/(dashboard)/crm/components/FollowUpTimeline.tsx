@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import {
-  Plus, FileText, Download, Clock, CheckCircle2, XCircle,
+  Plus, FileText, Download, Clock, CheckCircle2, XCircle, Eye,
   ChevronDown, ChevronUp, Pencil, MessageSquare,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -43,49 +43,96 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
   rejected: { bg: "#FEE2E2", color: "#DC2626", label: "Rejected" },
 };
 
+function normalizeAttachmentApiPath(path: string): string {
+  if (path.startsWith("/api/v1/")) {
+    return path.replace("/api/v1", "");
+  }
+
+  return path;
+}
+
 function AttachmentChip({ followUpId, attachment }: { followUpId: number; attachment: FollowUp["attachments"][0] }) {
   const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  const fetchAttachmentBlob = async (rawPath: string): Promise<Blob> => {
+    const endpoint = normalizeAttachmentApiPath(rawPath);
+    const response = await api.get(endpoint, { responseType: "blob" });
+
+    return new Blob([response.data as BlobPart], {
+      type: attachment.mime_type || "application/octet-stream",
+    });
+  };
+
+  const handlePreview = async () => {
+    if (previewing || downloading) return;
+
+    setPreviewing(true);
+
+    try {
+      const previewPath = attachment.preview_url || attachment.file_url || attachment.download_url;
+      const blob = await fetchAttachmentBlob(previewPath);
+      const url = window.URL.createObjectURL(blob);
+
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      // Give the new tab enough time to load before revoking the object URL.
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+    } catch {
+      // silent — user will notice if preview didn't open
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const handleDownload = async () => {
-    if (downloading || error) return;
+    if (downloading || previewing) return;
     setDownloading(true);
-    setError(false);
+
     try {
-      const res = await api.get(
-        `/crm/followups/${followUpId}/attachments/${attachment.id}/download`,
-        { responseType: "blob" },
-      );
-      const url = window.URL.createObjectURL(new Blob([res.data as BlobPart]));
+      const downloadPath = attachment.download_url || `/crm/followups/${followUpId}/attachments/${attachment.id}/download`;
+      const blob = await fetchAttachmentBlob(downloadPath);
+      const url = window.URL.createObjectURL(blob);
+
       const a = document.createElement("a");
       a.href = url;
       a.download = attachment.original_filename;
       a.click();
+
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Download failed:", err);
-      setError(true);
-      setTimeout(() => setError(false), 3000);
+    } catch {
+      // silent — user will notice nothing downloaded
     } finally {
       setDownloading(false);
     }
   };
 
   return (
-    <button
-      onClick={handleDownload}
-      disabled={downloading || error}
-      className={`inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold transition-all ${error
-          ? "border-red-300 bg-red-50 text-red-600"
-          : "border-[#f0f0f5] bg-[#f8f8fc] text-(--text-primary) hover:border-(--accent-purple) hover:text-(--accent-purple)"
-        }`}
-      style={{ padding: "5px 10px" }}
-      title={error ? "Download failed" : undefined}
+    <div
+      className="inline-flex items-center rounded-lg border border-[#f0f0f5] bg-[#f8f8fc] text-[11px] font-semibold text-(--text-primary)"
+      style={{ gap: "2px", padding: "3px 4px 3px 8px" }}
     >
-      <FileText size={12} className="shrink-0" />
-      <span className="truncate max-w-[120px]">{attachment.original_filename}</span>
-      <Download size={11} className="shrink-0 text-[#9ca3af]" />
-    </button>
+      <button
+        onClick={handlePreview}
+        disabled={previewing || downloading}
+        className="inline-flex items-center gap-1.5 rounded-md hover:text-(--accent-purple) transition-colors disabled:opacity-50"
+        style={{ padding: "2px 4px" }}
+      >
+        <FileText size={12} className="shrink-0" />
+        <span className="truncate max-w-[120px]">{attachment.original_filename}</span>
+        <Eye size={11} className="shrink-0 text-[#9ca3af]" />
+      </button>
+
+      <button
+        onClick={handleDownload}
+        disabled={downloading || previewing}
+        className="inline-flex items-center justify-center rounded-md text-[#9ca3af] hover:text-(--accent-purple) transition-colors disabled:opacity-50"
+        style={{ width: "24px", height: "24px" }}
+        aria-label="Download attachment"
+      >
+        <Download size={11} />
+      </button>
+    </div>
   );
 }
 

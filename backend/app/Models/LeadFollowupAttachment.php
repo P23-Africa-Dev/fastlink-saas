@@ -20,7 +20,7 @@ class LeadFollowupAttachment extends Model
         'file_size',
     ];
 
-    protected $appends = ['download_url'];
+    protected $appends = ['file_url', 'preview_url', 'download_url'];
 
     public function followup(): BelongsTo
     {
@@ -32,8 +32,18 @@ class LeadFollowupAttachment extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
+    public function getFileUrlAttribute(): string
+    {
+        return "/api/v1/crm/followups/attachments/{$this->id}/view";
+    }
+
+    public function getPreviewUrlAttribute(): string
+    {
+        return $this->getFileUrlAttribute();
+    }
+
     public function getDownloadUrlAttribute(): string
     {
-        return "/api/v1/crm/followups/{$this->followup_id}/attachments/{$this->id}/download";
+        return "/api/v1/crm/followups/attachments/{$this->id}/download";
     }
 }

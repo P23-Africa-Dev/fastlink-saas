@@ -28,6 +28,8 @@ export interface FollowUpAttachmentData {
   mime_type?: string;
   file_size?: number;
   created_at: string;
+  file_url?: string;
+  preview_url?: string;
   download_url: string;
 }
 
@@ -322,10 +324,8 @@ export function useCreateFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ leadId, payload }: { leadId: number; payload: FormData | Record<string, unknown> }) => {
-      const res = await api.post<ApiResponse<FollowUp>>(
-        `/crm/leads/${leadId}/followups`,
-        payload,
-      );
+      const res = await api.post<ApiResponse<FollowUp>>(`/crm/leads/${leadId}/followups`, payload);
+
       return res.data.data;
     },
     onSuccess: (_data, variables) => {
@@ -338,10 +338,30 @@ export function useUpdateFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, leadId, payload }: { id: number; leadId: number; payload: FormData | Record<string, unknown> }) => {
+      const isFormData = payload instanceof FormData;
+
+      if (isFormData) {
+        const formDataPayload = payload as FormData;
+
+        // PHP reliably parses uploaded files on multipart POST. `_method=PUT`
+        // preserves route semantics while keeping file uploads intact.
+        if (!formDataPayload.has("_method")) {
+          formDataPayload.append("_method", "PUT");
+        }
+
+        const res = await api.post<ApiResponse<FollowUpUpdateResponse>>(
+          `/crm/followups/${id}`,
+          formDataPayload,
+        );
+
+        return res.data.data;
+      }
+
       const res = await api.put<ApiResponse<FollowUpUpdateResponse>>(
         `/crm/followups/${id}`,
         payload,
       );
+
       return res.data.data;
     },
     onSuccess: (_data, variables) => {

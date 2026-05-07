@@ -232,9 +232,9 @@ it('validates schema and supports attachment upload with authenticated download'
     ]);
     $invalid->assertStatus(422);
 
-    $create = $this->postJson("/api/v1/crm/leads/{$lead->id}/followups", [
+    $create = $this->post("/api/v1/crm/leads/{$lead->id}/followups", [
         'title' => 'With Attachment',
-        'content' => ['description' => 'Attachment included'],
+        'content' => json_encode(['description' => 'Attachment included']),
         'attachments' => [UploadedFile::fake()->create('notes.pdf', 120, 'application/pdf')],
     ]);
 
@@ -242,6 +242,40 @@ it('validates schema and supports attachment upload with authenticated download'
     $followupId = $create->json('data.id');
     $attachmentId = $create->json('data.attachments.0.id');
 
+    $preview = $this->get("/api/v1/crm/followups/attachments/{$attachmentId}/view");
+    $preview->assertOk()->assertHeader('content-disposition');
+    expect((string) $preview->headers->get('content-disposition'))->toContain('inline;');
+
     $download = $this->get("/api/v1/crm/followups/{$followupId}/attachments/{$attachmentId}/download");
-    $download->assertOk();
+    $download->assertOk()->assertHeader('content-disposition');
+    expect((string) $download->headers->get('content-disposition'))->toContain('attachment;');
+});
+
+it('stores new attachments on followup edit when multipart uses method override', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+
+    $staff = apiUser('staff', ['email' => 'owner-staff@fastlink.test']);
+    Sanctum::actingAs($staff);
+
+    $lead = createLeadForFollowup($staff->id);
+    $followup = LeadFollowup::create([
+        'lead_id' => $lead->id,
+        'created_by' => $staff->id,
+        'title' => 'Initial Follow-up',
+        'content' => ['description' => 'Before update'],
+    ]);
+
+    $update = $this->post("/api/v1/crm/followups/{$followup->id}", [
+        '_method' => 'PUT',
+        'title' => 'Initial Follow-up Updated',
+        'content' => json_encode(['description' => 'After update']),
+        'attachments_add' => [UploadedFile::fake()->create('update-proof.pdf', 50, 'application/pdf')],
+    ]);
+
+    $update->assertOk()
+        ->assertJsonPath('data.mode', 'updated')
+        ->assertJsonPath('data.followup.attachments.0.original_filename', 'update-proof.pdf');
+
+    $followup->refresh();
+    expect($followup->attachments()->count())->toBe(1);
 });

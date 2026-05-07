@@ -66,7 +66,8 @@ Response:
 `PUT /crm/followups/{followup}`
 
 Content type:
-- `application/json` or `multipart/form-data`
+- `application/json` (recommended when no files)
+- `multipart/form-data` (when adding/removing files)
 
 Request fields (all optional):
 - `title` string
@@ -74,6 +75,11 @@ Request fields (all optional):
 - `form_schema` object
 - `attachments_add[]` file
 - `attachment_ids_remove[]` integer
+
+Important for multipart update:
+- Send request as `POST /crm/followups/{followup}`
+- Add `_method=PUT` in `FormData`
+- This ensures PHP/Laravel parses uploaded files correctly
 
 Response modes:
 - `mode=updated` when approval not required (changes applied immediately)
@@ -99,6 +105,10 @@ Response:
 
 ### 6. Download Attachment
 `GET /crm/followups/{followup}/attachments/{attachment}/download`
+
+Additional attachment endpoints:
+- `GET /crm/followups/attachments/{attachment}/view` (inline preview)
+- `GET /crm/followups/attachments/{attachment}/download` (direct download)
 
 Response:
 - Binary file download
@@ -223,7 +233,7 @@ Frontend timeline can render each follow-up item with:
 - `content`
 - `created_at`
 - `creator`
-- `attachments` (use `download_url`)
+- `attachments` (use `file_url` for preview and `download_url` for download)
 - `activities` (audit events)
 - `update_requests` (status history)
 
@@ -337,12 +347,40 @@ Each attachment in the response includes:
   "mime_type": "application/pdf",
   "file_size": 204800,
   "created_at": "2026-05-07T10:00:00.000000Z",
-  "download_url": "/api/v1/crm/followups/12/attachments/7/download"
+  "file_url": "/api/v1/crm/followups/attachments/7/view",
+  "preview_url": "/api/v1/crm/followups/attachments/7/view",
+  "download_url": "/api/v1/crm/followups/attachments/7/download"
 }
 ```
 
-Use `download_url` to fetch the file through the authenticated download
-endpoint — files are stored privately and are not publicly accessible.
+Use `file_url` / `preview_url` for authenticated in-browser viewing and
+`download_url` for forced file download.
+
+### Frontend attachment rendering example
+
+```javascript
+async function openAttachmentPreview(attachment, apiClient) {
+  const endpoint = (attachment.preview_url || attachment.file_url || attachment.download_url)
+    .replace("/api/v1", "");
+
+  const response = await apiClient.get(endpoint, { responseType: "blob" });
+  const blobUrl = URL.createObjectURL(response.data);
+  window.open(blobUrl, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
+
+async function downloadAttachment(attachment, apiClient) {
+  const endpoint = attachment.download_url.replace("/api/v1", "");
+  const response = await apiClient.get(endpoint, { responseType: "blob" });
+
+  const blobUrl = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = attachment.original_filename;
+  a.click();
+  URL.revokeObjectURL(blobUrl);
+}
+```
 
 ### Update request — adding and removing attachments
 
@@ -362,15 +400,21 @@ attachmentIdsToRemove.forEach(id =>
 );
 
 await fetch(`/api/v1/crm/followups/${followupId}`, {
-  method: "PUT",
+  method: "POST",
   headers: { Authorization: `Bearer ${token}` },
   body: formData,
 });
 ```
 
+Add method override before sending:
+
+```javascript
+formData.append("_method", "PUT");
+```
+
 ### Storage and access control
 Attachments are stored in private server storage and served exclusively through
-the authenticated download endpoint.  No direct `/storage/...` URL is exposed.
+authenticated preview/download endpoints. No direct `/storage/...` URL is exposed.
 To display a file in the browser use:
 
 ```javascript
@@ -383,11 +427,6 @@ const objectUrl = URL.createObjectURL(blob);
 window.open(objectUrl);            // or assign to <a href> / <img src>
 URL.revokeObjectURL(objectUrl);    // clean up after use
 ```
-
-## Backward Compatibility
-- Existing lead activity APIs remain unchanged
-- New follow-up APIs are additive and isolated
-- Existing notification endpoint contract is unchanged
 
 ## Backward Compatibility
 - Existing lead activity APIs remain unchanged

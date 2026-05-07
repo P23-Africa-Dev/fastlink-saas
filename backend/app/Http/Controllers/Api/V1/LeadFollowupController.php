@@ -91,19 +91,109 @@ class LeadFollowupController extends Controller
         return $this->success($updated, 'Follow-up modification rejected.');
     }
 
+    public function viewAttachment(LeadFollowup $followup, LeadFollowupAttachment $attachment)
+    {
+        if ($error = $this->ensureAttachmentBelongsToFollowup($followup, $attachment)) {
+            return $error;
+        }
+
+        return $this->inlineAttachmentResponse($attachment);
+    }
+
+    public function viewAttachmentById(LeadFollowupAttachment $attachment)
+    {
+        return $this->inlineAttachmentResponse($attachment);
+    }
+
     public function downloadAttachment(LeadFollowup $followup, LeadFollowupAttachment $attachment)
+    {
+        if ($error = $this->ensureAttachmentBelongsToFollowup($followup, $attachment)) {
+            return $error;
+        }
+
+        return $this->downloadAttachmentResponse($attachment);
+    }
+
+    public function downloadAttachmentById(LeadFollowupAttachment $attachment)
+    {
+        return $this->downloadAttachmentResponse($attachment);
+    }
+
+    private function ensureAttachmentBelongsToFollowup(LeadFollowup $followup, LeadFollowupAttachment $attachment): ?JsonResponse
     {
         if ((int) $attachment->followup_id !== (int) $followup->id) {
             return $this->error('Attachment does not belong to this follow-up.', 422);
         }
 
+        return null;
+    }
+
+    private function ensureAttachmentExists(LeadFollowupAttachment $attachment): ?JsonResponse
+    {
         if (!Storage::disk($attachment->disk)->exists($attachment->file_path)) {
             return $this->error('Attachment file not found.', 404);
         }
 
-        return response()->download(
-            Storage::disk($attachment->disk)->path($attachment->file_path),
-            $attachment->original_filename
+        return null;
+    }
+
+    private function inlineAttachmentResponse(LeadFollowupAttachment $attachment)
+    {
+        if ($error = $this->ensureAttachmentExists($attachment)) {
+            return $error;
+        }
+
+        $stream = Storage::disk($attachment->disk)->readStream($attachment->file_path);
+        if (!is_resource($stream)) {
+            return $this->error('Attachment file not found.', 404);
+        }
+
+        $fileName = $this->safeDownloadName($attachment->original_filename);
+
+        return response()->stream(
+            function () use ($stream): void {
+                fpassthru($stream);
+                fclose($stream);
+            },
+            200,
+            [
+                'Content-Type' => $attachment->mime_type ?: 'application/octet-stream',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
         );
+    }
+
+    private function downloadAttachmentResponse(LeadFollowupAttachment $attachment)
+    {
+        if ($error = $this->ensureAttachmentExists($attachment)) {
+            return $error;
+        }
+
+        $stream = Storage::disk($attachment->disk)->readStream($attachment->file_path);
+        if (!is_resource($stream)) {
+            return $this->error('Attachment file not found.', 404);
+        }
+
+        $fileName = $this->safeDownloadName($attachment->original_filename);
+
+        return response()->streamDownload(
+            function () use ($stream): void {
+                fpassthru($stream);
+                fclose($stream);
+            },
+            $fileName,
+            [
+                'Content-Type' => $attachment->mime_type ?: 'application/octet-stream',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
+    }
+
+    private function safeDownloadName(string $name): string
+    {
+        $clean = str_replace(["\r", "\n", '"', "\\"], '', trim($name));
+
+        return $clean !== '' ? $clean : 'attachment';
     }
 }

@@ -28,7 +28,7 @@ class LeadFollowupService
             ->where('lead_id', $lead->id)
             ->with([
                 'creator:id,name,email',
-                'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                 'activities.actor:id,name,email',
                 'updateRequests.requester:id,name,email',
                 'updateRequests.approver:id,name,email',
@@ -73,7 +73,7 @@ class LeadFollowupService
 
             return $followup->load([
                 'creator:id,name,email',
-                'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                 'activities.actor:id,name,email',
             ]);
         });
@@ -100,7 +100,7 @@ class LeadFollowupService
                 'mode' => 'updated',
                 'followup' => $followup->fresh()->load([
                     'creator:id,name,email',
-                    'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                    'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                     'activities.actor:id,name,email',
                     'updateRequests.requester:id,name,email',
                     'updateRequests.approver:id,name,email',
@@ -154,7 +154,7 @@ class LeadFollowupService
             'mode' => 'approval_required',
             'followup' => $followup->fresh()->load([
                 'creator:id,name,email',
-                'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                 'activities.actor:id,name,email',
                 'updateRequests.requester:id,name,email',
                 'updateRequests.approver:id,name,email',
@@ -201,7 +201,7 @@ class LeadFollowupService
 
             return $followup->fresh()->load([
                 'creator:id,name,email',
-                'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                 'activities.actor:id,name,email',
                 'updateRequests.requester:id,name,email',
                 'updateRequests.approver:id,name,email',
@@ -247,7 +247,7 @@ class LeadFollowupService
 
             return $followup->fresh()->load([
                 'creator:id,name,email',
-                'attachments:id,followup_id,uploaded_by,disk,file_path,original_filename,mime_type,file_size,created_at',
+                'attachments:id,followup_id,uploaded_by,original_filename,mime_type,file_size,created_at',
                 'activities.actor:id,name,email',
                 'updateRequests.requester:id,name,email',
                 'updateRequests.approver:id,name,email',
@@ -326,13 +326,14 @@ class LeadFollowupService
             }
 
             $path = $file->store("crm/followups/{$followup->lead_id}/{$followup->id}", 'local');
+            $originalFilename = $this->safeOriginalFilename($file);
 
             LeadFollowupAttachment::create([
                 'followup_id' => $followup->id,
                 'uploaded_by' => $actor->id,
                 'disk' => 'local',
                 'file_path' => $path,
-                'original_filename' => $file->getClientOriginalName(),
+                'original_filename' => $originalFilename,
                 'mime_type' => $file->getClientMimeType(),
                 'file_size' => $file->getSize(),
             ]);
@@ -353,11 +354,12 @@ class LeadFollowupService
             }
 
             $path = $file->store("crm/followups/pending/{$followup->id}/{$actor->id}", 'local');
+            $originalFilename = $this->safeOriginalFilename($file);
 
             $items[] = [
                 'disk' => 'local',
                 'file_path' => $path,
-                'original_filename' => $file->getClientOriginalName(),
+                'original_filename' => $originalFilename,
                 'mime_type' => $file->getClientMimeType(),
                 'file_size' => $file->getSize(),
             ];
@@ -397,6 +399,24 @@ class LeadFollowupService
                 Storage::disk($disk)->delete($path);
             }
         });
+    }
+
+    private function safeOriginalFilename(UploadedFile $file): string
+    {
+        $original = trim((string) $file->getClientOriginalName());
+        if ($original === '') {
+            return 'attachment';
+        }
+
+        $name = pathinfo($original, PATHINFO_FILENAME);
+        $extension = pathinfo($original, PATHINFO_EXTENSION);
+
+        $safeName = preg_replace('/[^A-Za-z0-9._ -]/', '_', $name) ?: 'attachment';
+        $safeExtension = preg_replace('/[^A-Za-z0-9]/', '', $extension) ?: '';
+
+        $combined = $safeExtension !== '' ? ($safeName . '.' . $safeExtension) : $safeName;
+
+        return substr($combined, 0, 240);
     }
 
     /**

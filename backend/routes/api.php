@@ -116,7 +116,13 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:admin|supervisor|staff');
         Route::post('/crm/followups/{followup}/reject', [LeadFollowupController::class, 'reject'])
             ->middleware('role:admin|supervisor|staff');
+        Route::get('/crm/followups/{followup}/attachments/{attachment}/view', [LeadFollowupController::class, 'viewAttachment'])
+            ->middleware('role:admin|supervisor|staff');
         Route::get('/crm/followups/{followup}/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachment'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/crm/followups/attachments/{attachment}/view', [LeadFollowupController::class, 'viewAttachmentById'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/crm/followups/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachmentById'])
             ->middleware('role:admin|supervisor|staff');
 
         // Backward-compatible aliases for follow-up workflow endpoints.
@@ -130,7 +136,13 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:admin|supervisor|staff');
         Route::post('/followups/{followup}/reject', [LeadFollowupController::class, 'reject'])
             ->middleware('role:admin|supervisor|staff');
+        Route::get('/followups/{followup}/attachments/{attachment}/view', [LeadFollowupController::class, 'viewAttachment'])
+            ->middleware('role:admin|supervisor|staff');
         Route::get('/followups/{followup}/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachment'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/followups/attachments/{attachment}/view', [LeadFollowupController::class, 'viewAttachmentById'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/followups/attachments/{attachment}/download', [LeadFollowupController::class, 'downloadAttachmentById'])
             ->middleware('role:admin|supervisor|staff');
 
         Route::get('/spreadsheets', [SpreadsheetController::class, 'index'])
