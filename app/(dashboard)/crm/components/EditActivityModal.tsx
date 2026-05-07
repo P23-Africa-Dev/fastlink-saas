@@ -1,42 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Phone, Mail, Calendar, FileText } from "lucide-react";
+import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Activity } from "./ActivityFeed";
+import { ActivityType, ACTIVITY_COLORS, MODAL_ACTIVITY_TYPES } from "./activityTypeConfig";
 
 interface EditActivityModalProps {
   activity: Activity;
   leadName: string;
-  onClose:  () => void;
-  onSave:   (data: Partial<Activity>) => void;
+  onClose: () => void;
+  onSave: (data: Partial<Activity>) => void;
 }
 
-type ActivityType = Activity["type"];
-
-const TYPES: { type: ActivityType; label: string; icon: React.ReactNode }[] = [
-  { type: "call",    label: "Call",    icon: <Phone    size={15} /> },
-  { type: "email",   label: "Email",   icon: <Mail     size={15} /> },
-  { type: "meeting", label: "Meeting", icon: <Calendar size={15} /> },
-  { type: "note",    label: "Note",    icon: <FileText size={15} /> },
-];
-
-const TYPE_COLORS: Record<ActivityType, { color: string; bg: string; border: string }> = {
-  call:    { color: "#33084E", bg: "#33084E15", border: "#33084E40" },
-  email:   { color: "#AF580B", bg: "#AF580B15", border: "#AF580B40" },
-  meeting: { color: "#074616", bg: "#07461615", border: "#07461640" },
-  note:    { color: "#6b7280", bg: "#f0f0f5",   border: "#d1d5db"   },
-};
-
-const inputCls    = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
-const labelCls    = "text-[13px] font-bold text-(--text-primary)";
+const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] outline-none focus:border-(--accent-purple) transition-colors";
+const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function EditActivityModal({ activity, leadName, onClose, onSave }: EditActivityModalProps) {
-  const [type, setType]             = useState<ActivityType>(activity.type);
-  const [title, setTitle]           = useState(activity.title);
-  const [description, setDesc]      = useState(activity.description ?? "");
+  const [type, setType] = useState<ActivityType>(activity.type);
+  const [title, setTitle] = useState(activity.title);
+  const [description, setDesc] = useState(activity.description ?? "");
   const [scheduledAt, setScheduled] = useState(activity.scheduled_at);
-  const [completed, setCompleted]   = useState(activity.is_completed);
+  const [completed, setCompleted] = useState(activity.is_completed);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -70,8 +55,8 @@ export function EditActivityModal({ activity, leadName, onClose, onSave }: EditA
           <div className="flex flex-col" style={{ gap: "8px" }}>
             <label className={labelCls}>Activity Type</label>
             <div className="grid grid-cols-4" style={{ gap: "8px" }}>
-              {TYPES.map(t => {
-                const cfg    = TYPE_COLORS[t.type];
+              {MODAL_ACTIVITY_TYPES.map(t => {
+                const cfg = ACTIVITY_COLORS[t.type];
                 const active = type === t.type;
                 return (
                   <button

@@ -1,59 +1,23 @@
 "use client";
 
 import React, { useState } from "react";
+import { CheckCircle2, Clock, Plus, Calendar } from "lucide-react";
 import {
-  Phone, Mail, Calendar, FileText, CheckCircle2, Clock, Plus,
-  CheckSquare, ArrowRightLeft, Bell, Send, Paperclip, MoreHorizontal,
-} from "lucide-react";
+  ActivityType,
+  Activity,
+  ActivityFullConfig,
+  ACTIVITY_CONFIG,
+  ACTIVITY_FALLBACK_CONFIG,
+} from "./activityTypeConfig";
 
-export type ActivityType =
-  | "call"
-  | "email"
-  | "meeting"
-  | "note"
-  | "task"
-  | "status_change"
-  | "follow_up"
-  | "proposal_sent"
-  | "document"
-  | "other";
-
-export interface Activity {
-  id: number;
-  type: ActivityType;
-  title: string;
-  description?: string;
-  scheduled_at: string;
-  is_completed: boolean;
-}
+// Re-export so existing consumers (LeadDetailDrawer, crm/page, modals) keep working.
+export type { ActivityType, Activity };
 
 interface ActivityFeedProps {
   activities: Activity[];
   onLog: () => void;
   onEdit: (activity: Activity) => void;
 }
-
-type TypeConfig = { icon: React.ReactNode; color: string; bg: string; label: string };
-
-const TYPE_CONFIG: Record<ActivityType, TypeConfig> = {
-  call: { icon: <Phone size={13} />, color: "#33084E", bg: "#33084E15", label: "Call" },
-  email: { icon: <Mail size={13} />, color: "#AF580B", bg: "#AF580B15", label: "Email" },
-  meeting: { icon: <Calendar size={13} />, color: "#074616", bg: "#07461615", label: "Meeting" },
-  note: { icon: <FileText size={13} />, color: "#6b7280", bg: "#f0f0f5", label: "Note" },
-  task: { icon: <CheckSquare size={13} />, color: "#1d4ed8", bg: "#1d4ed815", label: "Task" },
-  status_change: { icon: <ArrowRightLeft size={13} />, color: "#7c3aed", bg: "#7c3aed15", label: "Status" },
-  follow_up: { icon: <Bell size={13} />, color: "#b45309", bg: "#b4530915", label: "Follow-up" },
-  proposal_sent: { icon: <Send size={13} />, color: "#0369a1", bg: "#0369a115", label: "Proposal Sent" },
-  document: { icon: <Paperclip size={13} />, color: "#374151", bg: "#37415115", label: "Document" },
-  other: { icon: <MoreHorizontal size={13} />, color: "#6b7280", bg: "#f0f0f5", label: "Other" },
-};
-
-const FALLBACK_CONFIG: TypeConfig = {
-  icon: <MoreHorizontal size={13} />,
-  color: "#6b7280",
-  bg: "#f0f0f5",
-  label: "Activity",
-};
 
 function formatDate(raw: string) {
   try {
@@ -101,7 +65,7 @@ export function ActivityFeed({ activities, onLog, onEdit }: ActivityFeedProps) {
         )}
 
         {activities.map((act, idx) => {
-          const cfg: TypeConfig = TYPE_CONFIG[act.type] ?? FALLBACK_CONFIG;
+          const cfg: ActivityFullConfig = ACTIVITY_CONFIG[act.type] ?? ACTIVITY_FALLBACK_CONFIG;
           const isHovered = hovered === act.id;
           return (
             <div
