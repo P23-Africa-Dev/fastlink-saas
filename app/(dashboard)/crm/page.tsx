@@ -28,7 +28,14 @@ import {
   useCreateStatus,
   useUpdateStatus,
   useDeleteStatus,
+  useFollowUps,
+  useCreateFollowUp,
+  useUpdateFollowUp,
+  useApproveFollowUp,
+  useRejectFollowUp,
 } from "./hooks/useCrm";
+import type { FollowUp, FollowUpUpdateRequest } from "./hooks/useCrm";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, useSensor, useSensors,
@@ -45,6 +52,9 @@ import { LogActivityModal } from "./components/LogActivityModal";
 import { EditActivityModal } from "./components/EditActivityModal";
 import { ManagePipelinesModal } from "./components/ManagePipelinesModal";
 import { ManageStatusesModal } from "./components/ManageStatusesModal";
+import { CreateFollowUpModal } from "./components/CreateFollowUpModal";
+import { EditFollowUpModal } from "./components/EditFollowUpModal";
+import { ApproveRejectModal } from "./components/ApproveRejectModal";
 import { FilterBar, FilterState } from "./components/FilterBar";
 import { Activity } from "./components/ActivityFeed";
 import { Lead } from "./components/LeadDetailDrawer";
@@ -389,6 +399,21 @@ export default function CrmPage() {
   const [isLogActivityOpen, setLogActivityOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
+  // Follow-up modals
+  const [isCreateFollowUpOpen, setCreateFollowUpOpen] = useState(false);
+  const [editingFollowUp, setEditingFollowUp] = useState<FollowUp | null>(null);
+  const [approvalTarget, setApprovalTarget] = useState<{ followUp: FollowUp; req: FollowUpUpdateRequest; mode: "approve" | "reject" } | null>(null);
+
+  // Current user + follow-up data (enabled only when a lead is selected)
+  const { data: currentUser } = useCurrentUser();
+  const { data: followUpsRaw, isLoading: followUpsLoading } = useFollowUps(selectedLead?.id ?? 0);
+  const followUps = useMemo(() => followUpsRaw ?? [], [followUpsRaw]);
+
+  const createFollowUpMutation = useCreateFollowUp();
+  const updateFollowUpMutation = useUpdateFollowUp();
+  const approveFollowUpMutation = useApproveFollowUp();
+  const rejectFollowUpMutation = useRejectFollowUp();
+
   // Context menu
   const [menu, setMenu] = useState<MenuTrigger | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -710,11 +735,18 @@ export default function CrmPage() {
           statuses={statuses}
           drives={drives}
           activities={activities[selectedLead.id] ?? []}
+          followUps={followUps}
+          followUpsLoading={followUpsLoading}
+          currentUserId={currentUser?.id}
           onClose={() => setSelectedLead(null)}
           onEdit={() => setEditLeadOpen(true)}
           onDelete={() => setDeleteLeadOpen(true)}
           onLogActivity={() => setLogActivityOpen(true)}
           onEditActivity={(a) => setEditingActivity(a)}
+          onLogFollowUp={() => setCreateFollowUpOpen(true)}
+          onEditFollowUp={(f) => setEditingFollowUp(f)}
+          onApproveFollowUp={(f, req) => setApprovalTarget({ followUp: f, req, mode: "approve" })}
+          onRejectFollowUp={(f, req) => setApprovalTarget({ followUp: f, req, mode: "reject" })}
         />
       )}
 
@@ -896,6 +928,72 @@ export default function CrmPage() {
               onSuccess: () => toast.success("Status deleted successfully"),
               onError: (err: unknown) => toast.error(errMsg(err, "Failed to delete status"))
             });
+          }}
+        />
+      )}
+
+      {/* ── Follow-Up Modals ─────────────────────────────────────────────── */}
+      {isCreateFollowUpOpen && selectedLead && (
+        <CreateFollowUpModal
+          leadName={leadName}
+          isSaving={createFollowUpMutation.isPending}
+          onClose={() => setCreateFollowUpOpen(false)}
+          onSave={(payload) => {
+            createFollowUpMutation.mutate(
+              { leadId: selectedLead.id, payload },
+              {
+                onSuccess: () => {
+                  setCreateFollowUpOpen(false);
+                  toast.success("Follow-up logged successfully");
+                },
+                onError: (err: unknown) => toast.error(errMsg(err, "Failed to log follow-up")),
+              }
+            );
+          }}
+        />
+      )}
+
+      {editingFollowUp && selectedLead && (
+        <EditFollowUpModal
+          followUp={editingFollowUp}
+          leadName={leadName}
+          isSaving={updateFollowUpMutation.isPending}
+          onClose={() => setEditingFollowUp(null)}
+          onSave={async (payload) => {
+            const result = await updateFollowUpMutation.mutateAsync(
+              { id: editingFollowUp.id, leadId: selectedLead.id, payload },
+            );
+            if (result.mode === "updated") {
+              toast.success("Follow-up updated successfully");
+            } else {
+              toast.info("Changes submitted for approval");
+            }
+            return result;
+          }}
+        />
+      )}
+
+      {approvalTarget && selectedLead && (
+        <ApproveRejectModal
+          followUp={approvalTarget.followUp}
+          updateRequest={approvalTarget.req}
+          leadName={leadName}
+          mode={approvalTarget.mode}
+          isSaving={approveFollowUpMutation.isPending || rejectFollowUpMutation.isPending}
+          onClose={() => setApprovalTarget(null)}
+          onConfirm={(reason) => {
+            const { followUp, req, mode } = approvalTarget;
+            const mutation = mode === "approve" ? approveFollowUpMutation : rejectFollowUpMutation;
+            mutation.mutate(
+              { id: followUp.id, leadId: selectedLead.id, reason: reason || undefined },
+              {
+                onSuccess: () => {
+                  setApprovalTarget(null);
+                  toast.success(mode === "approve" ? "Changes approved" : "Changes rejected");
+                },
+                onError: (err: unknown) => toast.error(errMsg(err, `Failed to ${mode} changes`)),
+              }
+            );
           }}
         />
       )}
