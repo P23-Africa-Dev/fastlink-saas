@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Search, LayoutGrid, List, Settings2 } from "lucide-react";
+import { Search, LayoutGrid, List, Settings2, BarChart2 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface Drive { id: number; name: string; }
@@ -25,9 +25,10 @@ interface FilterBarProps {
   states: State[];
   filters: FilterState;
   totalLeads: number;
-  viewMode: "kanban" | "list";
+  viewMode: "kanban" | "list" | "analytics";
+  showAnalytics?: boolean;
   onFiltersChange: (next: Partial<FilterState>) => void;
-  onViewChange: (mode: "kanban" | "list") => void;
+  onViewChange: (mode: "kanban" | "list" | "analytics") => void;
   onManagePipelines: () => void;
   onManageStatuses: () => void;
 }
@@ -35,7 +36,7 @@ interface FilterBarProps {
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export function FilterBar({
-  drives, countries, states, filters, totalLeads, viewMode,
+  drives, countries, states, filters, totalLeads, viewMode, showAnalytics = false,
   onFiltersChange, onViewChange, onManagePipelines, onManageStatuses,
 }: FilterBarProps) {
   const totalPages = Math.max(1, Math.ceil(totalLeads / filters.perPage));
@@ -178,6 +179,7 @@ export function FilterBar({
               <div className="flex items-center bg-[#f8f8fc] rounded-xl border border-[#f0f0f5]" style={{ gap: "4px", padding: "4px" }}>
                 <button
                   onClick={() => onViewChange("kanban")}
+                  title="Kanban view"
                   className={`transition-all rounded-lg ${viewMode === "kanban" ? "shadow-sm text-(--accent-purple)" : "text-[#9ca3af] hover:text-(--text-primary)"}`}
                   style={{ padding: "7px", background: viewMode === "kanban" ? "white" : "transparent" }}
                 >
@@ -185,11 +187,22 @@ export function FilterBar({
                 </button>
                 <button
                   onClick={() => onViewChange("list")}
+                  title="List view"
                   className={`transition-all rounded-lg ${viewMode === "list" ? "shadow-sm text-(--accent-purple)" : "text-[#9ca3af] hover:text-(--text-primary)"}`}
                   style={{ padding: "7px", background: viewMode === "list" ? "white" : "transparent" }}
                 >
                   <List size={15} />
                 </button>
+                {showAnalytics && (
+                  <button
+                    onClick={() => onViewChange("analytics")}
+                    title="Analytics view"
+                    className={`transition-all rounded-lg ${viewMode === "analytics" ? "shadow-sm text-(--accent-purple)" : "text-[#9ca3af] hover:text-(--text-primary)"}`}
+                    style={{ padding: "7px", background: viewMode === "analytics" ? "white" : "transparent" }}
+                  >
+                    <BarChart2 size={15} />
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -42,6 +42,7 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 
+import { LeadAnalyticsPanel } from "./components/LeadAnalyticsPanel";
 import { NewLeadModal } from "./components/NewLeadModal";
 import { ImportLeadsModal } from "./components/ImportLeadsModal";
 import { LeadDetailDrawer } from "./components/LeadDetailDrawer";
@@ -432,7 +433,14 @@ export default function CrmPage() {
   };
 
   // Filters & view
-  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "analytics">("kanban");
+
+  const canViewAnalytics = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.roles.some((r) =>
+      ["admin", "supervisor"].includes(r.name.toLowerCase())
+    );
+  }, [currentUser]);
 
 
   useEffect(() => {
@@ -538,6 +546,7 @@ export default function CrmPage() {
         filters={filters}
         totalLeads={filteredLeads.length}
         viewMode={viewMode}
+        showAnalytics={canViewAnalytics}
         onFiltersChange={updateFilters}
         onViewChange={setViewMode}
         onManagePipelines={() => setPipelinesOpen(true)}
@@ -545,8 +554,10 @@ export default function CrmPage() {
       />
 
       {/* ── Main Content ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col" style={{ overflow: "hidden" }}>
-        {viewMode === "kanban" ? (
+      <div className="flex-1 flex flex-col" style={{ overflow: viewMode === "analytics" ? "auto" : "hidden" }}>
+        {viewMode === "analytics" ? (
+          <LeadAnalyticsPanel drives={drives} />
+        ) : viewMode === "kanban" ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
