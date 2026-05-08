@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { ApiResponse, Lead, Drive, LeadStatus, LocationCountry, LocationLga, LocationState } from "@/lib/types";
+import type { ApiResponse, Lead, Drive, LeadStatus, LocationCountry, LocationState } from "@/lib/types";
 
 // ── Follow-Up Types ───────────────────────────────────────────────────────────
 
@@ -127,19 +127,6 @@ export function useStates(countryId?: number) {
   });
 }
 
-export function useLgas(stateId?: number) {
-  return useQuery({
-    queryKey: ["crm", "lgas", stateId ?? "none"],
-    queryFn: async () => {
-      if (!stateId) return [];
-      const res = await api.get<ApiResponse<LocationLga[]>>("/lgas", {
-        params: { state_id: stateId },
-      });
-      return res.data.data;
-    },
-  });
-}
-
 export function useLeads(filters: {
   driveId?: number;
   statusId?: number;
@@ -148,7 +135,6 @@ export function useLeads(filters: {
   assignedTo?: string;
   countryId?: number;
   stateId?: number;
-  lgaId?: number;
 }) {
   return useQuery({
     queryKey: ["crm", "leads", filters],
@@ -163,7 +149,6 @@ export function useLeads(filters: {
           assigned_to: filters.assignedTo || undefined,
           country_id: filters.countryId || undefined,
           state_id: filters.stateId || undefined,
-          lga_id: filters.lgaId || undefined,
           per_page: 300,
         },
       });

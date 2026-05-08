@@ -7,13 +7,11 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 interface Drive { id: number; name: string; }
 interface Country { id: number; name: string; }
 interface State { id: number; name: string; }
-interface Lga { id: number; name: string; }
 
 export interface FilterState {
   driveId: number;
   countryId: number;
   stateId: number;
-  lgaId: number;
   query: string;
   priority: string;
   assignedTo: string;
@@ -25,7 +23,6 @@ interface FilterBarProps {
   drives: Drive[];
   countries: Country[];
   states: State[];
-  lgas: Lga[];
   filters: FilterState;
   totalLeads: number;
   viewMode: "kanban" | "list";
@@ -38,7 +35,7 @@ interface FilterBarProps {
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export function FilterBar({
-  drives, countries, states, lgas, filters, totalLeads, viewMode,
+  drives, countries, states, filters, totalLeads, viewMode,
   onFiltersChange, onViewChange, onManagePipelines, onManageStatuses,
 }: FilterBarProps) {
   const totalPages = Math.max(1, Math.ceil(totalLeads / filters.perPage));
@@ -61,10 +58,6 @@ export function FilterBar({
   const stateOptions = [
     { value: "0", label: filters.countryId ? "All States" : "Select country first" },
     ...states.map((state) => ({ value: state.id.toString(), label: state.name })),
-  ];
-  const lgaOptions = [
-    { value: "0", label: filters.stateId ? "All LGAs" : "Select state first" },
-    ...lgas.map((lga) => ({ value: lga.id.toString(), label: lga.name })),
   ];
   const perPageOptions = PER_PAGE_OPTIONS.map(n => ({ value: n.toString(), label: `${n} per page` }));
 
@@ -140,7 +133,7 @@ export function FilterBar({
               <div className="w-full sm:w-auto sm:min-w-[160px]">
                 <CustomSelect
                   value={filters.countryId.toString()}
-                  onChange={v => onFiltersChange({ countryId: Number(v), stateId: 0, lgaId: 0, page: 1 })}
+                  onChange={v => onFiltersChange({ countryId: Number(v), stateId: 0, page: 1 })}
                   options={countryOptions}
                   searchPlaceholder="Search countries…"
                   fullWidth
@@ -149,18 +142,9 @@ export function FilterBar({
               <div className="w-full sm:w-auto sm:min-w-[160px]">
                 <CustomSelect
                   value={filters.stateId.toString()}
-                  onChange={v => onFiltersChange({ stateId: Number(v), lgaId: 0, page: 1 })}
+                  onChange={v => onFiltersChange({ stateId: Number(v), page: 1 })}
                   options={stateOptions}
                   searchPlaceholder="Search states…"
-                  fullWidth
-                />
-              </div>
-              <div className="w-full sm:w-auto sm:min-w-[160px]">
-                <CustomSelect
-                  value={filters.lgaId.toString()}
-                  onChange={v => onFiltersChange({ lgaId: Number(v), page: 1 })}
-                  options={lgaOptions}
-                  searchPlaceholder="Search LGAs…"
                   fullWidth
                 />
               </div>

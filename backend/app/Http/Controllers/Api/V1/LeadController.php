@@ -43,7 +43,6 @@ class LeadController extends Controller
             ->when($request->filled('priority'), fn($builder) => $builder->where('priority', $request->string('priority')))
             ->when($request->filled('country_id'), fn($builder) => $builder->where('country_id', (int) $request->input('country_id')))
             ->when($request->filled('state_id'), fn($builder) => $builder->where('state_id', (int) $request->input('state_id')))
-            ->when($request->filled('lga_id'), fn($builder) => $builder->where('lga_id', (int) $request->input('lga_id')))
             ->orderByDesc('id');
 
         // Frontend CRM board requests per_page=300 and derives totals from returned array length.

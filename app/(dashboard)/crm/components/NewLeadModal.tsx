@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
-import { useCountries, useLgas, useStates } from "../hooks/useCrm";
+import { useCountries, useStates } from "../hooks/useCrm";
 
 interface Status { id: number; name: string; }
 interface Drive { id: number; name: string; }
@@ -30,7 +30,6 @@ interface NewLeadModalProps {
     industry?: string;
     country_id?: number;
     state_id?: number;
-    lga_id?: number;
   }) => void;
 }
 
@@ -63,7 +62,6 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
   const [currency, setCurrency] = useState("USD");
   const [countryId, setCountryId] = useState("");
   const [stateId, setStateId] = useState("");
-  const [lgaId, setLgaId] = useState("");
 
   const { data: countries = [] } = useCountries();
   const defaultCountryId = React.useMemo(() => {
@@ -72,7 +70,6 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
   }, [countries]);
   const effectiveCountryId = countryId || defaultCountryId;
   const { data: states = [] } = useStates(effectiveCountryId ? Number(effectiveCountryId) : undefined);
-  const { data: lgas = [] } = useLgas(stateId ? Number(stateId) : undefined);
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -85,10 +82,6 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
   const stateOptions = states.map((state) => ({
     value: state.id.toString(),
     label: state.name,
-  }));
-  const lgaOptions = lgas.map((lga) => ({
-    value: lga.id.toString(),
-    label: lga.name,
   }));
   const industryOptions = [
     { value: "", label: "Not Specified" },
@@ -114,7 +107,6 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
       industry: industry || undefined,
       country_id: effectiveCountryId ? Number(effectiveCountryId) : undefined,
       state_id: stateId ? Number(stateId) : undefined,
-      lga_id: lgaId ? Number(lgaId) : undefined,
     });
     onClose();
   };
@@ -251,7 +243,6 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
                 onChange={(value) => {
                   setCountryId(value);
                   setStateId("");
-                  setLgaId("");
                 }}
                 options={countryOptions}
                 searchPlaceholder="Search countries…"
@@ -264,20 +255,9 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
                 value={stateId}
                 onChange={(value) => {
                   setStateId(value);
-                  setLgaId("");
                 }}
                 options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select country first" }]}
                 searchPlaceholder="Search states…"
-              />
-            </div>
-            <div className="flex flex-col" style={{ gap: "8px" }}>
-              <label className={labelCls}>LGA</label>
-              <CustomSelect
-                fullWidth
-                value={lgaId}
-                onChange={setLgaId}
-                options={lgaOptions.length > 0 ? lgaOptions : [{ value: "", label: "Select state first" }]}
-                searchPlaceholder="Search LGAs…"
               />
             </div>
           </div>

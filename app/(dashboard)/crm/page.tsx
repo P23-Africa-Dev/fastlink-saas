@@ -17,7 +17,6 @@ import {
   useLeads,
   useCountries,
   useStates,
-  useLgas,
   useCreateLead,
   useUpdateLead,
   useDeleteLead,
@@ -281,11 +280,11 @@ function LeadCardContent({
               <Building2 size={10} />
               <span className="truncate">{lead.company}</span>
             </div>
-              {lead.lga_name && (
-                <div className="text-[11px] text-[#9ca3af] truncate" style={{ marginTop: "2px" }}>
-                  {lead.lga_name}{lead.state_name ? `, ${lead.state_name}` : ""}
-                </div>
-              )}
+            {lead.lga_name && (
+              <div className="text-[11px] text-[#9ca3af] truncate" style={{ marginTop: "2px" }}>
+                {lead.lga_name}{lead.state_name ? `, ${lead.state_name}` : ""}
+              </div>
+            )}
           </div>
         </div>
         <button
@@ -335,7 +334,7 @@ function DraggableCard({
 
 export default function CrmPage() {
   const [filters, setFilters] = useState<FilterState>({
-    driveId: 0, countryId: 0, stateId: 0, lgaId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
+    driveId: 0, countryId: 0, stateId: 0, query: "", priority: "", assignedTo: "", perPage: 25, page: 1,
   });
 
   // Queries
@@ -344,12 +343,10 @@ export default function CrmPage() {
   const { data: industriesRaw, isLoading: industriesLoading } = useIndustries();
   const { data: countriesRaw, isLoading: countriesLoading } = useCountries();
   const { data: statesRaw, isLoading: statesLoading } = useStates(filters.countryId || undefined);
-  const { data: lgasRaw, isLoading: lgasLoading } = useLgas(filters.stateId || undefined);
   const { data: leadsRaw, isLoading: leadsLoading } = useLeads({
     driveId: filters.driveId,
     countryId: filters.countryId || undefined,
     stateId: filters.stateId || undefined,
-    lgaId: filters.lgaId || undefined,
     query: filters.query,
     priority: filters.priority,
     assignedTo: filters.assignedTo,
@@ -374,7 +371,6 @@ export default function CrmPage() {
   const industries = useMemo(() => industriesRaw || [], [industriesRaw]);
   const countries = useMemo(() => countriesRaw || [], [countriesRaw]);
   const states = useMemo(() => statesRaw || [], [statesRaw]);
-  const lgas = useMemo(() => lgasRaw || [], [lgasRaw]);
   const defaultStatusId = useMemo(() => {
     const explicitDefault = statuses.find((status) => status.is_default);
     return explicitDefault?.id ?? statuses[0]?.id;
@@ -499,7 +495,7 @@ export default function CrmPage() {
 
   const leadName = selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : "";
 
-  const loading = drivesLoading || statusesLoading || industriesLoading || leadsLoading || countriesLoading || statesLoading || lgasLoading;
+  const loading = drivesLoading || statusesLoading || industriesLoading || leadsLoading || countriesLoading || statesLoading;
 
   if (loading) {
     return <CrmSkeleton />;
@@ -539,7 +535,6 @@ export default function CrmPage() {
         drives={drives}
         countries={countries}
         states={states}
-        lgas={lgas}
         filters={filters}
         totalLeads={filteredLeads.length}
         viewMode={viewMode}

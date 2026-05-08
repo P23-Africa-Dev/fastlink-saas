@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { Lead } from "./LeadDetailDrawer";
 import { CustomSelect } from "@/components/ui/CustomSelect";
-import { useCountries, useLgas, useStates } from "../hooks/useCrm";
+import { useCountries, useStates } from "../hooks/useCrm";
 
 interface Status { id: number; name: string; }
 interface Drive { id: number; name: string; }
@@ -48,7 +48,6 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   const [currency, setCurrency] = useState(lead.currency ?? "USD");
   const [countryId, setCountryId] = useState(lead.country_id ? String(lead.country_id) : "");
   const [stateId, setStateId] = useState(lead.state_id ? String(lead.state_id) : "");
-  const [lgaId, setLgaId] = useState(lead.lga_id ? String(lead.lga_id) : "");
 
   const { data: countries = [] } = useCountries();
   const defaultCountryId = React.useMemo(() => {
@@ -57,7 +56,6 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   }, [countries]);
   const effectiveCountryId = countryId || defaultCountryId;
   const { data: states = [] } = useStates(effectiveCountryId ? Number(effectiveCountryId) : undefined);
-  const { data: lgas = [] } = useLgas(stateId ? Number(stateId) : undefined);
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -65,7 +63,6 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
   const countryOptions = countries.map((country) => ({ value: country.id.toString(), label: country.name }));
   const stateOptions = states.map((state) => ({ value: state.id.toString(), label: state.name }));
-  const lgaOptions = lgas.map((lga) => ({ value: lga.id.toString(), label: lga.name }));
   const baseIndustryOptions = [
     { value: "", label: "Not Specified" },
     ...industries.map((value) => ({ value, label: value })),
@@ -91,7 +88,6 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
       industry: industry || undefined,
       country_id: effectiveCountryId ? Number(effectiveCountryId) : null,
       state_id: stateId ? Number(stateId) : null,
-      lga_id: lgaId ? Number(lgaId) : null,
     });
     onClose();
   };
@@ -138,7 +134,6 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
                 onChange={(value) => {
                   setCountryId(value);
                   setStateId("");
-                  setLgaId("");
                 }}
                 options={countryOptions.length > 0 ? countryOptions : [{ value: "", label: "No countries available" }]}
                 searchPlaceholder="Search countries…"
@@ -151,20 +146,9 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
                 value={stateId}
                 onChange={(value) => {
                   setStateId(value);
-                  setLgaId("");
                 }}
                 options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select country first" }]}
                 searchPlaceholder="Search states…"
-              />
-            </div>
-            <div className="flex flex-col" style={{ gap: "8px" }}>
-              <label className={labelCls}>LGA</label>
-              <CustomSelect
-                fullWidth
-                value={lgaId}
-                onChange={setLgaId}
-                options={lgaOptions.length > 0 ? lgaOptions : [{ value: "", label: "Select state first" }]}
-                searchPlaceholder="Search LGAs…"
               />
             </div>
           </div>
