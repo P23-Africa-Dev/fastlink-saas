@@ -380,3 +380,173 @@ export function useRejectFollowUp() {
     },
   });
 }
+
+// ── Lead Analytics Types ──────────────────────────────────────────────────────
+
+export interface AnalyticsUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface AnalyticsUserStat {
+  user: AnalyticsUser;
+  manual_leads: number;
+  imported_leads: number;
+  total_leads: number;
+  last_activity: string | null;
+}
+
+export interface AnalyticsTrendPoint {
+  date: string;
+  manual_leads: number;
+  imported_leads: number;
+  total_leads: number;
+}
+
+export interface AnalyticsTrend {
+  granularity: string;
+  points: AnalyticsTrendPoint[];
+}
+
+export interface AnalyticsSummary {
+  manual_leads: number;
+  imported_leads: number;
+  total_leads: number;
+  last_activity: string | null;
+  unattributed: { manual: number; imported: number };
+}
+
+export interface AnalyticsPeriodSummaries {
+  today: number;
+  this_week: number;
+  this_month: number;
+}
+
+export interface LeadAnalyticsData {
+  summary: AnalyticsSummary;
+  filters: Record<string, unknown>;
+  user_stats: AnalyticsUserStat[];
+  top_uploaders: AnalyticsUserStat[];
+  trend: AnalyticsTrend;
+  period_summaries: AnalyticsPeriodSummaries;
+}
+
+export interface AnalyticsTimelineItem {
+  lead_id: number;
+  user: AnalyticsUser;
+  action_type: "manual" | "imported";
+  action: string;
+  timestamp: string;
+  drive: { id: number; name: string; color: string; slug: string } | null;
+  location: {
+    country_id: number | null;
+    country: string | null;
+    state_id: number | null;
+    state: string | null;
+    lga_id: number | null;
+    lga: string | null;
+  } | null;
+}
+
+export interface AnalyticsTimelineResponse {
+  success: boolean;
+  message: string;
+  data: AnalyticsTimelineItem[];
+  meta: {
+    pagination: {
+      total: number;
+      per_page: number;
+      current_page: number;
+      last_page: number;
+    };
+  };
+}
+
+export interface TopUploadersData {
+  filters: Record<string, unknown>;
+  items: AnalyticsUserStat[];
+  total_uploaded_today: number;
+}
+
+export interface AnalyticsFilters {
+  userId?: number;
+  type?: "manual" | "imported" | "both";
+  period?: "today" | "week" | "month" | "custom";
+  startDate?: string;
+  endDate?: string;
+  driveId?: number;
+  countryId?: number;
+  stateId?: number;
+  lgaId?: number;
+}
+
+// ── Lead Analytics Hooks ──────────────────────────────────────────────────────
+
+export function useLeadAnalytics(filters: AnalyticsFilters = {}) {
+  return useQuery({
+    queryKey: ["crm", "lead-analytics", filters],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<LeadAnalyticsData>>("/crm/lead-analytics", {
+        params: {
+          user_id: filters.userId || undefined,
+          type: filters.type || undefined,
+          period: filters.period || undefined,
+          start_date: filters.startDate || undefined,
+          end_date: filters.endDate || undefined,
+          drive_id: filters.driveId || undefined,
+          country_id: filters.countryId || undefined,
+          state_id: filters.stateId || undefined,
+          lga_id: filters.lgaId || undefined,
+        },
+      });
+      return res.data.data;
+    },
+  });
+}
+
+export function useLeadTimeline(filters: AnalyticsFilters = {}, perPage = 20) {
+  return useQuery({
+    queryKey: ["crm", "lead-analytics", "timeline", filters, perPage],
+    queryFn: async () => {
+      const res = await api.get<AnalyticsTimelineResponse>("/crm/lead-analytics/timeline", {
+        params: {
+          user_id: filters.userId || undefined,
+          type: filters.type || undefined,
+          period: filters.period || undefined,
+          start_date: filters.startDate || undefined,
+          end_date: filters.endDate || undefined,
+          drive_id: filters.driveId || undefined,
+          country_id: filters.countryId || undefined,
+          state_id: filters.stateId || undefined,
+          lga_id: filters.lgaId || undefined,
+          per_page: perPage,
+        },
+      });
+      return res.data;
+    },
+  });
+}
+
+export function useTopUploaders(filters: AnalyticsFilters = {}, limit = 10) {
+  return useQuery({
+    queryKey: ["crm", "lead-analytics", "top-uploaders", filters, limit],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<TopUploadersData>>("/crm/lead-analytics/top-uploaders", {
+        params: {
+          user_id: filters.userId || undefined,
+          type: filters.type || undefined,
+          period: filters.period || undefined,
+          start_date: filters.startDate || undefined,
+          end_date: filters.endDate || undefined,
+          drive_id: filters.driveId || undefined,
+          country_id: filters.countryId || undefined,
+          state_id: filters.stateId || undefined,
+          lga_id: filters.lgaId || undefined,
+          limit,
+        },
+      });
+      return res.data.data;
+    },
+  });
+}
