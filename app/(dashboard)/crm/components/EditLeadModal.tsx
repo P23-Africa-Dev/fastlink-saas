@@ -66,10 +66,13 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   const countryOptions = countries.map((country) => ({ value: country.id.toString(), label: country.name }));
   const stateOptions = states.map((state) => ({ value: state.id.toString(), label: state.name }));
   const lgaOptions = lgas.map((lga) => ({ value: lga.id.toString(), label: lga.name }));
-  const industryOptions = [
+  const baseIndustryOptions = [
     { value: "", label: "Not Specified" },
     ...industries.map((value) => ({ value, label: value })),
   ];
+  const industryOptions = industry && !industries.includes(industry)
+    ? [...baseIndustryOptions, { value: industry, label: `${industry} (Legacy)` }]
+    : baseIndustryOptions;
 
   const handleSave = () => {
     onSave({

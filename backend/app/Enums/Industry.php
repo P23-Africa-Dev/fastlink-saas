@@ -12,7 +12,8 @@ enum Industry: string
     case EDUCATION = 'Education';
     case REAL_ESTATE = 'Real Estate';
     case MANUFACTURING = 'Manufacturing';
-    case RETAIL_ECOMMERCE = 'Retail / E-commerce';
+    case RETAIL = 'Retail';
+    case E_COMMERCE = 'E-commerce';
     case PROFESSIONAL_SERVICES = 'Professional Services';
     case MARKETING_ADVERTISING = 'Marketing & Advertising';
     case MEDIA_ENTERTAINMENT = 'Media & Entertainment';
@@ -49,6 +50,11 @@ enum Industry: string
         }
 
         $needle = self::key($raw);
+
+        // Backward compatibility for previously stored/posted value before split.
+        if ($needle === self::key('Retail / E-commerce')) {
+            return self::RETAIL;
+        }
 
         foreach (self::cases() as $case) {
             if (self::key($case->value) === $needle) {
