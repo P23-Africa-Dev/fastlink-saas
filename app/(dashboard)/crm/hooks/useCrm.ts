@@ -309,7 +309,17 @@ export function useCreateFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ leadId, payload }: { leadId: number; payload: FormData | Record<string, unknown> }) => {
-      const res = await api.post<ApiResponse<FollowUp>>(`/crm/leads/${leadId}/followups`, payload);
+      const isFormData = payload instanceof FormData;
+      const res = await api.post<ApiResponse<FollowUp>>(
+        `/crm/leads/${leadId}/followups`,
+        payload,
+        isFormData
+          ? {
+            // Keep file uploads as multipart with browser-managed boundary.
+            headers: { "Content-Type": undefined },
+          }
+          : undefined,
+      );
 
       return res.data.data;
     },
@@ -337,6 +347,10 @@ export function useUpdateFollowUp() {
         const res = await api.post<ApiResponse<FollowUpUpdateResponse>>(
           `/crm/followups/${id}`,
           formDataPayload,
+          {
+            // Keep file uploads as multipart with browser-managed boundary.
+            headers: { "Content-Type": undefined },
+          },
         );
 
         return res.data.data;

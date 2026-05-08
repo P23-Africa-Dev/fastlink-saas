@@ -13,6 +13,7 @@ use App\Services\Crm\LeadFollowupService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class LeadFollowupController extends Controller
@@ -28,11 +29,13 @@ class LeadFollowupController extends Controller
 
     public function store(Lead $lead, StoreLeadFollowupRequest $request): JsonResponse
     {
+        $attachments = $this->normalizeUploadedFiles($request->file('attachments'));
+
         $followup = $this->leadFollowupService->create(
             $lead,
             $request->user(),
             $request->validated(),
-            $request->file('attachments', [])
+            $attachments
         );
 
         return $this->success($followup, 'Lead follow-up created.', 201);
@@ -41,11 +44,13 @@ class LeadFollowupController extends Controller
     public function update(LeadFollowup $followup, UpdateLeadFollowupRequest $request): JsonResponse
     {
         try {
+            $attachmentsAdd = $this->normalizeUploadedFiles($request->file('attachments_add'));
+
             $result = $this->leadFollowupService->update(
                 $followup,
                 $request->user(),
                 $request->validated(),
-                $request->file('attachments_add', []),
+                $attachmentsAdd,
                 array_map('intval', $request->validated('attachment_ids_remove', []))
             );
         } catch (DomainException $e) {
@@ -195,5 +200,22 @@ class LeadFollowupController extends Controller
         $clean = str_replace(["\r", "\n", '"', "\\"], '', trim($name));
 
         return $clean !== '' ? $clean : 'attachment';
+    }
+
+    /**
+     * @param  UploadedFile|array<int, UploadedFile>|null  $files
+     * @return array<int, UploadedFile>
+     */
+    private function normalizeUploadedFiles(UploadedFile|array|null $files): array
+    {
+        if ($files instanceof UploadedFile) {
+            return [$files];
+        }
+
+        if (!is_array($files)) {
+            return [];
+        }
+
+        return array_values(array_filter($files, static fn($file): bool => $file instanceof UploadedFile));
     }
 }
