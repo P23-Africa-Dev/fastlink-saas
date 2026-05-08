@@ -55,6 +55,11 @@ class User extends Authenticatable
         return $this->hasMany(Lead::class, 'created_by');
     }
 
+    public function importedLeads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'imported_by');
+    }
+
     public function assignedLeads(): HasMany
     {
         return $this->hasMany(Lead::class, 'assigned_to');

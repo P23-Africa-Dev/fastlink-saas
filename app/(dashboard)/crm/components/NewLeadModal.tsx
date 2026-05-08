@@ -62,6 +62,7 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
   const [currency, setCurrency] = useState("USD");
   const [countryId, setCountryId] = useState("");
   const [stateId, setStateId] = useState("");
+  const [stateError, setStateError] = useState("");
 
   const { data: countries = [] } = useCountries();
   const defaultCountryId = React.useMemo(() => {
@@ -90,6 +91,12 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
 
   const handleSave = () => {
     if (!firstName.trim()) return;
+
+    if (!stateId) {
+      setStateError("State is required.");
+      return;
+    }
+    setStateError("");
 
     onSave({
       first_name: firstName.trim(),
@@ -249,16 +256,20 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
               />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
-              <label className={labelCls}>State</label>
+              <label className={labelCls}>State <span className="text-red-500">*</span></label>
               <CustomSelect
                 fullWidth
                 value={stateId}
                 onChange={(value) => {
                   setStateId(value);
+                  if (value) setStateError("");
                 }}
                 options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select country first" }]}
                 searchPlaceholder="Search states…"
               />
+              {stateError && (
+                <p className="text-[12px] text-red-500 font-medium">{stateError}</p>
+              )}
             </div>
           </div>
 
@@ -279,7 +290,7 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
         {/* Footer */}
         <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
           <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
-          <ModalButton variant="primary" onClick={handleSave} disabled={!firstName.trim()}>Save Lead</ModalButton>
+          <ModalButton variant="primary" onClick={handleSave} disabled={!firstName.trim() || !stateId}>Save Lead</ModalButton>
         </div>
       </div>
     </div>

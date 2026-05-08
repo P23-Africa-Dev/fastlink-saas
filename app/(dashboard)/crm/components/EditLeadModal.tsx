@@ -48,6 +48,7 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
   const [currency, setCurrency] = useState(lead.currency ?? "USD");
   const [countryId, setCountryId] = useState(lead.country_id ? String(lead.country_id) : "");
   const [stateId, setStateId] = useState(lead.state_id ? String(lead.state_id) : "");
+  const [stateError, setStateError] = useState("");
 
   const { data: countries = [] } = useCountries();
   const defaultCountryId = React.useMemo(() => {
@@ -72,6 +73,11 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
     : baseIndustryOptions;
 
   const handleSave = () => {
+    if (!stateId) {
+      setStateError("State is required.");
+      return;
+    }
+    setStateError("");
     onSave({
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -140,16 +146,20 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
               />
             </div>
             <div className="flex flex-col" style={{ gap: "8px" }}>
-              <label className={labelCls}>State</label>
+              <label className={labelCls}>State <span className="text-red-500">*</span></label>
               <CustomSelect
                 fullWidth
                 value={stateId}
                 onChange={(value) => {
                   setStateId(value);
+                  if (value) setStateError("");
                 }}
                 options={stateOptions.length > 0 ? stateOptions : [{ value: "", label: "Select country first" }]}
                 searchPlaceholder="Search states…"
               />
+              {stateError && (
+                <p className="text-[12px] text-red-500 font-medium">{stateError}</p>
+              )}
             </div>
           </div>
 
@@ -244,7 +254,7 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
         {/* Footer */}
         <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "20px 24px", gap: "12px" }}>
           <ModalButton variant="secondary" onClick={onClose}>Cancel</ModalButton>
-          <ModalButton variant="primary" onClick={handleSave}>Save Changes</ModalButton>
+          <ModalButton variant="primary" onClick={handleSave} disabled={!stateId}>Save Changes</ModalButton>
         </div>
       </div>
     </div>

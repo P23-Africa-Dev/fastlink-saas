@@ -18,7 +18,8 @@ class PipelineStatsRequest extends FormRequest
     {
         return [
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
-            'status' => ['nullable', 'string', 'max:100'],
+            'drive_id' => ['nullable', 'integer', 'exists:lead_drives,id'],
+            'status'   => ['nullable', 'string', 'max:100'],
         ];
     }
 }

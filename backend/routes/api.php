@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadFollowupController;
 use App\Http\Controllers\Api\V1\LeadDriveController;
 use App\Http\Controllers\Api\V1\LeadStatusController;
+use App\Http\Controllers\Api\V1\LeadAnalyticsController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -81,6 +82,13 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('crm/drives', LeadDriveController::class)
             ->parameters(['drives' => 'drive'])
+            ->middleware('role:admin|supervisor');
+
+        Route::get('/crm/lead-analytics', [LeadAnalyticsController::class, 'index'])
+            ->middleware('role:admin|supervisor');
+        Route::get('/crm/lead-analytics/timeline', [LeadAnalyticsController::class, 'timeline'])
+            ->middleware('role:admin|supervisor');
+        Route::get('/crm/lead-analytics/top-uploaders', [LeadAnalyticsController::class, 'topUploaders'])
             ->middleware('role:admin|supervisor');
 
         Route::apiResource('crm/statuses', LeadStatusController::class)

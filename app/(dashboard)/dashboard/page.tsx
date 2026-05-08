@@ -9,7 +9,7 @@ import {
 import { useDashboardDailyTasks, useDashboardPipelineStats, useDashboardStats } from "./hooks/useDashboard";
 import type { Lead as ApiLead, Attendance as ApiAttendance, DashboardStats } from "@/lib/types";
 import { useTasks } from "../project/hooks/useProject";
-import { useLeads } from "../crm/hooks/useCrm";
+import { useLeads, useDrives } from "../crm/hooks/useCrm";
 import { useAttendance } from "../attendance/hooks/useAttendance";
 import {
   ArrowUpRight,
@@ -203,12 +203,14 @@ export default function DashboardPage() {
   const { data: stats, isLoading: isStatsLoading } = useDashboardStats() as { data: DashboardStats | undefined, isLoading: boolean };
   const { data: tasksRaw, isLoading: tasksLoading } = useTasks({});
   const { data: leadsRaw, isLoading: leadsLoading } = useLeads({});
+  const { data: drivesRaw } = useDrives();
   const { data: attendanceRaw, isLoading: attLoading } = useAttendance({});
 
   const [crmViewMode, setCrmViewMode] = useState<"pipeline" | "location">("pipeline");
+  const [selectedDriveId, setSelectedDriveId] = useState<number | null>(null);
   const [activeDate, setActiveDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [dailyStatus, setDailyStatus] = useState<"all" | "todo" | "in_progress" | "review" | "completed">("all");
-  const { data: pipelineStats } = useDashboardPipelineStats({});
+  const { data: pipelineStats } = useDashboardPipelineStats({ driveId: selectedDriveId ?? undefined });
   const { data: dailyTasksPayload, isLoading: dailyTasksLoading } = useDashboardDailyTasks({
     date: activeDate,
     status: dailyStatus === "all" ? undefined : dailyStatus,
@@ -277,35 +279,49 @@ export default function DashboardPage() {
   }, [attendanceRaw, activeDate]);
 
   const filteredLeads = useMemo(() => leadsRaw || [], [leadsRaw]);
+  const drives = useMemo(() => drivesRaw || [], [drivesRaw]);
 
+  // Leads scoped to the selected drive (used for location cards)
+  const driveFilteredLeads = useMemo(() => {
+    if (!selectedDriveId) return filteredLeads;
+    return filteredLeads.filter((l: ApiLead) => l.drive_id === selectedDriveId);
+  }, [filteredLeads, selectedDriveId]);
+
+  // Pipeline cards: per-drive lead counts
   const pipelineCards = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<number, { name: string; color: string; leadCount: number; kind: "pipeline" }>();
     filteredLeads.forEach((lead: ApiLead) => {
-      const status = lead.statusDefinition?.name ?? lead.status_definition?.name ?? "Unclassified";
-      counts.set(status, (counts.get(status) ?? 0) + 1);
+      const driveId = lead.drive_id;
+      if (!driveId) return;
+      const driveInfo = drives.find(d => d.id === driveId);
+      if (!driveInfo) return;
+      const existing = counts.get(driveId) ?? { name: driveInfo.name, color: driveInfo.color, leadCount: 0, kind: "pipeline" as const };
+      counts.set(driveId, { ...existing, leadCount: existing.leadCount + 1 });
     });
-    return Array.from(counts.entries())
-      .map(([name, leadCount]) => ({ name, leadCount, kind: "pipeline" as const }))
+    return Array.from(counts.values())
       .sort((a, b) => b.leadCount - a.leadCount)
       .slice(0, 5);
-  }, [filteredLeads]);
+  }, [filteredLeads, drives]);
 
   const locationCards = useMemo(() => {
     const counts = new Map<string, number>();
-    filteredLeads.forEach((lead: ApiLead) => {
-      const stateName = lead.state?.name ?? "Unknown";
+    driveFilteredLeads.forEach((lead: ApiLead) => {
+      // Exclude leads without a resolved state — prevents "Unknown" appearing in location analytics
+      const stateName = lead.state?.name;
+      if (!stateName) return;
       counts.set(stateName, (counts.get(stateName) ?? 0) + 1);
     });
     return Array.from(counts.entries())
       .map(([name, leadCount]) => ({ name, leadCount, kind: "location" as const }))
       .sort((a, b) => b.leadCount - a.leadCount)
       .slice(0, 5);
-  }, [filteredLeads]);
+  }, [driveFilteredLeads]);
 
   const crmCardsToRender = crmViewMode === "pipeline" ? pipelineCards : locationCards;
   const crmSectionTitle = crmViewMode === "pipeline" ? "Top Pipelines" : "Top Locations";
   const crmAccentPalette = ["#33084E", "#AF580B", "#074616", "#1d4ed8", "#be185d"];
   const crmTopLeadCount = crmCardsToRender[0]?.leadCount ?? 1;
+  const activeDrive = selectedDriveId ? drives.find(d => d.id === selectedDriveId) : null;
 
   // Single pass over attendanceData instead of three separate filters
   const { present: presentCount = 0, absent: absentCount = 0, late: lateCount = 0 } =
@@ -516,7 +532,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <span className="crm-stage-dot" style={{ background: crmViewMode === "pipeline" ? "#33084E" : "#AF580B" }} />
-                  {crmSectionTitle} · {pipelineStats?.total_leads ?? filteredLeads.length} total leads
+                  {activeDrive ? activeDrive.name : crmSectionTitle} · {pipelineStats?.total_leads ?? filteredLeads.length} total leads
                 </span>
               </p>
             </div>
@@ -547,17 +563,50 @@ export default function DashboardPage() {
                   Location
                 </button>
               </div>
-              {/* <div className="w-full sm:min-w-[190px]">
-                <CustomSelect
-                  value={selectedStateId}
-                  onChange={setSelectedStateId}
-                  options={locationSelectOptions}
-                  searchPlaceholder="Filter by location…"
-                  fullWidth
-                />
-              </div> */}
             </div>
           </div>
+
+          {/* Drive filter chips — shown in both pipeline and location modes */}
+          {drives.length > 0 && (
+            <div className="flex flex-wrap gap-2" style={{ marginBottom: "4px" }}>
+              <button
+                type="button"
+                onClick={() => setSelectedDriveId(null)}
+                className="inline-flex items-center rounded-full text-[11px] font-bold transition-all"
+                style={{
+                  padding: "4px 12px",
+                  background: !selectedDriveId ? "#33084E" : "#f0f0f5",
+                  color: !selectedDriveId ? "#ffffff" : "#6b7280",
+                  border: !selectedDriveId ? "1.5px solid #33084E" : "1.5px solid transparent",
+                }}
+              >
+                All
+              </button>
+              {drives.map(drive => {
+                const isActive = selectedDriveId === drive.id;
+                return (
+                  <button
+                    key={drive.id}
+                    type="button"
+                    onClick={() => setSelectedDriveId(isActive ? null : drive.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full text-[11px] font-bold transition-all"
+                    style={{
+                      padding: "4px 12px",
+                      background: isActive ? drive.color : "#f0f0f5",
+                      color: isActive ? "#ffffff" : "#6b7280",
+                      border: isActive ? `1.5px solid ${drive.color}` : "1.5px solid transparent",
+                    }}
+                  >
+                    <span
+                      className="rounded-full"
+                      style={{ width: "6px", height: "6px", background: isActive ? "rgba(255,255,255,0.7)" : drive.color, flexShrink: 0 }}
+                    />
+                    {drive.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
             {crmCardsToRender.length === 0 ? (
@@ -566,7 +615,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               crmCardsToRender.map((card, index) => {
-                const accent = crmAccentPalette[index % crmAccentPalette.length];
+                const accent = card.kind === "pipeline" && (card as { color?: string }).color
+                  ? (card as { color: string }).color
+                  : crmAccentPalette[index % crmAccentPalette.length];
                 const ratio = Math.max(8, Math.round((card.leadCount / crmTopLeadCount) * 100));
 
                 return (

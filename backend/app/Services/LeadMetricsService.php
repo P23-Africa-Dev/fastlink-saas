@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Lead;
+use App\Models\LeadDrive;
 use App\Models\LeadStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,18 +40,30 @@ class LeadMetricsService
             ->sum('estimated_value');
     }
 
-    public function pipelineStats(?int $stateId = null, ?string $status = null): array
+    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null): array
     {
         $resolvedStatus = $this->resolveStatusFilter($status);
 
         $baseQuery = $this->baseQuery()
-            ->when($stateId, fn(Builder $query) => $query->where('state_id', $stateId));
+            ->when($stateId, fn(Builder $query) => $query->where('state_id', $stateId))
+            ->when($driveId, fn(Builder $query) => $query->where('drive_id', $driveId));
 
         $baseQuery = $this->applyStatusFilter($baseQuery, $resolvedStatus);
 
+        // Resolve drive details for the response (null when no drive filter applied)
+        $drive = $driveId
+            ? LeadDrive::query()->find($driveId, ['id', 'name', 'color', 'slug'])
+            : null;
+
         $totalLeads = (clone $baseQuery)->count();
 
-        $topStates = (clone $baseQuery)
+        // Location aggregations only consider leads with valid, resolved location data.
+        // This prevents "Unknown" entries from appearing in top-states and top-entries.
+        $locatedQuery = (clone $baseQuery)
+            ->whereNotNull('leads.country_id')
+            ->whereNotNull('leads.state_id');
+
+        $topStates = (clone $locatedQuery)
             ->join('states', 'states.id', '=', 'leads.state_id')
             ->selectRaw('states.id as state_id, states.name as state_name, COUNT(*) as lead_count')
             ->groupBy('states.id', 'states.name')
@@ -65,7 +78,7 @@ class LeadMetricsService
             ->values()
             ->all();
 
-        $topEntries = (clone $baseQuery)
+        $topEntries = (clone $locatedQuery)
             ->with(['state:id,name'])
             ->select(['id', 'first_name', 'last_name', 'company', 'status', 'state_id', 'created_at'])
             ->orderByDesc('id')
@@ -88,12 +101,19 @@ class LeadMetricsService
 
         return [
             'total_leads' => $totalLeads,
+            'drive' => $drive ? [
+                'id'    => (int) $drive->id,
+                'name'  => (string) $drive->name,
+                'color' => (string) $drive->color,
+                'slug'  => (string) $drive->slug,
+            ] : null,
             'filters' => [
-                'state_id' => $stateId,
-                'status' => $status,
+                'drive_id'       => $driveId,
+                'state_id'       => $stateId,
+                'status'         => $status,
                 'resolved_status' => $resolvedStatus,
             ],
-            'top_states' => $topStates,
+            'top_states'  => $topStates,
             'top_entries' => $topEntries,
         ];
     }

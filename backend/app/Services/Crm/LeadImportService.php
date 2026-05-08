@@ -56,7 +56,7 @@ class LeadImportService
 
             if (!$payload) {
                 $skipped++;
-                $errors[] = 'Row ' . ($index + 2) . ': missing one of first_name/company/email.';
+                $errors[] = 'Row ' . ($index + 2) . ': ' . $this->buildSkipReason($row);
                 continue;
             }
 
@@ -202,7 +202,7 @@ class LeadImportService
         $statusId = $this->resolveStatusId($row, $defaults);
         $driveId = $this->resolveDriveId($row, $defaults);
 
-        // --- Location resolution (silent on mismatch) ---
+        // --- Location resolution (required; reject row if country or state cannot be resolved) ---
         $countryInput = trim((string) ($row['country'] ?? ''));
         $stateInput   = trim((string) ($row['state'] ?? $row['state_province'] ?? ''));
         $lgaInput     = trim((string) ($row['lga'] ?? $row['province'] ?? $row['local_government'] ?? ''));
@@ -211,6 +211,10 @@ class LeadImportService
             $stateInput   ?: null,
             $lgaInput     ?: null,
         );
+
+        if (empty($location['country_id']) || empty($location['state_id'])) {
+            return null;
+        }
 
         return [
             'first_name' => $this->limit($firstName !== '' ? $firstName : ($company !== '' ? $company : 'Imported Lead')),
@@ -243,6 +247,8 @@ class LeadImportService
             'status_id' => $statusId,
             'assigned_to' => $assignedTo,
             'created_by' => $actor->id,
+            'imported_by' => $actor->id,
+            'source_type' => 'import',
             'notes' => $this->toText($row['notes'] ?? null),
         ];
     }
@@ -388,6 +394,38 @@ class LeadImportService
         }
 
         return true;
+    }
+
+    /**
+     * Determine a human-readable reason why a row was skipped.
+     */
+    private function buildSkipReason(array $row): string
+    {
+        $firstName = trim((string) ($row['first_name'] ?? ''));
+        $name      = trim((string) ($row['name'] ?? ''));
+        $company   = trim((string) ($row['company'] ?? ''));
+        $email     = trim((string) ($row['email'] ?? ''));
+
+        if ($firstName === '' && $name === '' && $company === '' && $email === '') {
+            return 'missing one of first_name/company/email.';
+        }
+
+        $country = trim((string) ($row['country'] ?? ''));
+        $state   = trim((string) ($row['state'] ?? $row['state_province'] ?? ''));
+
+        if ($country === '' && $state === '') {
+            return 'country and state are required but were not provided.';
+        }
+
+        if ($country === '') {
+            return 'country is required but was not provided.';
+        }
+
+        if ($state === '') {
+            return 'state is required but was not provided.';
+        }
+
+        return "country \"{$country}\" or state \"{$state}\" could not be matched in the system.";
     }
 
     private function normalizePriority(string $value): string

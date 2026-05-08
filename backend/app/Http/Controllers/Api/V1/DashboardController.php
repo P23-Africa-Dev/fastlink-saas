@@ -23,6 +23,7 @@ class DashboardController extends Controller
             $this->dashboardService->pipelineStats(
                 $request->filled('state_id') ? (int) $request->input('state_id') : null,
                 $request->string('status')->toString() ?: null,
+                $request->filled('drive_id') ? (int) $request->input('drive_id') : null,
             ),
             'Dashboard pipeline stats fetched.'
         );

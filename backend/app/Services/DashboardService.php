@@ -85,9 +85,9 @@ class DashboardService
         ];
     }
 
-    public function pipelineStats(?int $stateId = null, ?string $status = null): array
+    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null): array
     {
-        return $this->leadMetricsService->pipelineStats($stateId, $status);
+        return $this->leadMetricsService->pipelineStats($stateId, $status, $driveId);
     }
 
     public function dailyTasks(User $user, ?string $date = null, ?string $status = null, int $limit = 50): array

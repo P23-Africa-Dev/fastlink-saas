@@ -13,7 +13,7 @@ export function useDashboardStats() {
   });
 }
 
-export function useDashboardPipelineStats(filters: { stateId?: number; status?: string }) {
+export function useDashboardPipelineStats(filters: { stateId?: number; status?: string; driveId?: number }) {
   return useQuery({
     queryKey: ["dashboard", "pipeline-stats", filters],
     queryFn: async () => {
@@ -21,6 +21,7 @@ export function useDashboardPipelineStats(filters: { stateId?: number; status?: 
         params: {
           state_id: filters.stateId || undefined,
           status: filters.status || undefined,
+          drive_id: filters.driveId || undefined,
         },
       });
       return res.data.data;

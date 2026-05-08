@@ -43,6 +43,7 @@ class Lead extends Model
         'drive_id',
         'status_id',
         'created_by',
+        'imported_by',
         'last_contacted_at',
         'next_follow_up',
         'converted_at',
@@ -69,6 +70,11 @@ class Lead extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function importer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'imported_by');
     }
 
     public function drive(): BelongsTo

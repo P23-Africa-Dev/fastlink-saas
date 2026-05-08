@@ -46,9 +46,9 @@ class StoreLeadRequest extends FormRequest
             'country' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
-            // Structured location FK fields
-            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
-            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            // Structured location FK fields — both required at creation time
+            'country_id' => ['required', 'integer', 'exists:countries,id'],
+            'state_id' => ['required', 'integer', 'exists:states,id'],
             'status' => ['nullable', 'string', Rule::in(['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'])],
             'source' => ['nullable', 'string', 'max:255'],
             'priority' => ['nullable', 'string', Rule::in(['low', 'medium', 'high', 'urgent'])],

@@ -60,6 +60,8 @@ class LeadController extends Controller
     {
         $payload = $request->validated();
         $payload['created_by'] = $request->user()->id;
+        $payload['imported_by'] = null;
+        $payload['source_type'] = 'manual';
 
         $lead = Lead::create($payload);
 

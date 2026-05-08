@@ -87,7 +87,14 @@ export interface DashboardPipelineTopEntry {
 
 export interface DashboardPipelineStats {
   total_leads: number;
+  drive?: {
+    id: number;
+    name: string;
+    color: string;
+    slug: string;
+  } | null;
   filters: {
+    drive_id?: number | null;
     state_id?: number | null;
     status?: string | null;
     resolved_status?: {
