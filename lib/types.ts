@@ -281,7 +281,7 @@ export interface AttendanceCalendarPayload {
   tasks: Task[];
 }
 
-export type CalendarEventType = "attendance" | "leave" | "project" | "task";
+export type CalendarEventType = "attendance" | "leave" | "project" | "task" | "meeting";
 
 export interface CalendarEvent {
   id: string;
@@ -309,6 +309,60 @@ export interface CreateCalendarTaskPayload {
   priority?: "low" | "medium" | "high" | "urgent";
   assigned_to?: number;
 }
+
+// ─── Meetings ──────────────────────────────────────────────────────────────
+
+export interface MeetingOrganizer {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface MeetingAttendee {
+  id: number;
+  name: string;
+  email: string;
+  pivot: {
+    response_status: string;
+    responded_at: string | null;
+  };
+}
+
+export interface Meeting {
+  id: number;
+  title: string;
+  description: string | null;
+  organizer_id: number;
+  start_at: string;
+  end_at: string;
+  timezone: string;
+  status: string;
+  meet_link: string | null;
+  calendar_link: string | null;
+  external_guest_emails: string[];
+  organizer: MeetingOrganizer;
+  attendees: MeetingAttendee[];
+}
+
+export interface CreateMeetingPayload {
+  title: string;
+  description?: string;
+  start_at: string;
+  end_at: string;
+  timezone?: string;
+  guest_ids?: number[];
+  guest_emails?: string[];
+  reminder_minutes?: number[];
+  project_id?: number;
+  task_id?: number;
+  share_meeting_link?: boolean;
+  share_calendar_link?: boolean;
+  is_recurring?: boolean;
+  auto_record?: boolean;
+  approval_required?: boolean;
+}
+
+export type UpdateMeetingPayload = Partial<CreateMeetingPayload>;
 
 // ─── Leave Requests ────────────────────────────────────────────────────────
 export interface LeaveRequest {
