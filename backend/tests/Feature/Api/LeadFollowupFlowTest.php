@@ -8,6 +8,7 @@ use App\Notifications\LeadFollowupApprovalRequestedNotification;
 use Database\Seeders\WorkflowDefaultsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 function createLeadForFollowup(int $creatorId, ?int $assignedTo = null): Lead
@@ -215,6 +216,7 @@ it('prevents unauthorized approval and duplicate/concurrent pending updates', fu
 
 it('validates schema and supports attachment upload with authenticated download', function () {
     $this->seed(WorkflowDefaultsSeeder::class);
+    Storage::fake('local');
 
     $admin = apiUser('admin', ['email' => 'attach-admin@fastlink.test']);
     Sanctum::actingAs($admin);
@@ -249,10 +251,91 @@ it('validates schema and supports attachment upload with authenticated download'
     $download = $this->get("/api/v1/crm/followups/{$followupId}/attachments/{$attachmentId}/download");
     $download->assertOk()->assertHeader('content-disposition');
     expect((string) $download->headers->get('content-disposition'))->toContain('attachment;');
+
+    $path = LeadFollowup::findOrFail($followupId)->attachments()->firstOrFail()->file_path;
+    expect(Storage::disk('local')->exists($path))->toBeTrue();
+});
+
+it('creates followup with multiple multipart attachments and returns urls for preview and download', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+    Storage::fake('local');
+
+    $admin = apiUser('admin', ['email' => 'multi-attach-admin@fastlink.test']);
+    Sanctum::actingAs($admin);
+
+    $lead = createLeadForFollowup($admin->id);
+
+    $create = $this->post("/api/v1/crm/leads/{$lead->id}/followups", [
+        'title' => 'With Multiple Attachments',
+        'content' => json_encode([
+            'description' => 'Multiple files attached',
+            'channel' => 'Email',
+        ]),
+        'form_schema' => json_encode([
+            'fields' => [
+                ['label' => 'Description', 'type' => 'textarea', 'required' => true],
+            ],
+        ]),
+        'attachments' => [
+            UploadedFile::fake()->image('proof.png'),
+            UploadedFile::fake()->create('report.csv', 20, 'text/csv'),
+            UploadedFile::fake()->create('archive.zip', 15, 'application/zip'),
+        ],
+    ]);
+
+    $create->assertCreated()
+        ->assertJsonPath('success', true)
+        ->assertJsonCount(3, 'data.attachments');
+
+    $attachments = $create->json('data.attachments');
+    expect($attachments[0])->toHaveKey('file_url');
+    expect($attachments[0])->toHaveKey('preview_url');
+    expect($attachments[0])->toHaveKey('download_url');
+
+    $followup = LeadFollowup::query()->latest('id')->firstOrFail();
+    expect($followup->attachments()->count())->toBe(3);
+
+    foreach ($followup->attachments as $attachment) {
+        expect(Storage::disk('local')->exists($attachment->file_path))->toBeTrue();
+    }
+});
+
+it('rejects malformed attachment payload and invalid mime types', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+
+    $admin = apiUser('admin', ['email' => 'invalid-attach-admin@fastlink.test']);
+    Sanctum::actingAs($admin);
+
+    $lead = createLeadForFollowup($admin->id);
+
+    $malformed = $this->postJson("/api/v1/crm/leads/{$lead->id}/followups", [
+        'title' => 'Malformed Attachments',
+        'content' => ['description' => 'Wrong payload type'],
+        'attachments' => [
+            ['name' => 'fake-file.pdf', 'size' => 1234],
+        ],
+    ]);
+
+    $malformed->assertStatus(422)
+        ->assertJsonPath('success', false)
+        ->assertJsonStructure(['errors' => ['attachments.0']]);
+
+    $invalidMime = $this->post("/api/v1/crm/leads/{$lead->id}/followups", [
+        'title' => 'Invalid Mime',
+        'content' => json_encode(['description' => 'Executable blocked']),
+        'attachments' => [
+            UploadedFile::fake()->create('payload.exe', 10, 'application/x-msdownload'),
+        ],
+    ]);
+
+    $invalidMime->assertStatus(422)
+        ->assertJsonPath('success', false)
+        ->assertJsonStructure(['errors' => ['attachments.0']]);
 });
 
 it('stores new attachments on followup edit when multipart uses method override', function () {
     $this->seed(WorkflowDefaultsSeeder::class);
+    Storage::fake('local');
 
     $staff = apiUser('staff', ['email' => 'owner-staff@fastlink.test']);
     Sanctum::actingAs($staff);
@@ -278,4 +361,48 @@ it('stores new attachments on followup edit when multipart uses method override'
 
     $followup->refresh();
     expect($followup->attachments()->count())->toBe(1);
+
+    $stored = $followup->attachments()->firstOrFail();
+    expect(Storage::disk('local')->exists($stored->file_path))->toBeTrue();
+});
+
+it('updates followup attachments by removing existing ones and adding new files in the same request', function () {
+    $this->seed(WorkflowDefaultsSeeder::class);
+    Storage::fake('local');
+
+    $staff = apiUser('staff', ['email' => 'replace-attach-owner@fastlink.test']);
+    Sanctum::actingAs($staff);
+
+    $lead = createLeadForFollowup($staff->id);
+    $followup = LeadFollowup::create([
+        'lead_id' => $lead->id,
+        'created_by' => $staff->id,
+        'title' => 'Attachment Swap',
+        'content' => ['description' => 'Original state'],
+    ]);
+
+    $this->post("/api/v1/crm/leads/{$lead->id}/followups", [
+        'title' => 'Seed Attachments',
+        'content' => json_encode(['description' => 'seed']),
+        'attachments' => [UploadedFile::fake()->create('old-note.txt', 5, 'text/plain')],
+    ])->assertCreated();
+
+    $originalAttachment = LeadFollowup::query()->latest('id')->firstOrFail()->attachments()->firstOrFail();
+    $originalPath = $originalAttachment->file_path;
+
+    $update = $this->post("/api/v1/crm/followups/{$originalAttachment->followup_id}", [
+        '_method' => 'PUT',
+        'title' => 'Attachment Swap Updated',
+        'content' => json_encode(['description' => 'Updated state']),
+        'attachment_ids_remove' => [$originalAttachment->id],
+        'attachments_add' => [UploadedFile::fake()->image('new-screenshot.webp')],
+    ]);
+
+    $update->assertOk()->assertJsonPath('data.mode', 'updated');
+
+    $updatedFollowup = LeadFollowup::findOrFail($originalAttachment->followup_id);
+    expect($updatedFollowup->attachments()->count())->toBe(1);
+
+    expect(Storage::disk('local')->exists($originalPath))->toBeFalse();
+    expect(Storage::disk('local')->exists($updatedFollowup->attachments()->firstOrFail()->file_path))->toBeTrue();
 });

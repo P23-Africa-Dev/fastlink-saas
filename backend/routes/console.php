@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('attendance:auto-clock-out')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('meetings:send-reminders')
+    ->everyMinute()
+    ->withoutOverlapping();

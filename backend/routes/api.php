@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\LeadStatusController;
 use App\Http\Controllers\Api\V1\LeadAnalyticsController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
 use App\Http\Controllers\Api\V1\LocationController;
+use App\Http\Controllers\Api\V1\MeetingController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectTagController;
@@ -48,9 +49,23 @@ Route::prefix('v1')->group(function () {
         Route::get('/calendar/events', [CalendarController::class, 'events'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.calendar.events');
+        Route::get('/calendar/meetings', [MeetingController::class, 'calendarMeetings'])
+            ->middleware('role:admin|supervisor|staff')
+            ->name('api.calendar.meetings');
         Route::post('/calendar/tasks', [CalendarController::class, 'storeTask'])
             ->middleware('auth:sanctum')
             ->name('api.calendar.store-task');
+
+        Route::get('/meetings', [MeetingController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('/meetings', [MeetingController::class, 'store'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/meetings/{meeting}', [MeetingController::class, 'show'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::put('/meetings/{meeting}', [MeetingController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::delete('/meetings/{meeting}', [MeetingController::class, 'destroy'])
+            ->middleware('role:admin|supervisor|staff');
 
         // Location hierarchy (read-only, available to all authenticated users)
         Route::get('/countries', [LocationController::class, 'countries'])
@@ -278,4 +293,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/settings/company/validate-device-token', [SupervisorPasscodeController::class, 'validateDeviceToken'])
             ->middleware('role:supervisor');
     });
+});
+
+// Non-versioned aliases for meeting integration requirements.
+Route::middleware(['auth:sanctum', 'role:admin|supervisor|staff'])->group(function () {
+    Route::post('/meetings', [MeetingController::class, 'store']);
+    Route::put('/meetings/{meeting}', [MeetingController::class, 'update']);
+    Route::delete('/meetings/{meeting}', [MeetingController::class, 'destroy']);
+    Route::get('/calendar/meetings', [MeetingController::class, 'calendarMeetings']);
 });

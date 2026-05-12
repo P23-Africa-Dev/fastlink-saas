@@ -273,11 +273,24 @@ Typical `422` messages:
 ## Attachment Uploads — Multipart/Form-Data Guide
 
 ### Why `multipart/form-data` is required
-Browsers cannot send binary files in a JSON body.  Any request that includes
+Browsers cannot send binary files in a JSON body. Any request that includes
 one or more file attachments **must** use `Content-Type: multipart/form-data`.
 When that content-type is active every non-file field arrives in PHP as a plain
-string, so `content` and `form_schema` must be sent as **JSON-serialised
+string, so `content` and `form_schema` must be sent as **JSON-serialized
 strings** — the backend automatically decodes them before validation runs.
+
+### Root cause of `attachments.0 must be a file`
+This validation error typically appears when frontend HTTP clients force
+`Content-Type: application/json` even when the payload is `FormData`.
+
+In that case, file objects are serialized as plain values instead of multipart
+file parts, so Laravel receives non-file input and `attachments.*` validation
+fails.
+
+Permanent fix applied in this project:
+- Frontend API client removes `Content-Type` when `data instanceof FormData`
+- Create and update follow-up hooks send FormData without manually forcing JSON
+- Backend controller normalizes uploaded file arrays before service calls
 
 ### Correct request format
 
@@ -316,6 +329,19 @@ await fetch(`/api/v1/crm/leads/${leadId}/followups`, {
   method: "POST",
   headers: { Authorization: `Bearer ${token}` },
   body: formData,
+});
+```
+
+Axios guardrail (recommended globally):
+
+```javascript
+apiClient.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    // Must be removed so browser can inject multipart boundary.
+    delete config.headers?.["Content-Type"];
+  }
+
+  return config;
 });
 ```
 
@@ -426,6 +452,44 @@ const blob = await response.blob();
 const objectUrl = URL.createObjectURL(blob);
 window.open(objectUrl);            // or assign to <a href> / <img src>
 URL.revokeObjectURL(objectUrl);    // clean up after use
+```
+
+### Attachment validation examples
+
+Malformed attachment payload (not a real file object):
+
+```json
+{
+  "title": "Malformed Attachments",
+  "content": { "description": "Wrong payload type" },
+  "attachments": [
+    { "name": "fake-file.pdf", "size": 1234 }
+  ]
+}
+```
+
+Typical response:
+
+```json
+{
+  "success": false,
+  "message": "Validation failed.",
+  "errors": {
+    "attachments.0": ["The attachments.0 field must be a file."]
+  }
+}
+```
+
+Invalid MIME upload example:
+
+```json
+{
+  "success": false,
+  "message": "Validation failed.",
+  "errors": {
+    "attachments.0": ["The attachments.0 field must be a file of type: jpeg, jpg, png, gif, webp, pdf, doc, docx, xls, xlsx, zip, txt, csv."]
+  }
+}
 ```
 
 ## Backward Compatibility
