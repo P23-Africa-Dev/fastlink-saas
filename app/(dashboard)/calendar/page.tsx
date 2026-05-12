@@ -1,22 +1,25 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, Video, X } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjects } from "../project/hooks/useProject";
 import { useUsers } from "../attendance/hooks/useAttendance";
-import { useCalendarEvents, useCreateCalendarTask } from "./hooks/useCalendar";
+import { useCalendarEvents, useCreateCalendarTask, useCreateMeeting } from "./hooks/useCalendar";
 import { toast } from "sonner";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
 import { CreateCalendarTaskModal } from "./components/CreateCalendarTaskModal";
+import { CreateMeetingModal } from "./components/CreateMeetingModal";
+import { MeetingDetailsModal } from "./components/MeetingDetailsModal";
 
 const EVENT_STYLE: Record<CalendarEventType, { bg: string; color: string; label: string }> = {
   attendance: { bg: "#dbeafe", color: "#1d4ed8", label: "Attendance" },
   leave: { bg: "#fef3c7", color: "#AF580B", label: "Leave" },
   project: { bg: "#ede9fe", color: "#33084E", label: "Project" },
   task: { bg: "#dcfce7", color: "#074616", label: "Task" },
+  meeting: { bg: "#e0f2fe", color: "#0369a1", label: "Meeting" },
 };
 
 const TYPE_OPTIONS = [
@@ -25,6 +28,7 @@ const TYPE_OPTIONS = [
   { value: "leave", label: "Leave" },
   { value: "project", label: "Projects" },
   { value: "task", label: "Tasks" },
+  { value: "meeting", label: "Meetings" },
 ];
 
 type CalendarCell = {
@@ -95,6 +99,14 @@ function formatClockTime(time: string) {
 
 function eventStartTimeLabel(event: CalendarEvent) {
   const meta = event.meta as EventMeta;
+
+  if (event.type === "meeting" && typeof meta.start_at === "string") {
+    const d = new Date(meta.start_at as string);
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return formatClockTime(`${h}:${m}`);
+  }
+
   const attendanceStart = typeof meta.signed_in_at === "string" ? meta.signed_in_at : null;
   const genericStart = typeof meta.start_time === "string" ? meta.start_time : null;
   const sourceTime = attendanceStart || genericStart;
@@ -168,19 +180,28 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(currentMonth());
   const [typeFilter, setTypeFilter] = useState<"all" | CalendarEventType>("all");
   const [selectedDate, setSelectedDate] = useState("");
+  const [scheduleMeetingDate, setScheduleMeetingDate] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const firstDay = useMemo(() => fromMonth(month), [month]);
   const todayIso = useMemo(() => toIso(new Date()), []);
   const user = useAuthStore((state) => state.user);
+
   const canCreateTask = useMemo(() => {
     const roles = user?.roles?.map((role) => role.name) ?? [];
     return roles.includes("admin") || roles.includes("supervisor");
   }, [user?.roles]);
+
+  const canScheduleMeeting = useMemo(() => {
+    const roles = user?.roles?.map((role) => role.name) ?? [];
+    return roles.includes("admin") || roles.includes("supervisor") || roles.includes("staff");
+  }, [user?.roles]);
+
   const monthStart = useMemo(() => toIso(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1)), [firstDay]);
   const monthEnd = useMemo(() => toIso(new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)), [firstDay]);
 
   const createTaskMutation = useCreateCalendarTask();
+  const createMeetingMutation = useCreateMeeting();
   const { data: projects = [] } = useProjects();
   const { data: users = [] } = useUsers();
   const { data = [], isLoading, isFetching, isError, refetch } = useCalendarEvents({
@@ -196,6 +217,17 @@ export default function CalendarPage() {
       },
       onError: () => {
         toast.error("Task creation failed. Check required fields and try again.");
+      },
+    });
+  }
+
+  async function handleCreateMeeting(payload: Parameters<typeof createMeetingMutation.mutateAsync>[0]) {
+    await createMeetingMutation.mutateAsync(payload, {
+      onSuccess: () => {
+        toast.success("Meeting scheduled.");
+      },
+      onError: () => {
+        toast.error("Failed to schedule meeting. Check the details and try again.");
       },
     });
   }
@@ -245,7 +277,7 @@ export default function CalendarPage() {
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="chart-card-title">Calendar</h2>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="w-full sm:w-[180px]">
+              <div className="w-full sm:w-45">
                 <CustomSelect value={typeFilter} onChange={(value) => setTypeFilter(value as "all" | CalendarEventType)} options={TYPE_OPTIONS} fullWidth />
               </div>
               <button
@@ -263,7 +295,7 @@ export default function CalendarPage() {
                 >
                   <ChevronLeft size={16} />
                 </button>
-                <span className="text-[13px] font-bold text-(--text-primary) min-w-[132px] text-center">{monthLabel(month)}</span>
+                <span className="text-[13px] font-bold text-(--text-primary) min-w-33 text-center">{monthLabel(month)}</span>
                 <button
                   onClick={() => setMonth(nextMonth(month))}
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-[#9ca3af] hover:text-(--text-primary)"
@@ -281,10 +313,20 @@ export default function CalendarPage() {
                   <span className="text-[11px] font-semibold">Add Task</span>
                 </button>
               )}
+              {canScheduleMeeting && (
+                <button
+                  onClick={() => setScheduleMeetingDate(toIso(new Date()))}
+                  className="h-8 inline-flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#6b7280] hover:text-(--text-primary)"
+                  style={{ padding: "0 10px", gap: "6px" }}
+                >
+                  <Video size={13} />
+                  <span className="text-[11px] font-semibold">Schedule Meeting</span>
+                </button>
+              )}
             </div>
           </div>
 
-          <p className="stat-card-label">Unified events from attendance, leave, projects, and tasks. Click through months to inspect activity windows.</p>
+          <p className="stat-card-label">Unified events from attendance, leave, projects, tasks, and meetings. Click through months to inspect activity windows.</p>
 
           <div className="flex flex-wrap items-center gap-2">
             {(Object.keys(EVENT_STYLE) as CalendarEventType[]).map((type) => (
@@ -357,10 +399,10 @@ export default function CalendarPage() {
                       className="text-[10px] font-semibold truncate rounded-md text-left"
                       style={{
                         padding: "2px 6px",
-                        background: EVENT_STYLE[event.type].bg,
-                        color: EVENT_STYLE[event.type].color,
+                        background: EVENT_STYLE[event.type]?.bg ?? "#f3f4f6",
+                        color: EVENT_STYLE[event.type]?.color ?? "#374151",
                       }}
-                      title={`${EVENT_STYLE[event.type].label}: ${event.title}`}
+                      title={`${EVENT_STYLE[event.type]?.label ?? event.type}: ${event.title}`}
                       onClick={(clickEvent) => {
                         clickEvent.stopPropagation();
                         setExpandedDay(null);
@@ -397,10 +439,10 @@ export default function CalendarPage() {
                             className="text-[10px] font-semibold truncate rounded-md text-left"
                             style={{
                               padding: "3px 6px",
-                              background: EVENT_STYLE[event.type].bg,
-                              color: EVENT_STYLE[event.type].color,
+                              background: EVENT_STYLE[event.type]?.bg ?? "#f3f4f6",
+                              color: EVENT_STYLE[event.type]?.color ?? "#374151",
                             }}
-                            title={`${EVENT_STYLE[event.type].label}: ${event.title}`}
+                            title={`${EVENT_STYLE[event.type]?.label ?? event.type}: ${event.title}`}
                             onClick={(clickEvent) => {
                               clickEvent.stopPropagation();
                               setSelectedEvent(event);
@@ -436,7 +478,27 @@ export default function CalendarPage() {
         />
       )}
 
-      {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+      {canScheduleMeeting && scheduleMeetingDate && (
+        <CreateMeetingModal
+          selectedDate={scheduleMeetingDate}
+          projects={projects}
+          users={users}
+          onClose={() => setScheduleMeetingDate("")}
+          onSave={handleCreateMeeting}
+        />
+      )}
+
+      {selectedEvent && selectedEvent.type === "meeting" && (
+        <MeetingDetailsModal
+          event={selectedEvent}
+          canManage={canScheduleMeeting}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      {selectedEvent && selectedEvent.type !== "meeting" && (
+        <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+      )}
     </div>
   );
 }
