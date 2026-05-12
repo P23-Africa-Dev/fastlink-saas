@@ -30,7 +30,7 @@ class CalendarController extends Controller
         $endDate = Carbon::createFromFormat('Y-m-d', $validated['end_date'])->endOfDay();
         $type = $validated['type'] ?? null;
 
-        $events = $this->calendarService->getEvents($startDate, $endDate, $type);
+        $events = $this->calendarService->getEvents($startDate, $endDate, $type, $request->user());
 
         return $this->success($events, 'Calendar events fetched.', 200);
     }

@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\LeaveRequest;
+use App\Models\Meeting;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -16,10 +18,11 @@ class CalendarService
      *
      * @param Carbon $startDate
      * @param Carbon $endDate
-     * @param ?string $type Filter by event type (attendance, leave, project, task)
+     * @param ?string $type Filter by event type (attendance, leave, project, task, meeting)
+     * @param ?User $viewer Current user for visibility-aware event types
      * @return Collection
      */
-    public function getEvents(Carbon $startDate, Carbon $endDate, ?string $type = null): Collection
+    public function getEvents(Carbon $startDate, Carbon $endDate, ?string $type = null, ?User $viewer = null): Collection
     {
         $events = collect();
 
@@ -38,6 +41,10 @@ class CalendarService
 
         if ($type === null || $type === 'task') {
             $events = $events->merge($this->getTaskEvents($startDate, $endDate));
+        }
+
+        if ($type === null || $type === 'meeting') {
+            $events = $events->merge($this->getMeetingEvents($startDate, $endDate, $viewer));
         }
 
         // Sort events by start_date
@@ -183,6 +190,52 @@ class CalendarService
                         'description' => $task->description,
                         'priority' => $task->priority,
                         'completed_at' => $task->completed_at?->format('Y-m-d H:i:s'),
+                    ],
+                ];
+            });
+    }
+
+    private function getMeetingEvents(Carbon $startDate, Carbon $endDate, ?User $viewer): Collection
+    {
+        if ($viewer === null) {
+            return collect();
+        }
+
+        return Meeting::query()
+            ->with(['organizer:id,name,email', 'attendees:id,name,email'])
+            ->where('status', '!=', Meeting::STATUS_CANCELLED)
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('start_at', [$startDate, $endDate])
+                    ->orWhereBetween('end_at', [$startDate, $endDate])
+                    ->orWhere(function ($sub) use ($startDate, $endDate) {
+                        $sub->where('start_at', '<=', $startDate)
+                            ->where('end_at', '>=', $endDate);
+                    });
+            })
+            ->where(function ($query) use ($viewer) {
+                $query->where('organizer_id', $viewer->id)
+                    ->orWhereHas('attendees', function ($attendeeQuery) use ($viewer) {
+                        $attendeeQuery->where('users.id', $viewer->id);
+                    });
+            })
+            ->get()
+            ->map(function (Meeting $meeting) {
+                return [
+                    'id' => "meeting_{$meeting->id}",
+                    'type' => 'meeting',
+                    'title' => $meeting->title,
+                    'start_date' => $meeting->start_at?->format('Y-m-d'),
+                    'end_date' => $meeting->end_at?->format('Y-m-d'),
+                    'status' => $meeting->status,
+                    'meta' => [
+                        'meeting_id' => $meeting->id,
+                        'organizer' => $meeting->organizer?->only(['id', 'name', 'email']),
+                        'guest_count' => $meeting->attendees->count() + count($meeting->external_guest_emails ?? []),
+                        'meet_link' => $meeting->meet_link,
+                        'calendar_link' => $meeting->calendar_link,
+                        'timezone' => $meeting->timezone,
+                        'start_at' => $meeting->start_at?->toIso8601String(),
+                        'end_at' => $meeting->end_at?->toIso8601String(),
                     ],
                 ];
             });

@@ -19,7 +19,7 @@ class CalendarEventsRequest extends FormRequest
         return [
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
-            'type' => ['nullable', 'string', 'in:attendance,leave,project,task'],
+            'type' => ['nullable', 'string', 'in:attendance,leave,project,task,meeting'],
         ];
     }
 
@@ -31,7 +31,7 @@ class CalendarEventsRequest extends FormRequest
             'end_date.required' => 'End date is required.',
             'end_date.date_format' => 'End date must be in YYYY-MM-DD format.',
             'end_date.after_or_equal' => 'End date must be after or equal to start date.',
-            'type.in' => 'Type must be one of: attendance, leave, project, task.',
+            'type.in' => 'Type must be one of: attendance, leave, project, task, meeting.',
         ];
     }
 }

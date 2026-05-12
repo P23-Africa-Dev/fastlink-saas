@@ -126,4 +126,21 @@ class User extends Authenticatable
     {
         return $this->hasMany(LeadFollowupAttachment::class, 'uploaded_by');
     }
+
+    public function organizedMeetings(): HasMany
+    {
+        return $this->hasMany(Meeting::class, 'organizer_id');
+    }
+
+    public function createdMeetings(): HasMany
+    {
+        return $this->hasMany(Meeting::class, 'created_by');
+    }
+
+    public function meetingInvitations(): BelongsToMany
+    {
+        return $this->belongsToMany(Meeting::class, 'meeting_attendees')
+            ->withPivot(['response_status', 'responded_at'])
+            ->withTimestamps();
+    }
 }
