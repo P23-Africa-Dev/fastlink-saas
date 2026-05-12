@@ -145,7 +145,7 @@ export function EditFollowUpModal({ followUp, leadName, onClose, onSave, isSavin
 
           {/* Description */}
           <div className="flex flex-col" style={{ gap: "8px" }}>
-            <label className={labelCls}>Description</label>
+            <label className={labelCls}>Agent evaluation</label>
             <textarea
               rows={4}
               value={description}

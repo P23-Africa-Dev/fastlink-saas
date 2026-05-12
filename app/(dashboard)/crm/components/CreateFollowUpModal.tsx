@@ -110,7 +110,7 @@ export function CreateFollowUpModal({ leadName, onClose, onSave, isSaving }: Cre
 
           {/* Description */}
           <div className="flex flex-col" style={{ gap: "8px" }}>
-            <label className={labelCls}>Description</label>
+            <label className={labelCls}>Agent evaluation</label>
             <textarea
               rows={4}
               placeholder="What happened or was discussed..."
