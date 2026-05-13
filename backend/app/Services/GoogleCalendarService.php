@@ -2,24 +2,29 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Services\Contracts\GoogleCalendarClient;
 use Carbon\Carbon;
-use RuntimeException;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class GoogleCalendarService implements GoogleCalendarClient
 {
-    public function createMeetingEvent(array $payload, array $attendeeEmails): array
+    public function __construct(
+        private readonly \App\Services\GoogleOAuthService $googleOAuthService,
+    ) {}
+
+    public function createMeetingEvent(User $organizer, array $payload, array $attendeeEmails): array
     {
         if (!$this->isEnabled()) {
-            return [
-                'event_id' => null,
-                'meet_link' => null,
-                'calendar_link' => null,
-                'calendar_id' => null,
-            ];
+            return $this->emptyEventResponse();
         }
 
-        $client = $this->buildClient();
+        $client = $this->googleOAuthService->authorizedClientFor($organizer);
+        if ($client === null) {
+            return $this->emptyEventResponse();
+        }
+
         $calendarClass = 'Google\\Service\\Calendar';
         $eventClass = 'Google\\Service\\Calendar\\Event';
         $calendarService = new $calendarClass($client);
@@ -49,11 +54,21 @@ class GoogleCalendarService implements GoogleCalendarClient
             ],
         ]);
 
-        $calendarId = (string) config('google.calendar.id', 'primary');
-        $created = $calendarService->events->insert($calendarId, $event, [
-            'conferenceDataVersion' => 1,
-            'sendUpdates' => 'all',
-        ]);
+        $calendarId = $this->googleOAuthService->calendarIdFor($organizer);
+        try {
+            $created = $calendarService->events->insert($calendarId, $event, [
+                'conferenceDataVersion' => 1,
+                'sendUpdates' => 'all',
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Google Calendar create event failed. Continuing without Google sync.', [
+                'organizer_id' => $organizer->id,
+                'calendar_id' => $calendarId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->emptyEventResponse();
+        }
 
         return [
             'event_id' => $created->id,
@@ -63,19 +78,34 @@ class GoogleCalendarService implements GoogleCalendarClient
         ];
     }
 
-    public function updateMeetingEvent(string $eventId, array $payload, array $attendeeEmails): void
+    public function updateMeetingEvent(User $organizer, string $eventId, array $payload, array $attendeeEmails): void
     {
         if (!$this->isEnabled()) {
             return;
         }
 
-        $client = $this->buildClient();
+        $client = $this->googleOAuthService->authorizedClientFor($organizer);
+        if ($client === null) {
+            return;
+        }
+
         $calendarClass = 'Google\\Service\\Calendar';
         $eventDateTimeClass = 'Google\\Service\\Calendar\\EventDateTime';
         $calendarService = new $calendarClass($client);
-        $calendarId = (string) config('google.calendar.id', 'primary');
+        $calendarId = $this->googleOAuthService->calendarIdFor($organizer);
 
-        $event = $calendarService->events->get($calendarId, $eventId);
+        try {
+            $event = $calendarService->events->get($calendarId, $eventId);
+        } catch (Throwable $exception) {
+            Log::error('Google Calendar get event for update failed. Skipping Google sync update.', [
+                'organizer_id' => $organizer->id,
+                'calendar_id' => $calendarId,
+                'event_id' => $eventId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return;
+        }
         $timezone = (string) ($payload['timezone'] ?? config('google.calendar.timezone', 'Africa/Lagos'));
 
         if (array_key_exists('title', $payload)) {
@@ -102,23 +132,47 @@ class GoogleCalendarService implements GoogleCalendarClient
 
         $event->setAttendees(array_map(fn(string $email): array => ['email' => $email], $attendeeEmails));
 
-        $calendarService->events->update($calendarId, $eventId, $event, [
-            'sendUpdates' => 'all',
-        ]);
+        try {
+            $calendarService->events->update($calendarId, $eventId, $event, [
+                'sendUpdates' => 'all',
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Google Calendar update event failed. Skipping Google sync update.', [
+                'organizer_id' => $organizer->id,
+                'calendar_id' => $calendarId,
+                'event_id' => $eventId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
-    public function deleteMeetingEvent(string $eventId): void
+    public function deleteMeetingEvent(User $organizer, string $eventId): void
     {
         if (!$this->isEnabled()) {
             return;
         }
 
-        $client = $this->buildClient();
+        $client = $this->googleOAuthService->authorizedClientFor($organizer);
+        if ($client === null) {
+            return;
+        }
+
         $calendarClass = 'Google\\Service\\Calendar';
         $calendarService = new $calendarClass($client);
-        $calendarService->events->delete((string) config('google.calendar.id', 'primary'), $eventId, [
-            'sendUpdates' => 'all',
-        ]);
+        $calendarId = $this->googleOAuthService->calendarIdFor($organizer);
+
+        try {
+            $calendarService->events->delete($calendarId, $eventId, [
+                'sendUpdates' => 'all',
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Google Calendar delete event failed. Skipping Google sync delete.', [
+                'organizer_id' => $organizer->id,
+                'calendar_id' => $calendarId,
+                'event_id' => $eventId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function isEnabled(): bool
@@ -126,28 +180,16 @@ class GoogleCalendarService implements GoogleCalendarClient
         return (bool) config('google.enabled', false);
     }
 
-    private function buildClient(): object
+    /**
+     * @return array{event_id:string|null, meet_link:string|null, calendar_link:string|null, calendar_id:string|null}
+     */
+    private function emptyEventResponse(): array
     {
-        $clientClass = 'Google\\Client';
-        if (!class_exists($clientClass)) {
-            throw new RuntimeException('google/apiclient is not installed. Run composer require google/apiclient:^2.18.');
-        }
-
-        $keyPath = (string) config('google.service_account.key_path');
-        if ($keyPath === '' || !is_file($keyPath)) {
-            throw new RuntimeException('Google service account key file was not found.');
-        }
-
-        $client = new $clientClass();
-        $client->setAuthConfig($keyPath);
-        $client->setApplicationName(config('app.name', 'FastLink SaaS') . ' Meetings');
-        $calendarClass = 'Google\\Service\\Calendar';
-        $client->setScopes([
-            $calendarClass::CALENDAR,
-            $calendarClass::CALENDAR_EVENTS,
-        ]);
-        $client->setAccessType('offline');
-
-        return $client;
+        return [
+            'event_id' => null,
+            'meet_link' => null,
+            'calendar_link' => null,
+            'calendar_id' => null,
+        ];
     }
 }

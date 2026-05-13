@@ -6,6 +6,7 @@ This guide explains how frontend clients integrate with the backend meeting sche
 MVP scope:
 - One-time meetings are fully supported.
 - Recurring RRULE/series behavior is deferred to v2 and should not be assumed by frontend flows.
+- Google RSVP invitations require the organizer to connect a real Google account via OAuth before meeting creation.
 
 - Base API prefix: `/api/v1`
 - Auth: Bearer token (Sanctum)
@@ -21,6 +22,9 @@ MVP scope:
 - `DELETE /meetings/{meeting}` cancel meeting
 - `GET /calendar/meetings` list meetings for calendar rendering
 - `GET /calendar/events?type=meeting` unified calendar feed including meeting events
+- `GET /google/calendar/status` check organizer Google connection
+- `GET /google/calendar/connect` start organizer OAuth flow
+- `DELETE /google/calendar/disconnect` disconnect organizer Google account
 
 Absolute API paths:
 - Versioned primary: `/api/v1/...`
@@ -57,6 +61,7 @@ Notes:
 - `guest_emails` allows external guests.
 - `reminder_minutes` drives cron-based reminder sending.
 - `timezone` defaults to `Africa/Lagos` if omitted.
+- If Google Calendar integration is enabled, organizer must connect Google first or meeting creation will be rejected.
 
 ## Calendar Response Structure
 
@@ -158,6 +163,66 @@ const calendarFeed = await api.get('/calendar/events', {
     type: 'meeting',
   },
 });
+
+const googleStatus = await api.get('/google/calendar/status');
+
+if (!googleStatus.data.data.connected) {
+  const connect = await api.get('/google/calendar/connect');
+  window.location.href = connect.data.data.authorization_url;
+}
+```
+
+## Exact OAuth Popup + Guard Sequence
+
+Use this sequence in the calendar or meeting scheduling UI:
+
+1. On page load, call `GET /google/calendar/status` for users who can schedule meetings.
+2. If `connected === true`, allow the normal meeting modal flow.
+3. If `connected === false`, intercept the `Schedule Meeting` action and show a Google connection prompt instead of the meeting modal.
+4. When the user clicks `Connect Google Calendar`, call `GET /google/calendar/connect`.
+5. Open `authorization_url` in a popup window.
+6. While the popup is open, poll `GET /google/calendar/status` every 1-2 seconds.
+7. When status becomes connected:
+   - close the popup
+   - close the connection prompt
+   - restore the user intent
+   - open the meeting modal automatically
+8. If the popup closes before the status changes, keep the meeting modal blocked and show a retry action.
+
+Recommended frontend behavior:
+
+- Keep a `pendingMeetingDate` or similar state so the user does not lose the original action.
+- Surface `last_error` from `GET /google/calendar/status` near the connect CTA.
+- On meeting create `422` with `google_calendar` validation error, show the backend message directly rather than a generic toast.
+
+Pseudo-flow:
+
+```ts
+const status = await api.get('/google/calendar/status');
+
+if (status.data.data.connected) {
+  openMeetingModal();
+  return;
+}
+
+showGoogleConnectPrompt();
+
+const { data } = await api.get('/google/calendar/connect');
+const popup = window.open(data.data.authorization_url, 'google-calendar-connect', 'popup=yes,width=560,height=720');
+
+const timer = window.setInterval(async () => {
+  const refreshed = await api.get('/google/calendar/status');
+  if (refreshed.data.data.connected) {
+    window.clearInterval(timer);
+    popup?.close();
+    hideGoogleConnectPrompt();
+    openMeetingModal();
+  }
+
+  if (popup?.closed) {
+    window.clearInterval(timer);
+  }
+}, 1500);
 ```
 
 ## Error Handling
@@ -203,7 +268,10 @@ This triggers:
 ## Google Integration Setup Checklist
 
 - Set `GOOGLE_CALENDAR_ENABLED=true`
-- Place service key JSON at `storage/app/google-service-account.json`
-- Set `GOOGLE_SERVICE_ACCOUNT_KEY_PATH`
-- Set `GOOGLE_CALENDAR_ID` and `GOOGLE_CALENDAR_TIMEZONE=Africa/Lagos`
-- Install dependency: `composer require google/apiclient:^2.18`
+- Set `GOOGLE_CLIENT_ID`
+- Set `GOOGLE_CLIENT_SECRET`
+- Set `GOOGLE_REDIRECT_URI`
+- Set success/failure frontend redirect URLs
+- Set `GOOGLE_CALENDAR_ID=primary` for personal Gmail organizers
+- Keep `GOOGLE_CALENDAR_TIMEZONE=Africa/Lagos`
+- Review [backend/docs/google-calendar-oauth-setup.md](backend/docs/google-calendar-oauth-setup.md)

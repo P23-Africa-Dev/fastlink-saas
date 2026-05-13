@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, RotateCcw, Video, X } from "lucide-react";
+import { AxiosError } from "axios";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjects } from "../project/hooks/useProject";
 import { useUsers } from "../attendance/hooks/useAttendance";
-import { useCalendarEvents, useCreateCalendarTask, useCreateMeeting } from "./hooks/useCalendar";
+import { useCalendarEvents, useCreateCalendarTask, useCreateMeeting, useGoogleCalendarConnect, useGoogleCalendarStatus } from "./hooks/useCalendar";
 import { toast } from "sonner";
-import type { CalendarEvent, CalendarEventType } from "@/lib/types";
+import type { ApiResponse, CalendarEvent, CalendarEventType, GoogleCalendarConnectionStatus } from "@/lib/types";
 import { CreateCalendarTaskModal } from "./components/CreateCalendarTaskModal";
 import { CreateMeetingModal } from "./components/CreateMeetingModal";
 import { MeetingDetailsModal } from "./components/MeetingDetailsModal";
@@ -176,13 +177,96 @@ function EventDetailsModal({ event, onClose }: { event: CalendarEvent; onClose: 
   );
 }
 
+function GoogleCalendarConnectModal({
+  googleEmail,
+  onClose,
+  onConnect,
+  connecting,
+}: {
+  googleEmail: string | null;
+  onClose: () => void;
+  onConnect: () => Promise<void>;
+  connecting: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      style={{ padding: "16px" }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#f0f0f5] overflow-hidden">
+        <div className="flex items-center justify-between bg-[#f8f8fc] border-b border-[#f0f0f5]" style={{ padding: "18px 22px" }}>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#9ca3af]">Google Calendar Required</p>
+            <h3 className="text-[18px] font-bold text-(--text-primary)">Connect organizer calendar</h3>
+          </div>
+          <button onClick={onClose} className="text-[#9ca3af] hover:text-(--text-primary)">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col" style={{ padding: "20px 22px", gap: "14px" }}>
+          <p className="text-[13px] leading-6 text-[#4b5563]">
+            Google RSVP invitation emails only work when the meeting organizer creates the event from a connected Google account.
+          </p>
+          <div className="rounded-xl border border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "12px 14px" }}>
+            <p className="text-[11px] font-bold uppercase text-[#9ca3af]">What happens next</p>
+            <ul className="mt-2 flex flex-col gap-1 text-[12px] text-[#4b5563]">
+              <li>FastLink opens Google consent in a popup.</li>
+              <li>You approve calendar access for the organizer account.</li>
+              <li>After connection is confirmed, the meeting modal opens automatically.</li>
+            </ul>
+          </div>
+          {googleEmail && (
+            <p className="text-[12px] font-semibold text-[#0369a1]">Currently connected: {googleEmail}</p>
+          )}
+        </div>
+
+        <div className="border-t border-[#f0f0f5] flex items-center justify-end bg-[#f8f8fc]" style={{ padding: "16px 22px", gap: "10px" }}>
+          <button
+            className="h-10 rounded-xl border border-[#e5e7eb] text-[#6b7280] text-[12px] font-bold"
+            style={{ padding: "0 14px" }}
+            onClick={onClose}
+          >
+            Not now
+          </button>
+          <button
+            className="h-10 rounded-xl bg-[#0369a1] text-white text-[12px] font-bold disabled:opacity-60"
+            style={{ padding: "0 14px" }}
+            onClick={() => void onConnect()}
+            disabled={connecting}
+          >
+            {connecting ? "Opening Google..." : "Connect Google Calendar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function extractApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof AxiosError) {
+    const apiError = error.response?.data as { message?: string; errors?: Record<string, string[]> } | undefined;
+    const nestedError = apiError?.errors ? Object.values(apiError.errors).flat()[0] : null;
+    return nestedError || apiError?.message || fallback;
+  }
+
+  return fallback;
+}
+
 export default function CalendarPage() {
   const [month, setMonth] = useState(currentMonth());
   const [typeFilter, setTypeFilter] = useState<"all" | CalendarEventType>("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [scheduleMeetingDate, setScheduleMeetingDate] = useState("");
+  const [pendingMeetingDate, setPendingMeetingDate] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [showGoogleConnectPrompt, setShowGoogleConnectPrompt] = useState(false);
+  const popupRef = useRef<Window | null>(null);
+  const pollerRef = useRef<number | null>(null);
   const firstDay = useMemo(() => fromMonth(month), [month]);
   const todayIso = useMemo(() => toIso(new Date()), []);
   const user = useAuthStore((state) => state.user);
@@ -202,13 +286,92 @@ export default function CalendarPage() {
 
   const createTaskMutation = useCreateCalendarTask();
   const createMeetingMutation = useCreateMeeting();
+  const googleConnectMutation = useGoogleCalendarConnect();
   const { data: projects = [] } = useProjects();
   const { data: users = [] } = useUsers();
+  const {
+    data: googleCalendarStatus,
+    isLoading: isGoogleCalendarStatusLoading,
+    refetch: refetchGoogleCalendarStatus,
+  } = useGoogleCalendarStatus(canScheduleMeeting);
   const { data = [], isLoading, isFetching, isError, refetch } = useCalendarEvents({
     start_date: monthStart,
     end_date: monthEnd,
     type: typeFilter === "all" ? undefined : typeFilter,
   });
+
+  useEffect(() => {
+    return () => {
+      if (pollerRef.current !== null) {
+        window.clearInterval(pollerRef.current);
+      }
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+      }
+    };
+  }, []);
+
+  function scheduleMeetingWithGuard(date: string) {
+    if (!canScheduleMeeting) {
+      return;
+    }
+
+    if (googleCalendarStatus?.connected) {
+      setScheduleMeetingDate(date);
+      return;
+    }
+
+    setPendingMeetingDate(date);
+    setShowGoogleConnectPrompt(true);
+  }
+
+  async function startGoogleCalendarConnect() {
+    try {
+      const payload = await googleConnectMutation.mutateAsync();
+      const popup = window.open(payload.authorization_url, "google-calendar-connect", "popup=yes,width=560,height=720");
+
+      if (!popup) {
+        window.location.href = payload.authorization_url;
+        return;
+      }
+
+      popupRef.current = popup;
+      toast.message("Complete Google sign-in in the popup window.");
+
+      if (pollerRef.current !== null) {
+        window.clearInterval(pollerRef.current);
+      }
+
+      pollerRef.current = window.setInterval(async () => {
+        if (popup.closed) {
+          window.clearInterval(pollerRef.current ?? undefined);
+          pollerRef.current = null;
+        }
+
+        const result = await refetchGoogleCalendarStatus();
+        if (result.data?.connected) {
+          if (pollerRef.current !== null) {
+            window.clearInterval(pollerRef.current);
+            pollerRef.current = null;
+          }
+
+          if (!popup.closed) {
+            popup.close();
+          }
+
+          setShowGoogleConnectPrompt(false);
+          toast.success(`Google Calendar connected as ${result.data.google_email ?? "organizer"}.`);
+
+          if (pendingMeetingDate) {
+            setScheduleMeetingDate(pendingMeetingDate);
+            setPendingMeetingDate("");
+          }
+        }
+      }, 1500);
+    } catch (error) {
+      toast.error(extractApiErrorMessage(error, "Failed to start Google Calendar connection."));
+    }
+  }
 
   async function handleCreateTask(payload: Parameters<typeof createTaskMutation.mutateAsync>[0]) {
     await createTaskMutation.mutateAsync(payload, {
@@ -226,8 +389,8 @@ export default function CalendarPage() {
       onSuccess: () => {
         toast.success("Meeting scheduled.");
       },
-      onError: () => {
-        toast.error("Failed to schedule meeting. Check the details and try again.");
+      onError: (error) => {
+        toast.error(extractApiErrorMessage(error, "Failed to schedule meeting. Check the details and try again."));
       },
     });
   }
@@ -315,7 +478,7 @@ export default function CalendarPage() {
               )}
               {canScheduleMeeting && (
                 <button
-                  onClick={() => setScheduleMeetingDate(toIso(new Date()))}
+                  onClick={() => scheduleMeetingWithGuard(toIso(new Date()))}
                   className="h-8 inline-flex items-center justify-center rounded-lg border border-[#f0f0f5] text-[#6b7280] hover:text-(--text-primary)"
                   style={{ padding: "0 10px", gap: "6px" }}
                 >
@@ -327,6 +490,42 @@ export default function CalendarPage() {
           </div>
 
           <p className="stat-card-label">Unified events from attendance, leave, projects, tasks, and meetings. Click through months to inspect activity windows.</p>
+
+          {canScheduleMeeting && (
+            <div
+              className={`rounded-xl border ${googleCalendarStatus?.connected ? "border-[#d1fae5] bg-[#ecfdf5]" : "border-[#fde68a] bg-[#fffbeb]"}`}
+              style={{ padding: "12px 14px" }}
+            >
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#9ca3af]">Google RSVP status</p>
+                  <p className="text-[13px] font-semibold text-(--text-primary)">
+                    {isGoogleCalendarStatusLoading
+                      ? "Checking organizer Google Calendar connection..."
+                      : googleCalendarStatus?.connected
+                        ? `Connected as ${googleCalendarStatus.google_email ?? "organizer"}. Google will send official invitation emails.`
+                        : "Organizer Google Calendar is not connected. Meeting creation is blocked until OAuth is completed."}
+                  </p>
+                  {googleCalendarStatus?.last_error && (
+                    <p className="text-[12px] text-[#b45309] mt-1">Last Google sync issue: {googleCalendarStatus.last_error}</p>
+                  )}
+                </div>
+                {!googleCalendarStatus?.connected && !isGoogleCalendarStatusLoading && (
+                  <button
+                    onClick={() => {
+                      setPendingMeetingDate(toIso(new Date()));
+                      setShowGoogleConnectPrompt(true);
+                    }}
+                    className="h-9 rounded-xl bg-[#0369a1] text-white text-[12px] font-bold disabled:opacity-60"
+                    style={{ padding: "0 14px" }}
+                    disabled={googleConnectMutation.isPending}
+                  >
+                    Connect Google Calendar
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             {(Object.keys(EVENT_STYLE) as CalendarEventType[]).map((type) => (
@@ -485,6 +684,18 @@ export default function CalendarPage() {
           users={users}
           onClose={() => setScheduleMeetingDate("")}
           onSave={handleCreateMeeting}
+        />
+      )}
+
+      {showGoogleConnectPrompt && (
+        <GoogleCalendarConnectModal
+          googleEmail={googleCalendarStatus?.google_email ?? null}
+          connecting={googleConnectMutation.isPending}
+          onClose={() => {
+            setShowGoogleConnectPrompt(false);
+            setPendingMeetingDate("");
+          }}
+          onConnect={startGoogleCalendarConnect}
         />
       )}
 

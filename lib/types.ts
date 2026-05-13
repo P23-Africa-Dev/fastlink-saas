@@ -344,6 +344,19 @@ export interface Meeting {
   attendees: MeetingAttendee[];
 }
 
+export interface GoogleCalendarConnectionStatus {
+  connected: boolean;
+  google_email: string | null;
+  calendar_id: string | null;
+  token_expires_at: string | null;
+  last_error: string | null;
+}
+
+export interface GoogleCalendarConnectPayload {
+  authorization_url: string;
+  expires_in: number;
+}
+
 export interface CreateMeetingPayload {
   title: string;
   description?: string;

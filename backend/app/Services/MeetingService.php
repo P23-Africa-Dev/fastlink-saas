@@ -10,17 +10,21 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MeetingService
 {
     public function __construct(
         private readonly GoogleCalendarClient $googleCalendarClient,
+        private readonly \App\Services\GoogleOAuthService $googleOAuthService,
         private readonly MeetingNotificationService $meetingNotificationService,
     ) {}
 
     public function create(User $actor, array $payload): Meeting
     {
         return DB::transaction(function () use ($actor, $payload): Meeting {
+            $this->assertOrganizerConnected($actor);
+
             $timezone = (string) ($payload['timezone'] ?? 'Africa/Lagos');
             $guestIds = collect($payload['guest_ids'] ?? [])->map(fn($id): int => (int) $id)->unique()->values();
             $guestEmails = $this->normalizeExternalGuestEmails($payload['guest_emails'] ?? []);
@@ -40,13 +44,19 @@ class MeetingService
                 ->unique()
                 ->values();
 
-            $googleEvent = $this->googleCalendarClient->createMeetingEvent([
+            $googleEvent = $this->googleCalendarClient->createMeetingEvent($actor, [
                 'title' => $payload['title'],
                 'description' => $payload['description'] ?? null,
                 'start_at' => $payload['start_at'],
                 'end_at' => $payload['end_at'],
                 'timezone' => $timezone,
             ], $allGuestEmails->all());
+
+            if ($this->googleOAuthService->isEnabled() && empty($googleEvent['event_id'])) {
+                throw ValidationException::withMessages([
+                    'google_calendar' => ['Google Calendar event creation failed. Reconnect the organizer Google account and try again.'],
+                ]);
+            }
 
             $meeting = Meeting::query()->create([
                 'title' => $payload['title'],
@@ -88,6 +98,8 @@ class MeetingService
         $this->assertCanManage($meeting, $actor);
 
         return DB::transaction(function () use ($meeting, $actor, $payload): Meeting {
+            $meeting->loadMissing('organizer');
+
             $currentAttendeeEmails = $meeting->attendees()->pluck('users.email')->map(fn($email): string => strtolower((string) $email));
             $incomingGuestIds = collect($payload['guest_ids'] ?? $meeting->attendees()->pluck('users.id')->all())
                 ->map(fn($id): int => (int) $id)
@@ -146,7 +158,11 @@ class MeetingService
             }
 
             if (!empty($meeting->google_event_id)) {
-                $this->googleCalendarClient->updateMeetingEvent((string) $meeting->google_event_id, [
+                if ($meeting->organizer instanceof User) {
+                    $this->assertOrganizerConnected($meeting->organizer);
+                }
+
+                $this->googleCalendarClient->updateMeetingEvent($meeting->organizer, (string) $meeting->google_event_id, [
                     'title' => $meeting->title,
                     'description' => $meeting->description,
                     'start_at' => $meeting->start_at?->toDateTimeString(),
@@ -172,12 +188,16 @@ class MeetingService
         $this->assertCanManage($meeting, $actor);
 
         return DB::transaction(function () use ($meeting, $actor, $reason): Meeting {
+            $meeting->loadMissing('organizer');
             $meeting->status = Meeting::STATUS_CANCELLED;
             $meeting->updated_by = $actor->id;
             $meeting->save();
 
             if (!empty($meeting->google_event_id)) {
-                $this->googleCalendarClient->deleteMeetingEvent((string) $meeting->google_event_id);
+                if ($meeting->organizer instanceof User) {
+                    $this->assertOrganizerConnected($meeting->organizer);
+                    $this->googleCalendarClient->deleteMeetingEvent($meeting->organizer, (string) $meeting->google_event_id);
+                }
             }
 
             $meeting->load(['organizer:id,name,email', 'attendees:id,name,email']);
@@ -303,5 +323,20 @@ class MeetingService
                 'status' => 'pending',
             ]);
         }
+    }
+
+    private function assertOrganizerConnected(User $organizer): void
+    {
+        if (!$this->googleOAuthService->isEnabled()) {
+            return;
+        }
+
+        if ($this->googleOAuthService->hasConnectedAccount($organizer)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'google_calendar' => ['Connect the organizer Google account before creating or syncing meetings so Google can send RSVP invitations.'],
+        ]);
     }
 }

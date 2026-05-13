@@ -28,7 +28,7 @@ class MeetingController extends Controller
     {
         $meeting = $this->meetingService->create($request->user(), $request->validated());
 
-        return $this->success($meeting, 'Meeting created.', 201);
+        return $this->success($meeting, 'Meeting created with Google Calendar sync.', 201);
     }
 
     public function show(Meeting $meeting, Request $request): JsonResponse

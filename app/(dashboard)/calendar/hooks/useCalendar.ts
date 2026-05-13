@@ -7,6 +7,8 @@ import type {
   CalendarEvent,
   CalendarEventsParams,
   CreateCalendarTaskPayload,
+  GoogleCalendarConnectPayload,
+  GoogleCalendarConnectionStatus,
   CreateMeetingPayload,
   Meeting,
   Task,
@@ -28,6 +30,27 @@ export function useMeetings(params: { start_date?: string; end_date?: string; pe
     queryKey: ["meetings", params],
     queryFn: async () => {
       const res = await api.get<ApiResponse<Meeting[]>>("/meetings", { params });
+      return res.data.data;
+    },
+  });
+}
+
+export function useGoogleCalendarStatus(enabled = true) {
+  return useQuery({
+    queryKey: ["google-calendar-status"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<GoogleCalendarConnectionStatus>>("/google/calendar/status");
+      return res.data.data;
+    },
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useGoogleCalendarConnect() {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.get<ApiResponse<GoogleCalendarConnectPayload>>("/google/calendar/connect");
       return res.data.data;
     },
   });

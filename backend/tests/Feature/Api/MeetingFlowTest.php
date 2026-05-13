@@ -13,9 +13,9 @@ class FakeGoogleCalendarClient implements GoogleCalendarClient
     public array $updated = [];
     public array $deleted = [];
 
-    public function createMeetingEvent(array $payload, array $attendeeEmails): array
+    public function createMeetingEvent(User $organizer, array $payload, array $attendeeEmails): array
     {
-        $this->created[] = ['payload' => $payload, 'emails' => $attendeeEmails];
+        $this->created[] = ['organizer_id' => $organizer->id, 'payload' => $payload, 'emails' => $attendeeEmails];
 
         return [
             'event_id' => 'evt_test_123',
@@ -25,14 +25,14 @@ class FakeGoogleCalendarClient implements GoogleCalendarClient
         ];
     }
 
-    public function updateMeetingEvent(string $eventId, array $payload, array $attendeeEmails): void
+    public function updateMeetingEvent(User $organizer, string $eventId, array $payload, array $attendeeEmails): void
     {
-        $this->updated[] = ['event_id' => $eventId, 'payload' => $payload, 'emails' => $attendeeEmails];
+        $this->updated[] = ['organizer_id' => $organizer->id, 'event_id' => $eventId, 'payload' => $payload, 'emails' => $attendeeEmails];
     }
 
-    public function deleteMeetingEvent(string $eventId): void
+    public function deleteMeetingEvent(User $organizer, string $eventId): void
     {
-        $this->deleted[] = $eventId;
+        $this->deleted[] = ['organizer_id' => $organizer->id, 'event_id' => $eventId];
     }
 }
 
@@ -63,6 +63,7 @@ it('creates a meeting and generates meet link with guests', function () {
         ->assertJsonPath('data.meet_link', 'https://meet.google.com/test-link');
 
     expect($fakeGoogle->created)->toHaveCount(1);
+    expect($fakeGoogle->created[0]['organizer_id'])->toBe($organizer->id);
 
     Notification::assertSentTo($internalGuest, MeetingInvitationNotification::class);
 
@@ -99,10 +100,11 @@ it('updates and cancels a meeting with google sync', function () {
 
     $update->assertOk()->assertJsonPath('data.title', 'Pipeline Review Updated');
     expect($fakeGoogle->updated)->toHaveCount(1);
+    expect($fakeGoogle->updated[0]['organizer_id'])->toBe($organizer->id);
 
     $cancel = $this->deleteJson('/api/v1/meetings/' . $meetingId, ['reason' => 'Rescheduling']);
     $cancel->assertOk()->assertJsonPath('data.status', 'cancelled');
-    expect($fakeGoogle->deleted)->toContain('evt_test_123');
+    expect($fakeGoogle->deleted[0]['event_id'])->toBe('evt_test_123');
 });
 
 it('enforces meeting visibility and management access rules', function () {

@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/health', [HealthController::class, 'check'])->name('api.health');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
+    Route::get('/google/calendar/callback', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'callback'])
+        ->name('api.google.calendar.callback');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
@@ -52,6 +54,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/calendar/meetings', [MeetingController::class, 'calendarMeetings'])
             ->middleware('role:admin|supervisor|staff')
             ->name('api.calendar.meetings');
+        Route::get('/google/calendar/status', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'status'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('/google/calendar/connect', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'connect'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::delete('/google/calendar/disconnect', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'disconnect'])
+            ->middleware('role:admin|supervisor|staff');
         Route::post('/calendar/tasks', [CalendarController::class, 'storeTask'])
             ->middleware('auth:sanctum')
             ->name('api.calendar.store-task');
