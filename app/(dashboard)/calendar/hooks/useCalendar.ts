@@ -51,6 +51,18 @@ export function useGoogleCalendarConnect() {
   return useMutation({
     mutationFn: async () => {
       const res = await api.get<ApiResponse<GoogleCalendarConnectPayload>>("/google/calendar/connect");
+
+      export function useGoogleCalendarDisconnect() {
+        const queryClient = useQueryClient();
+        return useMutation({
+          mutationFn: async () => {
+            await api.delete("/google/calendar/disconnect");
+          },
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
+          },
+        });
+      }
       return res.data.data;
     },
   });

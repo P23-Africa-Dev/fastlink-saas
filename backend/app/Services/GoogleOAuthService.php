@@ -90,6 +90,20 @@ class GoogleOAuthService
             return null;
         }
 
+        // Reject tokens that were stored without the Calendar scope.
+        // This forces reconnection instead of attempting an API call that will 403.
+        if (!$this->accountHasCalendarScope($account)) {
+            $account->last_error = 'Google account is missing Calendar permission. Please reconnect.';
+            $account->save();
+
+            Log::warning('Google Calendar scope missing for organizer. Reconnection required.', [
+                'user_id' => $user->id,
+                'stored_scopes' => $account->scopes,
+            ]);
+
+            return null;
+        }
+
         try {
             $client = $this->makeClient();
         } catch (Throwable $exception) {
@@ -233,11 +247,23 @@ class GoogleOAuthService
         $client->setClientSecret((string) config('google.oauth.client_secret'));
         $client->setRedirectUri((string) config('google.oauth.redirect_uri'));
         $client->setAccessType('offline');
-        $client->setIncludeGrantedScopes(true);
         $client->setPrompt('consent select_account');
         $client->setScopes(config('google.oauth.scopes', []));
 
         return $client;
+    }
+
+    private function accountHasCalendarScope(GoogleCalendarAccount $account): bool
+    {
+        $scopes = (array) ($account->scopes ?? []);
+        foreach ($scopes as $scope) {
+            if (str_contains((string) $scope, 'calendar')) {
+                return true;
+            }
+        }
+
+        // If scopes were never stored (legacy row), don't block — let the API call fail naturally.
+        return empty($scopes);
     }
 
     private function shouldRefresh(GoogleCalendarAccount $account): bool

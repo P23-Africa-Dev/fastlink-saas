@@ -8,7 +8,7 @@ import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjects } from "../project/hooks/useProject";
 import { useUsers } from "../attendance/hooks/useAttendance";
-import { useCalendarEvents, useCreateCalendarTask, useCreateMeeting, useGoogleCalendarConnect, useGoogleCalendarStatus } from "./hooks/useCalendar";
+import { useCalendarEvents, useCreateCalendarTask, useCreateMeeting, useGoogleCalendarConnect, useGoogleCalendarDisconnect, useGoogleCalendarStatus } from "./hooks/useCalendar";
 import { toast } from "sonner";
 import type { ApiResponse, CalendarEvent, CalendarEventType, GoogleCalendarConnectionStatus } from "@/lib/types";
 import { CreateCalendarTaskModal } from "./components/CreateCalendarTaskModal";
@@ -287,6 +287,7 @@ export default function CalendarPage() {
   const createTaskMutation = useCreateCalendarTask();
   const createMeetingMutation = useCreateMeeting();
   const googleConnectMutation = useGoogleCalendarConnect();
+  const googleDisconnectMutation = useGoogleCalendarDisconnect();
   const { data: projects = [] } = useProjects();
   const { data: users = [] } = useUsers();
   const {
@@ -510,18 +511,37 @@ export default function CalendarPage() {
                     <p className="text-[12px] text-[#b45309] mt-1">Last Google sync issue: {googleCalendarStatus.last_error}</p>
                   )}
                 </div>
-                {!googleCalendarStatus?.connected && !isGoogleCalendarStatusLoading && (
-                  <button
-                    onClick={() => {
-                      setPendingMeetingDate(toIso(new Date()));
-                      setShowGoogleConnectPrompt(true);
-                    }}
-                    className="h-9 rounded-xl bg-[#0369a1] text-white text-[12px] font-bold disabled:opacity-60"
-                    style={{ padding: "0 14px" }}
-                    disabled={googleConnectMutation.isPending}
-                  >
-                    Connect Google Calendar
-                  </button>
+                {!isGoogleCalendarStatusLoading && (
+                  <div className="flex items-center gap-2">
+                    {googleCalendarStatus?.connected && (
+                      <button
+                        onClick={() => {
+                          googleDisconnectMutation.mutate(undefined, {
+                            onSuccess: () => toast.success("Google Calendar disconnected."),
+                            onError: () => toast.error("Failed to disconnect Google Calendar."),
+                          });
+                        }}
+                        className="h-9 rounded-xl border border-[#fca5a5] bg-white text-[#b91c1c] text-[12px] font-bold disabled:opacity-60"
+                        style={{ padding: "0 14px" }}
+                        disabled={googleDisconnectMutation.isPending}
+                      >
+                        {googleDisconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    )}
+                    {!googleCalendarStatus?.connected && (
+                      <button
+                        onClick={() => {
+                          setPendingMeetingDate(toIso(new Date()));
+                          setShowGoogleConnectPrompt(true);
+                        }}
+                        className="h-9 rounded-xl bg-[#0369a1] text-white text-[12px] font-bold disabled:opacity-60"
+                        style={{ padding: "0 14px" }}
+                        disabled={googleConnectMutation.isPending}
+                      >
+                        Connect Google Calendar
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
