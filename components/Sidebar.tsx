@@ -20,7 +20,7 @@ const navItems = [
   { icon: Briefcase, label: "CRM", href: "/crm" },
   { icon: Layers, label: "Project", href: "/project" },
   { icon: CalendarCheck, label: "Attendance", href: "/attendance" },
-  { icon: GitPullRequest, label: "Users", href: "/users" },
+  { icon: GitPullRequest, label: "Leave Request", href: "/users" },
 ];
 
 const bottomItems = [
@@ -82,7 +82,7 @@ export default function Sidebar({
       />
       <aside className={`sidebar ${isExpanded ? "sidebar--expanded" : ""} ${isMobileOpen ? "sidebar--mobile-open" : ""}`}>
         <div className="sidebar-header">
-          <div className="sidebar-logo">Q</div>
+          <div className="sidebar-logo">F</div>
           <button
             className={`sidebar-toggle ${isExpanded ? "sidebar-toggle--rotated" : ""}`}
             onClick={onToggle}
