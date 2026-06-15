@@ -86,9 +86,10 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative flex items-center gap-3">
           <div className="flex items-center justify-center rounded-xl bg-white/15" style={{ width: "44px", height: "44px" }}>
-            <Zap size={22} color="white" fill="white" />
+            {/* <Zap size={22} color="white" fill="white" /> */}
+            <span className="text-white font-bold text-xl tracking-tight">F</span>
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">FastLink</span>
+          {/* <span className="text-white font-bold text-xl tracking-tight">FastLink</span> */}
         </div>
 
         {/* Hero */}
