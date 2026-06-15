@@ -35,7 +35,7 @@ interface NewLeadModalProps {
 
 const PRIORITIES = ["low", "normal", "high"] as const;
 type Priority = typeof PRIORITIES[number];
-const CURRENCIES = ["USD", "EUR", "GBP", "NGN"] as const;
+const CURRENCIES = ["NGN", "USD", "EUR", "GBP"] as const;
 
 const PRIORITY_STYLES: Record<Priority, { activeBg: string; activeColor: string; activeBorder: string }> = {
   low: { activeBg: "#f0f0f5", activeColor: "#9ca3af", activeBorder: "#9ca3af" },
@@ -59,7 +59,7 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
   const [driveId, setDriveId] = useState(() => drives[0]?.id.toString() ?? "");
   const [statusId, setStatusId] = useState(() => statuses[0]?.id.toString() ?? "");
   const [assignedTo, setAssignedTo] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("NGN");
   const [countryId, setCountryId] = useState("");
   const [stateId, setStateId] = useState("");
   const [stateError, setStateError] = useState("");
