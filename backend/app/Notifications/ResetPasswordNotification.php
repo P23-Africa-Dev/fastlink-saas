@@ -35,6 +35,6 @@ class ResetPasswordNotification extends Notification
             ->line('We received a request to reset the password for your FastLink account.')
             ->action('Reset Password', $resetUrl)
             ->line("This password reset link will expire in {$expireMinutes} minutes.")
-            ->line('If you did not request a password reset, no further action is required — your password will remain unchanged.');
+            ->line('If you did not request a password reset, no further action is required, your password will remain unchanged.');
     }
 }
