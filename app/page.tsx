@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Eye, EyeOff, Loader2, Zap } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/lib/stores/authStore";
@@ -190,6 +191,13 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password && <span className="text-[12px]" style={{ color: "#dc2626" }}>{errors.password}</span>}
+              <Link
+                href="/forgot-password"
+                className="self-end text-[12px] font-medium transition-colors hover:opacity-70"
+                style={{ color: "#33084E" }}
+              >
+                Forgot password?
+              </Link>
             </div>
 
             {/* Submit */}

@@ -51,6 +51,15 @@ class User extends Authenticatable
         return $this->suspended_at !== null;
     }
 
+    /**
+     * Send the password reset notification using FastLink's branded email
+     * instead of Laravel's default notification.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
     public function createdLeads(): HasMany
     {
         return $this->hasMany(Lead::class, 'created_by');

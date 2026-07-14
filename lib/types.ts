@@ -33,6 +33,17 @@ export interface LoginResponseData {
   user: CurrentUser;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;

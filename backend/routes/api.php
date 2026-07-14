@@ -30,6 +30,12 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/health', [HealthController::class, 'check'])->name('api.health');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
+    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])
+        ->middleware('throttle:6,1')
+        ->name('api.auth.forgot-password');
+    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:6,1')
+        ->name('api.auth.reset-password');
     Route::get('/google/calendar/callback', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'callback'])
         ->name('api.google.calendar.callback');
 
