@@ -34,7 +34,9 @@ export default function ForgotPasswordPage() {
     setErrors({});
     setLoading(true);
     try {
-      await api.post<ApiResponse<null>>("/auth/forgot-password", { email });
+      await api.post<ApiResponse<null>>("/auth/forgot-password", {
+        email: email.trim().toLowerCase(),
+      });
       setSent(true);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } }).response?.status;

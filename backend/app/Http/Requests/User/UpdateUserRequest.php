@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\User;
 
+use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
+    use NormalizesEmail;
+
     public function authorize(): bool
     {
         return true;

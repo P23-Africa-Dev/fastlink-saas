@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProfileRequest extends FormRequest
 {
+    use NormalizesEmail;
+
     public function authorize(): bool
     {
         return true; // Any authenticated user can update their own profile.

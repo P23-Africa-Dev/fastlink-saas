@@ -47,7 +47,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await api.post<ApiResponse<LoginResponseData>>("/auth/login", {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         device_name: "frontend-web",
       });
