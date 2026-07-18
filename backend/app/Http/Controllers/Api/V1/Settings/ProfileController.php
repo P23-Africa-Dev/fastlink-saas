@@ -44,7 +44,8 @@ class ProfileController extends Controller
                 ]);
             }
 
-            $payload['password'] = Hash::make($payload['password']);
+            // Assign plain — the User model's `hashed` cast hashes exactly once.
+            // (Do not Hash::make() here; that can double-hash depending on cast behaviour.)
         }
 
         // Strip fields not present on the users table.

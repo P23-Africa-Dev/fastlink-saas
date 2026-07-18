@@ -12,7 +12,6 @@ use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -89,7 +88,8 @@ class UserController extends Controller
                 $existing->restore();
                 $existing->update([
                     'name' => $payload['name'],
-                    'password' => Hash::make($temporaryPassword),
+                    // Plain password — User model's `hashed` cast hashes once.
+                    'password' => $temporaryPassword,
                     'suspended_at' => null,
                 ]);
 
@@ -101,7 +101,8 @@ class UserController extends Controller
             $created = User::create([
                 'name' => $payload['name'],
                 'email' => $payload['email'],
-                'password' => Hash::make($temporaryPassword),
+                // Plain password — User model's `hashed` cast hashes once.
+                'password' => $temporaryPassword,
             ]);
 
             $created->syncRoles([$payload['role']]);
@@ -159,9 +160,7 @@ class UserController extends Controller
             return $this->error('Supervisors cannot assign the admin role.', 403);
         }
 
-        if (array_key_exists('password', $payload)) {
-            $payload['password'] = Hash::make($payload['password']);
-        }
+        // Password (if present) is assigned plain — the `hashed` cast hashes it.
 
         if (array_key_exists('suspended', $payload)) {
             $payload['suspended_at'] = $payload['suspended'] ? now() : null;

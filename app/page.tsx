@@ -57,12 +57,20 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } }).response?.status;
-      if (status === 401 || status === 422) {
+      const apiMessage = getApiErrorMessage(err, "");
+
+      // Only mask the deliberately generic "Invalid credentials." response.
+      // Everything else (suspended, deactivated, rate-limit, server errors)
+      // must surface the API's plain-English message.
+      if (
+        (status === 401 || status === 422) &&
+        (!apiMessage || apiMessage === "Invalid credentials.")
+      ) {
         setErrors({ general: "Invalid email or password. Please try again." });
       } else {
-        // Surface the API's own message (e.g. "Account suspended. Contact
-        // administrator.") instead of a generic one.
-        setErrors({ general: getApiErrorMessage(err, "Something went wrong. Please try again later.") });
+        setErrors({
+          general: apiMessage || "Something went wrong. Please try again later.",
+        });
       }
     } finally {
       setLoading(false);

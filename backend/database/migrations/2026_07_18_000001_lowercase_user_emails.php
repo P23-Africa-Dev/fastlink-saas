@@ -6,37 +6,38 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Normalize all stored user emails to lowercase so lookups
-     * (login, password reset) match regardless of typed case.
-     * Rows whose lowercased email would collide with another row
-     * (case-only duplicates) are left untouched to preserve the
-     * unique constraint; those must be resolved manually.
+     * Normalize stored user emails to trimmed lowercase.
+     *
+     * Done in PHP (not SQL LOWER/TRIM comparisons) so it works correctly
+     * on MySQL with case-insensitive collations AND on SQLite.
+     * Rows that would collide after normalization are left alone.
      */
     public function up(): void
     {
-        $users = DB::table('users')
-            ->select('id', 'email')
-            ->whereRaw('email != LOWER(email)')
-            ->get();
+        $users = DB::table('users')->select('id', 'email')->get();
 
         foreach ($users as $user) {
-            $lower = mb_strtolower($user->email);
+            $normalized = mb_strtolower(trim((string) $user->email));
+
+            if ($normalized === (string) $user->email || $normalized === '') {
+                continue;
+            }
 
             $conflict = DB::table('users')
-                ->whereRaw('LOWER(email) = ?', [$lower])
                 ->where('id', '!=', $user->id)
+                ->whereRaw('LOWER(TRIM(email)) = ?', [$normalized])
                 ->exists();
 
             if ($conflict) {
                 continue;
             }
 
-            DB::table('users')->where('id', $user->id)->update(['email' => $lower]);
+            DB::table('users')->where('id', $user->id)->update(['email' => $normalized]);
         }
     }
 
     public function down(): void
     {
-        // Original casing is not preserved; nothing to restore.
+        // Original casing / whitespace is not preserved; nothing to restore.
     }
 };
