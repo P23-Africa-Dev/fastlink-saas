@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAnalytics } from "./hooks/useAnalytics";
 import { AnalyticsSkeleton } from "@/components/AnalyticsSkeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 // ─── Helpers & Config ─────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ export default function AnalyticsPage() {
   if (isLoading) return <AnalyticsSkeleton />;
 
   if (error) {
-    toast.error("Failed to load analytics data");
+    toast.error(getApiErrorMessage(error, "Failed to load analytics data"));
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-75px)]">
         <p className="text-slate-500">Error loading analytics. Please try again.</p>

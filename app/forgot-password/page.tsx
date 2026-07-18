@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, MailCheck, Zap } from "lucide-react";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiError";
 import type { ApiResponse } from "@/lib/types";
 
 interface FormErrors {
@@ -43,7 +44,7 @@ export default function ForgotPasswordPage() {
       if (status === 429) {
         setErrors({ general: "Too many attempts. Please wait a moment and try again." });
       } else {
-        setErrors({ general: "Something went wrong. Please try again later." });
+        setErrors({ general: getApiErrorMessage(err, "Something went wrong. Please try again later.") });
       }
     } finally {
       setLoading(false);

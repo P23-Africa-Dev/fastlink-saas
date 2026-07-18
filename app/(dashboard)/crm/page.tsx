@@ -61,36 +61,11 @@ import { Lead } from "./components/LeadDetailDrawer";
 import { DriveItem } from "./components/ManagePipelinesModal";
 import { StatusItem } from "./components/ManageStatusesModal";
 import { CrmSkeleton } from "@/components/CrmSkeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
-type ApiError = {
-  message?: string;
-  response?: {
-    data?: {
-      message?: string;
-      errors?: Record<string, string[] | string>;
-    };
-  };
-};
 function errMsg(err: unknown, fallback: string) {
-  const parsed = err as ApiError;
-  const topMessage = parsed?.response?.data?.message;
-  if (topMessage) {
-    return topMessage;
-  }
-
-  const validationErrors = parsed?.response?.data?.errors;
-  if (validationErrors && typeof validationErrors === "object") {
-    const first = Object.values(validationErrors)[0];
-    if (Array.isArray(first) && first[0]) {
-      return first[0];
-    }
-    if (typeof first === "string" && first) {
-      return first;
-    }
-  }
-
-  return parsed?.message || fallback;
+  return getApiErrorMessage(err, fallback);
 }
 
 interface BackendUser {

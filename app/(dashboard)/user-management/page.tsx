@@ -7,6 +7,7 @@ import type { User as ApiUser } from "@/lib/types";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { SettingsSkeleton } from "@/components/SettingsSkeleton";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "./hooks/useUsers";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 import { UserCard } from "./components/UserCard";
@@ -142,7 +143,7 @@ export default function UserManagementPage() {
         setShowCreate(false);
         toast.success("User created successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to create user")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to create user"))
     });
   };
 
@@ -158,7 +159,7 @@ export default function UserManagementPage() {
         setEditing(null);
         toast.success("User updated successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to update user")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update user"))
     });
   };
 
@@ -174,7 +175,7 @@ export default function UserManagementPage() {
         setDeleting(null);
         toast.success("User deleted successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to delete user")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to delete user"))
     });
   };
 
@@ -188,7 +189,7 @@ export default function UserManagementPage() {
       onSuccess: (updated) => {
         toast.success(`User ${updated.suspended_at ? "suspended" : "activated"} successfully`);
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Action failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Action failed"))
     });
   };
 

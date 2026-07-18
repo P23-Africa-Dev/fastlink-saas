@@ -14,6 +14,7 @@ import { DayDetailDrawer } from "./components/DayDetailDrawer";
 import { SignInModal } from "./components/SignInModal";
 import { SignOutModal } from "./components/SignOutModal";
 import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 import {
@@ -198,7 +199,7 @@ export default function AttendancePage() {
         setShowSignIn(false);
         toast.success("Clocked in successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Clock in failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Clock in failed"))
     });
   };
 
@@ -209,7 +210,7 @@ export default function AttendancePage() {
         setShowSignOut(false);
         toast.success("Clocked out successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Clock out failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Clock out failed"))
     });
   };
 

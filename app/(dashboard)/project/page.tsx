@@ -33,11 +33,11 @@ import {
   Project, Task, Comment, TaskStatus, ProjectStatus, Priority,
 } from "./components/types";
 import { ProjectSkeleton } from "@/components/ProjectSkeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
-type ApiError = { response?: { data?: { message?: string } } };
 function errMsg(err: unknown, fallback: string) {
-  return (err as ApiError)?.response?.data?.message || fallback;
+  return getApiErrorMessage(err, fallback);
 }
 
 

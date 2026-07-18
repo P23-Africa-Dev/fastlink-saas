@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, RotateCcw, Video, X } from "lucide-react";
-import { AxiosError } from "axios";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { AttendanceSkeleton } from "@/components/AttendanceSkeleton";
 import { useAuthStore } from "@/lib/stores/authStore";
@@ -246,16 +246,6 @@ function GoogleCalendarConnectModal({
   );
 }
 
-function extractApiErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof AxiosError) {
-    const apiError = error.response?.data as { message?: string; errors?: Record<string, string[]> } | undefined;
-    const nestedError = apiError?.errors ? Object.values(apiError.errors).flat()[0] : null;
-    return nestedError || apiError?.message || fallback;
-  }
-
-  return fallback;
-}
-
 export default function CalendarPage() {
   const [month, setMonth] = useState(currentMonth());
   const [typeFilter, setTypeFilter] = useState<"all" | CalendarEventType>("all");
@@ -370,7 +360,7 @@ export default function CalendarPage() {
         }
       }, 1500);
     } catch (error) {
-      toast.error(extractApiErrorMessage(error, "Failed to start Google Calendar connection."));
+      toast.error(getApiErrorMessage(error, "Failed to start Google Calendar connection."));
     }
   }
 
@@ -379,8 +369,8 @@ export default function CalendarPage() {
       onSuccess: () => {
         toast.success("Task created from calendar.");
       },
-      onError: () => {
-        toast.error("Task creation failed. Check required fields and try again.");
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error, "Task creation failed. Check required fields and try again."));
       },
     });
   }
@@ -391,7 +381,7 @@ export default function CalendarPage() {
         toast.success("Meeting scheduled.");
       },
       onError: (error) => {
-        toast.error(extractApiErrorMessage(error, "Failed to schedule meeting. Check the details and try again."));
+        toast.error(getApiErrorMessage(error, "Failed to schedule meeting. Check the details and try again."));
       },
     });
   }
@@ -518,7 +508,7 @@ export default function CalendarPage() {
                         onClick={() => {
                           googleDisconnectMutation.mutate(undefined, {
                             onSuccess: () => toast.success("Google Calendar disconnected."),
-                            onError: () => toast.error("Failed to disconnect Google Calendar."),
+                            onError: (error) => toast.error(getApiErrorMessage(error, "Failed to disconnect Google Calendar.")),
                           });
                         }}
                         className="h-9 rounded-xl border border-[#fca5a5] bg-white text-[#b91c1c] text-[12px] font-bold disabled:opacity-60"

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Video, Calendar, Users, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import type { CalendarEvent } from "@/lib/types";
 import { useUpdateMeeting, useDeleteMeeting } from "../hooks/useCalendar";
 
@@ -79,8 +80,8 @@ export function MeetingDetailsModal({
       });
       toast.success("Meeting rescheduled.");
       onClose();
-    } catch {
-      toast.error("Failed to reschedule meeting.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to reschedule meeting."));
     } finally {
       setSaving(false);
     }
@@ -93,8 +94,8 @@ export function MeetingDetailsModal({
       await deleteMeeting.mutateAsync(meetingId);
       toast.success("Meeting cancelled.");
       onClose();
-    } catch {
-      toast.error("Failed to cancel meeting.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to cancel meeting."));
     } finally {
       setSaving(false);
     }

@@ -39,6 +39,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useAuthStore } from "@/lib/stores/authStore";
 import {
   useProfile,
@@ -160,7 +161,7 @@ function ProfileForm({ profile }: { profile: ProfileData }) {
         const flat: Record<string, string> = {};
         Object.entries(e).forEach(([k, v]) => { flat[k] = v[0]; });
         setErrors(flat);
-        toast.error("Failed to update profile");
+        toast.error(getApiErrorMessage(err, "Failed to update profile"));
       },
     });
   };
@@ -276,7 +277,7 @@ function AppearanceForm({ initialAppearance }: { initialAppearance: "light" | "d
     localStorage.setItem("fastlink_appearance", val);
     updateAppearance.mutate(val, {
       onSuccess: () => toast.success("Appearance preference saved"),
-      onError: () => toast.error("Failed to save appearance"),
+      onError: (err) => toast.error(getApiErrorMessage(err, "Failed to save appearance")),
     });
   };
 
@@ -641,7 +642,7 @@ function SupervisorCompanySettings({ company }: { company: CompanySettings }) {
             setScreen("passcode");
             toast.error("Session expired. Please re-enter your passcode.");
           } else {
-            toast.error("Failed to update company settings");
+            toast.error(getApiErrorMessage(err, "Failed to update company settings"));
           }
         },
       }
@@ -757,7 +758,7 @@ function CompanyTab({ role }: { role: string }) {
               { payload: data },
               {
                 onSuccess: () => toast.success("Company settings updated"),
-                onError: () => toast.error("Failed to update company settings"),
+                onError: (err) => toast.error(getApiErrorMessage(err, "Failed to update company settings")),
               }
             )
           }
@@ -893,8 +894,7 @@ function PasscodesTab() {
         toast.success("Passcode generated");
       },
       onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Failed to generate passcode";
-        toast.error(msg);
+        toast.error(getApiErrorMessage(err, "Failed to generate passcode"));
       },
     });
   };
@@ -903,7 +903,7 @@ function PasscodesTab() {
     setRevokingId(id);
     revokeMutation.mutate(id, {
       onSuccess: () => { toast.success("Passcode revoked"); setRevokingId(null); },
-      onError: () => { toast.error("Failed to revoke passcode"); setRevokingId(null); },
+      onError: (err) => { toast.error(getApiErrorMessage(err, "Failed to revoke passcode")); setRevokingId(null); },
     });
   };
 

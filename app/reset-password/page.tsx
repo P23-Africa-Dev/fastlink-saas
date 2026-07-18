@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, Loader2, Zap } from "lucide-react";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiError";
 import type { ApiResponse } from "@/lib/types";
 
 interface FormErrors {
@@ -79,14 +80,13 @@ function ResetPasswordForm() {
       setDone(true);
       setTimeout(() => router.push("/"), 2500);
     } catch (err: unknown) {
-      const e2 = err as { response?: { status?: number; data?: { message?: string } } };
-      const status = e2.response?.status;
+      const status = (err as { response?: { status?: number } }).response?.status;
       if (status === 429) {
         setErrors({ general: "Too many attempts. Please wait a moment and try again." });
       } else if (status === 422) {
-        setErrors({ general: e2.response?.data?.message ?? "This reset link is invalid or has expired." });
+        setErrors({ general: getApiErrorMessage(err, "This reset link is invalid or has expired.") });
       } else {
-        setErrors({ general: "Something went wrong. Please try again later." });
+        setErrors({ general: getApiErrorMessage(err, "Something went wrong. Please try again later.") });
       }
     } finally {
       setLoading(false);

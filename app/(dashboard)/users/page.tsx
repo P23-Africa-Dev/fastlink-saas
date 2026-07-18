@@ -21,6 +21,7 @@ import { ModifyModal } from "./components/ModifyModal";
 import { RespondModal } from "./components/RespondModal";
 import { LeaveCalendar } from "./components/LeaveCalendar";
 import { LeaveSkeleton } from "@/components/LeaveSkeleton";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 import {
@@ -181,7 +182,7 @@ export default function LeaveRequestsPage() {
         setShowNew(false);
         toast.success("Leave request submitted successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to submit request")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to submit request"))
     });
   };
 
@@ -197,7 +198,7 @@ export default function LeaveRequestsPage() {
         setDecideMode(null);
         toast.success("Action completed successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Action failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Action failed"))
     });
   };
 
@@ -213,7 +214,7 @@ export default function LeaveRequestsPage() {
         setShowModify(false);
         toast.success("Request modified successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Modification failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Modification failed"))
     });
   };
 
@@ -229,7 +230,7 @@ export default function LeaveRequestsPage() {
         setRespondMode(null);
         toast.success("Response recorded successfully");
       },
-      onError: (err: unknown) => toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Response failed")
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Response failed"))
     });
   };
 

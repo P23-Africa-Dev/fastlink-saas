@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Zap } from "lucide-react";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useAuthStore } from "@/lib/stores/authStore";
 import type { ApiResponse, LoginResponseData } from "@/lib/types";
 
@@ -59,7 +60,9 @@ export default function LoginPage() {
       if (status === 401 || status === 422) {
         setErrors({ general: "Invalid email or password. Please try again." });
       } else {
-        setErrors({ general: "Something went wrong. Please try again later." });
+        // Surface the API's own message (e.g. "Account suspended. Contact
+        // administrator.") instead of a generic one.
+        setErrors({ general: getApiErrorMessage(err, "Something went wrong. Please try again later.") });
       }
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import React, { useRef, useState, useCallback } from "react";
 import { X, FileUp, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { getApiErrorMessage } from "@/lib/apiError";
 import type { LeadImportResult } from "../hooks/useCrm";
 
 interface Drive { id: number; name: string; }
@@ -98,7 +99,7 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
       setErrorsOpen(false);
       setStep("result");
     } catch (error: unknown) {
-      setFileError(extractApiErrorMessage(error, "Import failed. Please check your file and try again."));
+      setFileError(getApiErrorMessage(error, "Import failed. Please check your file and try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -307,37 +308,3 @@ export function ImportLeadsModal({ drives, statuses, onClose, onImport }: Import
   );
 }
 
-type ApiErrorShape = {
-  message?: string;
-  response?: {
-    data?: {
-      message?: string;
-      errors?: Record<string, string[] | string>;
-    };
-  };
-};
-
-function extractApiErrorMessage(error: unknown, fallback: string): string {
-  const err = error as ApiErrorShape;
-  const topMessage = err?.response?.data?.message;
-  if (topMessage) {
-    return topMessage;
-  }
-
-  const validationErrors = err?.response?.data?.errors;
-  if (validationErrors && typeof validationErrors === "object") {
-    const first = Object.values(validationErrors)[0];
-    if (Array.isArray(first) && first[0]) {
-      return first[0];
-    }
-    if (typeof first === "string" && first) {
-      return first;
-    }
-  }
-
-  if (err?.message) {
-    return err.message;
-  }
-
-  return fallback;
-}
