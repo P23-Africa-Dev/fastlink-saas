@@ -13,7 +13,7 @@ export interface DriveItem {
   position: number;
   is_default: boolean;
   is_private?: boolean;
-  privacy_locked_by_role?: string | null;
+  privacy_locked_by_role?: "staff" | "supervisor" | "admin" | null;
   can_edit?: boolean;
   can_delete?: boolean;
 }
