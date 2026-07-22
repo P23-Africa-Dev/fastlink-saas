@@ -14,14 +14,14 @@ class LeadAnalyticsController extends Controller
     public function index(LeadAnalyticsRequest $request): JsonResponse
     {
         return $this->success(
-            $this->leadAnalyticsService->statistics($request->validated()),
+            $this->leadAnalyticsService->statistics($request->validated(), $request->user()),
             'Lead analytics fetched.'
         );
     }
 
     public function timeline(LeadAnalyticsRequest $request): JsonResponse
     {
-        $timeline = $this->leadAnalyticsService->timeline($request->validated());
+        $timeline = $this->leadAnalyticsService->timeline($request->validated(), $request->user());
 
         return $this->paginated($timeline, $timeline->items(), 'Lead activity timeline fetched.');
     }
@@ -29,7 +29,7 @@ class LeadAnalyticsController extends Controller
     public function topUploaders(LeadAnalyticsRequest $request): JsonResponse
     {
         return $this->success(
-            $this->leadAnalyticsService->topUploaders($request->validated()),
+            $this->leadAnalyticsService->topUploaders($request->validated(), $request->user()),
             'Top uploaders fetched.'
         );
     }

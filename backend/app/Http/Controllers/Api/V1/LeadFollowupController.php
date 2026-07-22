@@ -7,8 +7,10 @@ use App\Http\Requests\LeadFollowup\ReviewLeadFollowupUpdateRequest;
 use App\Http\Requests\LeadFollowup\StoreLeadFollowupRequest;
 use App\Http\Requests\LeadFollowup\UpdateLeadFollowupRequest;
 use App\Models\Lead;
+use App\Models\LeadDrive;
 use App\Models\LeadFollowup;
 use App\Models\LeadFollowupAttachment;
+use App\Services\Crm\LeadDriveVisibility;
 use App\Services\Crm\LeadFollowupService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -18,10 +20,17 @@ use Illuminate\Support\Facades\Storage;
 
 class LeadFollowupController extends Controller
 {
-    public function __construct(private readonly LeadFollowupService $leadFollowupService) {}
+    public function __construct(
+        private readonly LeadFollowupService $leadFollowupService,
+        private readonly LeadDriveVisibility $driveVisibility,
+    ) {}
 
     public function index(Lead $lead, Request $request): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $followups = $this->leadFollowupService->listForLead($lead, (int) $request->integer('per_page', 20));
 
         return $this->paginated($followups, $followups->items(), 'Lead follow-ups fetched.');
@@ -29,6 +38,10 @@ class LeadFollowupController extends Controller
 
     public function store(Lead $lead, StoreLeadFollowupRequest $request): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $attachments = $this->normalizeUploadedFiles($request->file('attachments'));
 
         $followup = $this->leadFollowupService->create(
@@ -217,5 +230,20 @@ class LeadFollowupController extends Controller
         }
 
         return array_values(array_filter($files, static fn($file): bool => $file instanceof UploadedFile));
+    }
+
+    private function assertLeadAccess(Request $request, Lead $lead): bool
+    {
+        if ($lead->drive_id === null) {
+            return true;
+        }
+
+        $drive = $lead->relationLoaded('drive') ? $lead->drive : $lead->drive()->first();
+
+        if (! $drive instanceof LeadDrive) {
+            return true;
+        }
+
+        return $this->driveVisibility->canView($request->user(), $drive);
     }
 }

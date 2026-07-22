@@ -4,7 +4,7 @@ import React from "react";
 import { Search, LayoutGrid, List, Settings2, BarChart2 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
-interface Drive { id: number; name: string; }
+interface Drive { id: number; name: string; is_private?: boolean; }
 interface Country { id: number; name: string; }
 interface State { id: number; name: string; }
 
@@ -41,7 +41,13 @@ export function FilterBar({
 }: FilterBarProps) {
   const totalPages = Math.max(1, Math.ceil(totalLeads / filters.perPage));
 
-  const driveOptions = [{ value: "0", label: "All Pipelines" }, ...drives.map(d => ({ value: d.id.toString(), label: d.name }))];
+  const driveOptions = [
+    { value: "0", label: "All Pipelines" },
+    ...drives.map((d) => ({
+      value: d.id.toString(),
+      label: d.is_private ? `${d.name} (Private)` : d.name,
+    })),
+  ];
   const priorityOptions = [
     { value: "", label: "All Priorities" },
     { value: "high", label: "High" },

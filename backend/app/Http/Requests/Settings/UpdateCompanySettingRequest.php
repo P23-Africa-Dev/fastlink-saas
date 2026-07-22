@@ -24,6 +24,12 @@ class UpdateCompanySettingRequest extends FormRequest
                 Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']),
             ],
             'timezone' => ['sometimes', 'required', 'string', 'timezone:all'],
+            'pipeline_privacy' => ['sometimes', 'required', 'array'],
+            'pipeline_privacy.enabled' => ['sometimes', 'boolean'],
+            'pipeline_privacy.staff_can_create_pipelines' => ['sometimes', 'boolean'],
+            'pipeline_privacy.staff_can_create_open_pipelines' => ['sometimes', 'boolean'],
+            'pipeline_privacy.default_visibility' => ['sometimes', 'string', Rule::in(['open', 'private'])],
+            'pipeline_privacy.higher_roles_can_unlock' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -31,7 +37,7 @@ class UpdateCompanySettingRequest extends FormRequest
     {
         return [
             'closing_time.after' => 'The closing time must be after the opening time.',
-            'working_days.*.in'  => 'Each working day must be a valid lowercase day name (e.g. monday).',
+            'working_days.*.in' => 'Each working day must be a valid lowercase day name (e.g. monday).',
         ];
     }
 }

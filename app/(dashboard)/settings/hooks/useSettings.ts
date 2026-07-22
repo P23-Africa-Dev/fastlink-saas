@@ -23,10 +23,27 @@ export interface CompanySettings {
   closing_time: string;
   working_days: string[];
   timezone: string;
+  pipeline_privacy?: PipelinePrivacySettings;
   updated_by: number;
   created_at: string;
   updated_at: string;
 }
+
+export interface PipelinePrivacySettings {
+  enabled: boolean;
+  staff_can_create_pipelines: boolean;
+  staff_can_create_open_pipelines: boolean;
+  default_visibility: "open" | "private";
+  higher_roles_can_unlock: boolean;
+}
+
+export const DEFAULT_PIPELINE_PRIVACY: PipelinePrivacySettings = {
+  enabled: true,
+  staff_can_create_pipelines: true,
+  staff_can_create_open_pipelines: false,
+  default_visibility: "open",
+  higher_roles_can_unlock: true,
+};
 
 export interface Passcode {
   id: number;

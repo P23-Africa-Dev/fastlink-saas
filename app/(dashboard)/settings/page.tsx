@@ -22,6 +22,7 @@ import {
   Shield,
   ChevronDown,
   Loader2,
+  Lock,
   // Activity log icons
   ScrollText,
   Briefcase,
@@ -57,6 +58,7 @@ import {
   type CompanySettings,
   type ProfileData,
   type ActivityLog,
+  DEFAULT_PIPELINE_PRIVACY,
 } from "./hooks/useSettings";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -501,12 +503,18 @@ function CompanyForm({
   saving?: boolean;
   readOnly?: boolean;
 }) {
+  const privacy = { ...DEFAULT_PIPELINE_PRIVACY, ...(initial.pipeline_privacy ?? {}) };
   const [companyName, setCompanyName] = useState(initial.company_name ?? "");
   const [openingTime, setOpeningTime] = useState(initial.opening_time?.slice(0, 5) ?? "");
   const [closingTime, setClosingTime] = useState(initial.closing_time?.slice(0, 5) ?? "");
   const [workingDays, setWorkingDays] = useState<string[]>(initial.working_days ?? []);
   const [timezone, setTimezone] = useState(initial.timezone ?? "UTC");
   const [timeError, setTimeError] = useState("");
+  const [pipelineEnabled, setPipelineEnabled] = useState(privacy.enabled);
+  const [staffCanCreate, setStaffCanCreate] = useState(privacy.staff_can_create_pipelines);
+  const [staffCanCreateOpen, setStaffCanCreateOpen] = useState(privacy.staff_can_create_open_pipelines);
+  const [defaultVisibility, setDefaultVisibility] = useState<"open" | "private">(privacy.default_visibility);
+  const [higherCanUnlock, setHigherCanUnlock] = useState(privacy.higher_roles_can_unlock);
 
   const handleSave = () => {
     setTimeError("");
@@ -514,7 +522,20 @@ function CompanyForm({
       setTimeError("Closing time must be after opening time");
       return;
     }
-    onSave?.({ company_name: companyName, opening_time: openingTime, closing_time: closingTime, working_days: workingDays, timezone });
+    onSave?.({
+      company_name: companyName,
+      opening_time: openingTime,
+      closing_time: closingTime,
+      working_days: workingDays,
+      timezone,
+      pipeline_privacy: {
+        enabled: pipelineEnabled,
+        staff_can_create_pipelines: staffCanCreate,
+        staff_can_create_open_pipelines: staffCanCreateOpen,
+        default_visibility: defaultVisibility,
+        higher_roles_can_unlock: higherCanUnlock,
+      },
+    });
   };
 
   return (
@@ -566,6 +587,49 @@ function CompanyForm({
           <TimezoneSelect value={timezone} onChange={setTimezone} />
         )}
       </Field>
+
+      <div className="rounded-2xl border border-[#f0f0f5] bg-[#f8f8fc]" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div className="flex items-center" style={{ gap: "8px" }}>
+          <Lock size={14} style={{ color: "#33084E" }} />
+          <p className="text-[13px] font-bold text-(--text-primary)">Pipeline privacy</p>
+        </div>
+        <p className="text-[12px] text-[#9ca3af]">
+          Control who can create private pipelines and how visibility is enforced across roles.
+        </p>
+
+        <label className="flex items-center cursor-pointer" style={{ gap: "8px" }}>
+          <input type="checkbox" checked={pipelineEnabled} disabled={readOnly} onChange={(e) => setPipelineEnabled(e.target.checked)} className="rounded" style={{ accentColor: "#33084E" }} />
+          <span className="text-[12px] font-bold text-(--text-primary)">Enable pipeline privacy</span>
+        </label>
+
+        <label className="flex items-center cursor-pointer" style={{ gap: "8px" }}>
+          <input type="checkbox" checked={staffCanCreate} disabled={readOnly || !pipelineEnabled} onChange={(e) => setStaffCanCreate(e.target.checked)} className="rounded" style={{ accentColor: "#33084E" }} />
+          <span className="text-[12px] font-bold text-(--text-primary)">Staff can create pipelines</span>
+        </label>
+
+        <label className="flex items-center cursor-pointer" style={{ gap: "8px" }}>
+          <input type="checkbox" checked={staffCanCreateOpen} disabled={readOnly || !pipelineEnabled || !staffCanCreate} onChange={(e) => setStaffCanCreateOpen(e.target.checked)} className="rounded" style={{ accentColor: "#33084E" }} />
+          <span className="text-[12px] font-bold text-(--text-primary)">Staff can create open (shared) pipelines</span>
+        </label>
+
+        <label className="flex items-center cursor-pointer" style={{ gap: "8px" }}>
+          <input type="checkbox" checked={higherCanUnlock} disabled={readOnly || !pipelineEnabled} onChange={(e) => setHigherCanUnlock(e.target.checked)} className="rounded" style={{ accentColor: "#33084E" }} />
+          <span className="text-[12px] font-bold text-(--text-primary)">Higher roles can unlock private pipelines</span>
+        </label>
+
+        <Field label="Default visibility for admin / supervisor creates">
+          <select
+            value={defaultVisibility}
+            disabled={readOnly || !pipelineEnabled}
+            onChange={(e) => setDefaultVisibility(e.target.value as "open" | "private")}
+            className="w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px] text-(--text-primary) outline-none focus:border-[#33084E] transition-all disabled:opacity-50"
+            style={{ padding: "10px 14px" }}
+          >
+            <option value="open">Open</option>
+            <option value="private">Private</option>
+          </select>
+        </Field>
+      </div>
 
       {!readOnly && (
         <div className="flex justify-end">

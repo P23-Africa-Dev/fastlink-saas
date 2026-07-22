@@ -9,7 +9,9 @@ use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Requests\Lead\UpdateLeadRequest;
 use App\Models\Lead;
 use App\Models\LeadActivity;
+use App\Models\LeadDrive;
 use App\Services\ActivityLogService;
+use App\Services\Crm\LeadDriveVisibility;
 use App\Services\Crm\LeadImportService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -21,13 +23,16 @@ class LeadController extends Controller
         private readonly LeadImportService $leadImportService,
         private readonly NotificationService $notificationService,
         private readonly ActivityLogService $activityLogService,
+        private readonly LeadDriveVisibility $driveVisibility,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $perPage = (int) $request->integer('per_page', 15);
+        $user = $request->user();
 
         $query = Lead::query()
+            ->visibleTo($user)
             ->with(['assignedUser:id,name,email', 'creator:id,name,email', 'drive:id,name,color', 'statusDefinition:id,name,color', 'country:id,name,code', 'state:id,name', 'lga:id,name'])
             ->when($request->string('q')->toString(), function ($builder, $q) {
                 $builder->where(function ($inner) use ($q) {
@@ -59,6 +64,11 @@ class LeadController extends Controller
     public function store(StoreLeadRequest $request): JsonResponse
     {
         $payload = $request->validated();
+
+        if (! $this->assertDriveAccess($request, isset($payload['drive_id']) ? (int) $payload['drive_id'] : null)) {
+            return $this->error('You cannot add leads to this pipeline.', 403);
+        }
+
         $payload['created_by'] = $request->user()->id;
         $payload['imported_by'] = null;
         $payload['source_type'] = 'manual';
@@ -110,8 +120,12 @@ class LeadController extends Controller
         );
     }
 
-    public function show(Lead $lead): JsonResponse
+    public function show(Request $request, Lead $lead): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         return $this->success(
             $lead->load([
                 'assignedUser:id,name,email',
@@ -129,7 +143,17 @@ class LeadController extends Controller
 
     public function update(UpdateLeadRequest $request, Lead $lead): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $payload = $request->validated();
+
+        if (array_key_exists('drive_id', $payload)
+            && ! $this->assertDriveAccess($request, $payload['drive_id'] !== null ? (int) $payload['drive_id'] : null)
+        ) {
+            return $this->error('You cannot move leads to this pipeline.', 403);
+        }
 
         $oldStatus = $lead->status;
         $oldAssignedTo = (int) ($lead->assigned_to ?? 0);
@@ -173,8 +197,12 @@ class LeadController extends Controller
         );
     }
 
-    public function destroy(Lead $lead): JsonResponse
+    public function destroy(Request $request, Lead $lead): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $lead->delete();
 
         return $this->success(null, 'Lead deleted.');
@@ -182,6 +210,10 @@ class LeadController extends Controller
 
     public function activities(Lead $lead, Request $request): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $activities = $lead->activities()
             ->with('user:id,name,email')
             ->paginate((int) $request->integer('per_page', 20));
@@ -191,6 +223,10 @@ class LeadController extends Controller
 
     public function storeActivity(StoreLeadActivityRequest $request, Lead $lead): JsonResponse
     {
+        if (! $this->assertLeadAccess($request, $lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $payload = $request->validated();
         $payload['user_id'] = $request->user()->id;
 
@@ -201,6 +237,12 @@ class LeadController extends Controller
 
     public function updateActivity(StoreLeadActivityRequest $request, LeadActivity $activity): JsonResponse
     {
+        $activity->loadMissing('lead');
+
+        if ($activity->lead && ! $this->assertLeadAccess($request, $activity->lead)) {
+            return $this->error('Lead not found.', 404);
+        }
+
         $activity->update($request->validated());
 
         return $this->success($activity->fresh()->load('user:id,name,email'), 'Lead activity updated.');
@@ -208,9 +250,16 @@ class LeadController extends Controller
 
     public function import(ImportLeadRequest $request): JsonResponse
     {
+        $defaults = $request->safe()->except(['file']);
+        $driveId = isset($defaults['drive_id']) ? (int) $defaults['drive_id'] : null;
+
+        if (! $this->assertDriveAccess($request, $driveId)) {
+            return $this->error('You cannot import leads into this pipeline.', 403);
+        }
+
         $result = $this->leadImportService->import(
             $request->file('file'),
-            $request->safe()->except(['file']),
+            $defaults,
             $request->user()
         );
 
@@ -241,5 +290,35 @@ class LeadController extends Controller
         );
 
         return $this->success($result, 'Lead import completed.');
+    }
+
+    private function assertLeadAccess(Request $request, Lead $lead): bool
+    {
+        if ($lead->drive_id === null) {
+            return true;
+        }
+
+        $drive = $lead->relationLoaded('drive') ? $lead->drive : $lead->drive()->first();
+
+        if (! $drive instanceof LeadDrive) {
+            return true;
+        }
+
+        return $this->driveVisibility->canView($request->user(), $drive);
+    }
+
+    private function assertDriveAccess(Request $request, ?int $driveId): bool
+    {
+        if ($driveId === null) {
+            return true;
+        }
+
+        $drive = LeadDrive::query()->find($driveId);
+
+        if (! $drive) {
+            return false;
+        }
+
+        return $this->driveVisibility->canView($request->user(), $drive);
     }
 }

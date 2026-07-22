@@ -15,7 +15,7 @@ class DashboardService
 {
     public function __construct(private readonly LeadMetricsService $leadMetricsService) {}
 
-    public function stats(): array
+    public function stats(?User $viewer = null): array
     {
         $today = Carbon::today();
         $monthStart = Carbon::now()->startOfMonth();
@@ -24,12 +24,12 @@ class DashboardService
         $usersTotal = User::count();
         $usersActive = User::active()->count();
 
-        $leadsTotal = $this->leadMetricsService->total();
-        $leadsThisWeek = $this->leadMetricsService->createdThisWeek();
-        $leadsNew = $this->leadMetricsService->countByStatus('new');
-        $leadsWon = $this->leadMetricsService->countByStatus('won');
-        $leadsLost = $this->leadMetricsService->countByStatus('lost');
-        $pipelineValue = $this->leadMetricsService->pipelineValue();
+        $leadsTotal = $this->leadMetricsService->total($viewer);
+        $leadsThisWeek = $this->leadMetricsService->createdThisWeek($viewer);
+        $leadsNew = $this->leadMetricsService->countByStatus('new', $viewer);
+        $leadsWon = $this->leadMetricsService->countByStatus('won', $viewer);
+        $leadsLost = $this->leadMetricsService->countByStatus('lost', $viewer);
+        $pipelineValue = $this->leadMetricsService->pipelineValue($viewer);
 
         $projectsTotal = Project::count();
         $projectsActive = Project::where('status', 'in_progress')->count();
@@ -45,7 +45,7 @@ class DashboardService
 
         $conversionRate = $leadsTotal > 0 ? round(($leadsWon / $leadsTotal) * 100, 2) : 0.0;
 
-        $monthlyLeads = $this->leadMetricsService->baseQuery()
+        $monthlyLeads = $this->leadMetricsService->baseQuery($viewer)
             ->whereBetween('created_at', [$monthStart, $monthEnd])
             ->count();
         $monthlyTasksCompleted = Task::where('status', 'completed')
@@ -85,9 +85,9 @@ class DashboardService
         ];
     }
 
-    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null): array
+    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null, ?User $viewer = null): array
     {
-        return $this->leadMetricsService->pipelineStats($stateId, $status, $driveId);
+        return $this->leadMetricsService->pipelineStats($stateId, $status, $driveId, $viewer);
     }
 
     public function dailyTasks(User $user, ?string $date = null, ?string $status = null, int $limit = 50): array

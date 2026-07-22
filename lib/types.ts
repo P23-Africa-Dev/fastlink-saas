@@ -147,6 +147,11 @@ export interface Drive {
   color: string;
   position: number;
   is_default: boolean;
+  created_by?: number | null;
+  is_private?: boolean;
+  privacy_locked_by_role?: "staff" | "supervisor" | "admin" | null;
+  can_edit?: boolean;
+  can_delete?: boolean;
 }
 
 export interface LeadStatus {

@@ -5,60 +5,81 @@ namespace App\Services;
 use App\Models\Lead;
 use App\Models\LeadDrive;
 use App\Models\LeadStatus;
+use App\Models\User;
+use App\Services\Crm\LeadDriveVisibility;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 class LeadMetricsService
 {
-    public function total(): int
+    public function __construct(
+        private readonly LeadDriveVisibility $driveVisibility,
+    ) {}
+
+    public function total(?User $viewer = null): int
     {
-        return $this->baseQuery()->count();
+        return $this->baseQuery($viewer)->count();
     }
 
-    public function createdThisWeek(): int
+    public function createdThisWeek(?User $viewer = null): int
     {
         $now = Carbon::now(config('app.timezone'));
         $startOfWeek = $now->copy()->startOfWeek();
 
-        return $this->baseQuery()
+        return $this->baseQuery($viewer)
             ->whereBetween('created_at', [$startOfWeek, $now])
             ->count();
     }
 
-    public function countByStatus(string $status): int
+    public function countByStatus(string $status, ?User $viewer = null): int
     {
-        return $this->baseQuery()
+        return $this->baseQuery($viewer)
             ->whereRaw('LOWER(status) = ?', [Str::lower($status)])
             ->count();
     }
 
-    public function pipelineValue(): float
+    public function pipelineValue(?User $viewer = null): float
     {
-        return (float) $this->baseQuery()
+        return (float) $this->baseQuery($viewer)
             ->whereNotNull('estimated_value')
             ->sum('estimated_value');
     }
 
-    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null): array
+    public function pipelineStats(?int $stateId = null, ?string $status = null, ?int $driveId = null, ?User $viewer = null): array
     {
+        if ($driveId && $viewer) {
+            $driveModel = LeadDrive::query()->find($driveId);
+            if (! $driveModel || ! $this->driveVisibility->canView($viewer, $driveModel)) {
+                return [
+                    'total_leads' => 0,
+                    'drive' => null,
+                    'filters' => [
+                        'drive_id' => $driveId,
+                        'state_id' => $stateId,
+                        'status' => $status,
+                        'resolved_status' => $this->resolveStatusFilter($status),
+                    ],
+                    'top_states' => [],
+                    'top_entries' => [],
+                ];
+            }
+        }
+
         $resolvedStatus = $this->resolveStatusFilter($status);
 
-        $baseQuery = $this->baseQuery()
-            ->when($stateId, fn(Builder $query) => $query->where('state_id', $stateId))
-            ->when($driveId, fn(Builder $query) => $query->where('drive_id', $driveId));
+        $baseQuery = $this->baseQuery($viewer)
+            ->when($stateId, fn (Builder $query) => $query->where('state_id', $stateId))
+            ->when($driveId, fn (Builder $query) => $query->where('drive_id', $driveId));
 
         $baseQuery = $this->applyStatusFilter($baseQuery, $resolvedStatus);
 
-        // Resolve drive details for the response (null when no drive filter applied)
         $drive = $driveId
             ? LeadDrive::query()->find($driveId, ['id', 'name', 'color', 'slug'])
             : null;
 
         $totalLeads = (clone $baseQuery)->count();
 
-        // Location aggregations only consider leads with valid, resolved location data.
-        // This prevents "Unknown" entries from appearing in top-states and top-entries.
         $locatedQuery = (clone $baseQuery)
             ->whereNotNull('leads.country_id')
             ->whereNotNull('leads.state_id');
@@ -70,7 +91,7 @@ class LeadMetricsService
             ->orderByDesc('lead_count')
             ->limit(3)
             ->get()
-            ->map(fn($row): array => [
+            ->map(fn ($row): array => [
                 'state_id' => (int) $row->state_id,
                 'state' => (string) $row->state_name,
                 'lead_count' => (int) $row->lead_count,
@@ -102,25 +123,31 @@ class LeadMetricsService
         return [
             'total_leads' => $totalLeads,
             'drive' => $drive ? [
-                'id'    => (int) $drive->id,
-                'name'  => (string) $drive->name,
+                'id' => (int) $drive->id,
+                'name' => (string) $drive->name,
                 'color' => (string) $drive->color,
-                'slug'  => (string) $drive->slug,
+                'slug' => (string) $drive->slug,
             ] : null,
             'filters' => [
-                'drive_id'       => $driveId,
-                'state_id'       => $stateId,
-                'status'         => $status,
+                'drive_id' => $driveId,
+                'state_id' => $stateId,
+                'status' => $status,
                 'resolved_status' => $resolvedStatus,
             ],
-            'top_states'  => $topStates,
+            'top_states' => $topStates,
             'top_entries' => $topEntries,
         ];
     }
 
-    public function baseQuery(): Builder
+    public function baseQuery(?User $viewer = null): Builder
     {
-        return Lead::query();
+        $query = Lead::query();
+
+        if ($viewer) {
+            $query->visibleTo($viewer);
+        }
+
+        return $query;
     }
 
     /**

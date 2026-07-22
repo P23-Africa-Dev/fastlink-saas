@@ -21,9 +21,9 @@ class LeadAnalyticsService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function statistics(array $input): array
+    public function statistics(array $input, ?User $viewer = null): array
     {
-        $filters = $this->normalizeFilters($input);
+        $filters = $this->normalizeFilters($input, $viewer);
         $grouped = $this->groupedUserStats($filters);
 
         $manualTotal = (int) collect($grouped['users'])->sum('manual_leads') + $grouped['unattributed']['manual'];
@@ -62,9 +62,9 @@ class LeadAnalyticsService
      * @param  array<string, mixed>  $input
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function timeline(array $input): LengthAwarePaginator
+    public function timeline(array $input, ?User $viewer = null): LengthAwarePaginator
     {
-        $filters = $this->normalizeFilters($input);
+        $filters = $this->normalizeFilters($input, $viewer);
         $perPage = max(1, min((int) ($filters['per_page'] ?? 20), 200));
 
         $query = $this->applyUserFilter(
@@ -129,9 +129,9 @@ class LeadAnalyticsService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function topUploaders(array $input): array
+    public function topUploaders(array $input, ?User $viewer = null): array
     {
-        $filters = $this->normalizeFilters($input);
+        $filters = $this->normalizeFilters($input, $viewer);
         $limit = max(1, min((int) ($filters['limit'] ?? 10), 50));
 
         $grouped = $this->groupedUserStats($filters);
@@ -251,6 +251,10 @@ class LeadAnalyticsService
     private function baseQuery(array $filters): Builder
     {
         return Lead::query()
+            ->when(
+                ($filters['viewer'] ?? null) instanceof User,
+                fn (Builder $q) => $q->visibleTo($filters['viewer'])
+            )
             ->when($filters['drive_id'], fn(Builder $q) => $q->where('drive_id', (int) $filters['drive_id']))
             ->when($filters['country_id'], fn(Builder $q) => $q->where('country_id', (int) $filters['country_id']))
             ->when($filters['state_id'], fn(Builder $q) => $q->where('state_id', (int) $filters['state_id']))
@@ -510,7 +514,7 @@ class LeadAnalyticsService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    private function normalizeFilters(array $input): array
+    private function normalizeFilters(array $input, ?User $viewer = null): array
     {
         $period = (string) ($input['period'] ?? '');
         $type = (string) ($input['type'] ?? 'both');
@@ -555,6 +559,7 @@ class LeadAnalyticsService
             'lga_id' => isset($input['lga_id']) ? (int) $input['lga_id'] : null,
             'per_page' => isset($input['per_page']) ? (int) $input['per_page'] : 20,
             'limit' => isset($input['limit']) ? (int) $input['limit'] : 10,
+            'viewer' => $viewer,
         ];
     }
 }

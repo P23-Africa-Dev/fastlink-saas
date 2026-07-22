@@ -17,6 +17,7 @@ class CompanySetting extends Model
         'closing_time',
         'working_days',
         'timezone',
+        'pipeline_privacy',
         'updated_by',
     ];
 
@@ -24,6 +25,27 @@ class CompanySetting extends Model
     {
         return [
             'working_days' => 'array',
+            'pipeline_privacy' => 'array',
+        ];
+    }
+
+    /**
+     * @return array{
+     *     enabled: bool,
+     *     staff_can_create_pipelines: bool,
+     *     staff_can_create_open_pipelines: bool,
+     *     default_visibility: string,
+     *     higher_roles_can_unlock: bool
+     * }
+     */
+    public static function defaultPipelinePrivacy(): array
+    {
+        return [
+            'enabled' => true,
+            'staff_can_create_pipelines' => true,
+            'staff_can_create_open_pipelines' => false,
+            'default_visibility' => 'open',
+            'higher_roles_can_unlock' => true,
         ];
     }
 
@@ -42,6 +64,7 @@ class CompanySetting extends Model
             'closing_time' => '18:00:00',
             'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
             'timezone'     => config('app.timezone', 'UTC'),
+            'pipeline_privacy' => static::defaultPipelinePrivacy(),
         ]);
     }
 }

@@ -24,6 +24,7 @@ class StoreLeadDriveRequest extends FormRequest
             'color' => ['nullable', 'string', 'max:20'],
             'position' => ['nullable', 'integer', 'min:0'],
             'is_default' => ['nullable', 'boolean'],
+            'is_private' => ['nullable', 'boolean'],
         ];
     }
 }

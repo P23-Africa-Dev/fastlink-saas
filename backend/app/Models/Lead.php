@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\Crm\LeadDriveVisibility;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -80,6 +82,26 @@ class Lead extends Model
     public function drive(): BelongsTo
     {
         return $this->belongsTo(LeadDrive::class, 'drive_id');
+    }
+
+    /**
+     * Leads without a drive remain visible; otherwise inherit drive privacy.
+     *
+     * @param  Builder<Lead>  $query
+     * @return Builder<Lead>
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        $visibility = app(LeadDriveVisibility::class);
+
+        if (! $visibility->isPrivacyEnabled()) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($user) {
+            $q->whereNull('drive_id')
+                ->orWhereHas('drive', fn (Builder $driveQuery) => $driveQuery->visibleTo($user));
+        });
     }
 
     public function statusDefinition(): BelongsTo

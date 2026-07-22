@@ -109,9 +109,16 @@ Route::prefix('v1')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])
             ->middleware('role:admin|supervisor');
 
-        Route::apiResource('crm/drives', LeadDriveController::class)
-            ->parameters(['drives' => 'drive'])
-            ->middleware('role:admin|supervisor');
+        Route::get('crm/drives', [LeadDriveController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::post('crm/drives', [LeadDriveController::class, 'store'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::get('crm/drives/{drive}', [LeadDriveController::class, 'show'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::patch('crm/drives/{drive}', [LeadDriveController::class, 'update'])
+            ->middleware('role:admin|supervisor|staff');
+        Route::delete('crm/drives/{drive}', [LeadDriveController::class, 'destroy'])
+            ->middleware('role:admin|supervisor|staff');
 
         Route::get('/crm/lead-analytics', [LeadAnalyticsController::class, 'index'])
             ->middleware('role:admin|supervisor');

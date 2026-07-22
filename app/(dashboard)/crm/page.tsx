@@ -35,6 +35,7 @@ import {
 } from "./hooks/useCrm";
 import type { FollowUp, FollowUpUpdateRequest } from "./hooks/useCrm";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useCompanySettings, DEFAULT_PIPELINE_PRIVACY } from "@/app/(dashboard)/settings/hooks/useSettings";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, useSensor, useSensors,
@@ -147,6 +148,10 @@ const mapDrive = (raw: ApiDrive): DriveItem => ({
   color: raw.color,
   position: raw.position,
   is_default: raw.is_default,
+  is_private: Boolean(raw.is_private),
+  privacy_locked_by_role: raw.privacy_locked_by_role ?? null,
+  can_edit: raw.can_edit,
+  can_delete: raw.can_delete,
 });
 
 const mapStatus = (raw: ApiStatus): StatusItem => ({
@@ -338,6 +343,30 @@ export default function CrmPage() {
   const updateDriveMutation = useUpdateDrive();
   const deleteDriveMutation = useDeleteDrive();
 
+  const { data: currentUser } = useCurrentUser();
+  const { data: companySettings } = useCompanySettings();
+  const pipelinePrivacy = companySettings?.pipeline_privacy ?? DEFAULT_PIPELINE_PRIVACY;
+
+  const roleName = useMemo(() => {
+    const name = currentUser?.roles?.[0]?.name?.toLowerCase() ?? "staff";
+    return name;
+  }, [currentUser]);
+
+  const canCreatePipelines = useMemo(() => {
+    if (roleName === "admin" || roleName === "supervisor") return true;
+    return Boolean(pipelinePrivacy.staff_can_create_pipelines);
+  }, [roleName, pipelinePrivacy.staff_can_create_pipelines]);
+
+  const allowOpenPipelines = useMemo(() => {
+    if (roleName === "admin" || roleName === "supervisor") return true;
+    return Boolean(pipelinePrivacy.staff_can_create_open_pipelines);
+  }, [roleName, pipelinePrivacy.staff_can_create_open_pipelines]);
+
+  const defaultPrivate = useMemo(() => {
+    if (roleName === "staff") return true;
+    return pipelinePrivacy.default_visibility === "private";
+  }, [roleName, pipelinePrivacy.default_visibility]);
+
   const createStatusMutation = useCreateStatus();
   const updateStatusMutation = useUpdateStatus();
   const deleteStatusMutation = useDeleteStatus();
@@ -376,8 +405,7 @@ export default function CrmPage() {
   const [editingFollowUp, setEditingFollowUp] = useState<FollowUp | null>(null);
   const [approvalTarget, setApprovalTarget] = useState<{ followUp: FollowUp; req: FollowUpUpdateRequest; mode: "approve" | "reject" } | null>(null);
 
-  // Current user + follow-up data (enabled only when a lead is selected)
-  const { data: currentUser } = useCurrentUser();
+  // Follow-up data (enabled only when a lead is selected)
   const { data: followUpsRaw, isLoading: followUpsLoading } = useFollowUps(selectedLead?.id ?? 0);
   const followUps = useMemo(() => followUpsRaw ?? [], [followUpsRaw]);
 
@@ -866,6 +894,9 @@ export default function CrmPage() {
       {isPipelinesOpen && (
         <ManagePipelinesModal
           drives={drives}
+          canCreate={canCreatePipelines}
+          allowOpenPipelines={allowOpenPipelines}
+          defaultPrivate={defaultPrivate}
           onClose={() => setPipelinesOpen(false)}
           onCreate={(data) => {
             createDriveMutation.mutate(data, {
