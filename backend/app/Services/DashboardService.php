@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Spreadsheet;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\OrganizationContext;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -21,7 +22,7 @@ class DashboardService
         $monthStart = Carbon::now()->startOfMonth();
         $monthEnd = Carbon::now()->endOfMonth();
 
-        $orgId = app(\App\Support\OrganizationContext::class)->id();
+        $orgId = app(OrganizationContext::class)->id();
 
         $usersQuery = User::query()
             ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')));
@@ -36,24 +37,26 @@ class DashboardService
         $leadsLost = $this->leadMetricsService->countByStatus('lost', $viewer);
         $pipelineValue = $this->leadMetricsService->pipelineValue($viewer);
 
-        $projectsTotal = Project::count();
-        $projectsActive = Project::where('status', 'in_progress')->count();
+        // Tenant models are org-scoped via BelongsToOrganization; keep counts
+        // within the active workspace only.
+        $projectsTotal = Project::query()->count();
+        $projectsActive = Project::query()->where('status', 'in_progress')->count();
 
-        $tasksTotal = Task::count();
-        $tasksCompleted = Task::where('status', 'completed')->count();
-        $tasksTodo = Task::whereIn('status', ['todo', 'in_progress', 'review'])->count();
+        $tasksTotal = Task::query()->count();
+        $tasksCompleted = Task::query()->where('status', 'completed')->count();
+        $tasksTodo = Task::query()->whereIn('status', ['todo', 'in_progress', 'review'])->count();
 
-        $attendanceToday = Attendance::whereDate('date', $today)->count();
-        $leavePending = LeaveRequest::where('status', 'pending')->count();
+        $attendanceToday = Attendance::query()->whereDate('date', $today)->count();
+        $leavePending = LeaveRequest::query()->where('status', 'pending')->count();
 
-        $spreadsheetsTotal = Spreadsheet::count();
+        $spreadsheetsTotal = Spreadsheet::query()->count();
 
         $conversionRate = $leadsTotal > 0 ? round(($leadsWon / $leadsTotal) * 100, 2) : 0.0;
 
         $monthlyLeads = $this->leadMetricsService->baseQuery($viewer)
             ->whereBetween('created_at', [$monthStart, $monthEnd])
             ->count();
-        $monthlyTasksCompleted = Task::where('status', 'completed')
+        $monthlyTasksCompleted = Task::query()->where('status', 'completed')
             ->whereBetween('updated_at', [$monthStart, $monthEnd])
             ->count();
 

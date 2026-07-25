@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 
 it('isolates drives and leads between organizations', function () {
@@ -131,7 +132,53 @@ it('restricts platform org creation to super admins', function () {
     expect(LeadDrive::withoutOrganizationScope()->where('organization_id', Organization::query()->where('slug', 'new-customer-org')->value('id'))->count())->toBeGreaterThan(0);
 });
 
+it('isolates dashboard lead stats between organizations', function () {
+    $orgA = ensureTestOrganization('dash-a', 'Dash A');
+    $orgB = ensureTestOrganization('dash-b', 'Dash B');
+
+    $adminA = apiUser('admin', ['email' => 'dash-admin-a@test.test'], $orgA);
+    $adminB = apiUser('admin', ['email' => 'dash-admin-b@test.test'], $orgB);
+
+    app(OrganizationContext::class)->set($orgA);
+    Lead::withoutOrganizationScope()->create([
+        'organization_id' => $orgA->id,
+        'first_name' => 'Only',
+        'last_name' => 'InA',
+        'email' => 'dash-lead-a@test.test',
+        'status' => 'new',
+        'created_by' => $adminA->id,
+        'source_type' => 'manual',
+    ]);
+    Lead::withoutOrganizationScope()->create([
+        'organization_id' => $orgA->id,
+        'first_name' => 'Second',
+        'last_name' => 'InA',
+        'email' => 'dash-lead-a2@test.test',
+        'status' => 'new',
+        'created_by' => $adminA->id,
+        'source_type' => 'manual',
+    ]);
+
+    Sanctum::actingAs($adminB);
+    $statsB = $this->withHeader('X-Organization-Id', (string) $orgB->id)
+        ->getJson('/api/v1/dashboard/stats')
+        ->assertOk()
+        ->json('data.overview');
+
+    expect($statsB['leads_total'])->toBe(0);
+
+    Sanctum::actingAs($adminA);
+    $statsA = $this->withHeader('X-Organization-Id', (string) $orgA->id)
+        ->getJson('/api/v1/dashboard/stats')
+        ->assertOk()
+        ->json('data.overview');
+
+    expect($statsA['leads_total'])->toBe(2);
+});
+
 it('accepts invitations for new users', function () {
+    Notification::fake();
+
     $org = ensureTestOrganization('invite-org', 'Invite Org');
     $admin = apiUser('admin', ['email' => 'invite-admin@test.test'], $org);
 
@@ -141,6 +188,8 @@ it('accepts invitations for new users', function () {
             'email' => 'newbie@test.test',
             'role' => 'staff',
         ])->assertCreated()->json('data');
+
+    Notification::assertSentOnDemand(\App\Notifications\OrganizationInvitationNotification::class);
 
     $this->postJson('/api/v1/invitations/accept', [
         'token' => $invite['token'],

@@ -7,6 +7,7 @@ use App\Models\LeadDrive;
 use App\Models\LeadStatus;
 use App\Models\User;
 use App\Services\Crm\LeadDriveVisibility;
+use App\Support\OrganizationContext;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
@@ -142,6 +143,17 @@ class LeadMetricsService
     public function baseQuery(?User $viewer = null): Builder
     {
         $query = Lead::query();
+
+        // Defense in depth: never aggregate outside the active organization,
+        // even if a global scope were accidentally bypassed.
+        $context = app(OrganizationContext::class);
+        $orgId = $context->id();
+
+        if ($orgId !== null) {
+            $query->where($query->getModel()->getTable() . '.organization_id', $orgId);
+        } elseif (! $context->shouldBypassScope()) {
+            $query->whereRaw('1 = 0');
+        }
 
         if ($viewer) {
             $query->visibleTo($viewer);

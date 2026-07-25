@@ -8,6 +8,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Queued: requires a running queue worker to deliver invitation emails.
+ */
 class OrganizationInvitationNotification extends Notification implements ShouldQueue
 {
     use Queueable;
@@ -23,16 +26,20 @@ class OrganizationInvitationNotification extends Notification implements ShouldQ
 
     public function toMail(object $notifiable): MailMessage
     {
-        $orgName = $this->invitation->organization?->name ?? 'an organization';
-        $url = rtrim((string) config('app.frontend_login_url'), '/')
-            . '/accept-invite?token=' . urlencode($this->invitation->token);
+        $invitation = $this->invitation->relationLoaded('organization')
+            ? $this->invitation
+            : $this->invitation->load('organization');
+
+        $orgName = $invitation->organization?->name ?? 'an organization';
+        $frontend = rtrim((string) config('app.frontend_login_url', config('app.url')), '/');
+        $url = $frontend . '/accept-invite?token=' . urlencode($invitation->token);
 
         return (new MailMessage)
             ->subject("You're invited to join {$orgName} on FastLink")
             ->greeting('Hello!')
-            ->line("You have been invited to join **{$orgName}** as a {$this->invitation->role}.")
+            ->line("You have been invited to join **{$orgName}** as a {$invitation->role}.")
             ->action('Accept invitation', $url)
-            ->line('This invitation expires on ' . $this->invitation->expires_at->toDayDateTimeString() . '.')
+            ->line('This invitation expires on ' . $invitation->expires_at->toDayDateTimeString() . '.')
             ->line('If you did not expect this invitation, you can ignore this email.');
     }
 }

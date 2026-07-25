@@ -27,7 +27,12 @@ class SetCurrentOrganization
         if ($request->is('api/v1/platform') || $request->is('api/v1/platform/*')) {
             $this->context->bypassScope(true);
 
-            return $next($request);
+            try {
+                return $next($request);
+            } finally {
+                // Prevent scope bypass leaking into later work in the same process.
+                $this->context->bypassScope(false);
+            }
         }
 
         // Auth switch / me endpoints may run before org is fully selected.

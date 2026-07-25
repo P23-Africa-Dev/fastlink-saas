@@ -36,12 +36,13 @@ class OrganizationInvitationService
             'invited_by' => $invitedBy->id,
             'expires_at' => now()->addDays(7),
         ]);
+        $invitation->setRelation('organization', $organization);
 
         $user = User::query()->where('email', $email)->first();
         if ($user) {
             $user->notify(new OrganizationInvitationNotification($invitation));
         } else {
-            // Notify via on-demand notification to email
+            // On-demand mail recipient for emails without an existing account
             \Illuminate\Support\Facades\Notification::route('mail', $email)
                 ->notify(new OrganizationInvitationNotification($invitation));
         }

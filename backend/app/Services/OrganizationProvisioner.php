@@ -149,9 +149,8 @@ class OrganizationProvisioner
 
         $this->addMembership($organization, $user, 'admin', $invitedBy);
 
-        if (! $user->current_organization_id) {
-            $user->forceFill(['current_organization_id' => $organization->id])->save();
-        }
+        // Always land the first admin in the org they were just provisioned for.
+        $user->forceFill(['current_organization_id' => $organization->id])->save();
 
         return ['user' => $user->fresh(), 'temporary_password' => $temporaryPassword];
     }
