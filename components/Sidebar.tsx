@@ -104,13 +104,15 @@ export default function Sidebar({
           {isExpanded && <WorkspaceSwitcher />}
         </div>
 
-        <nav className="sidebar-nav">
-          {navItems.map(renderItem)}
-          {isSuperAdmin && renderItem({ icon: Shield, label: "Platform", href: "/platform" })}
-          <div className="sidebar-divider" />
-        </nav>
+        <div className="sidebar-scroll">
+          <nav className="sidebar-nav">
+            {navItems.map(renderItem)}
+            {isSuperAdmin && renderItem({ icon: Shield, label: "Platform", href: "/platform" })}
+            <div className="sidebar-divider" />
+          </nav>
 
-        <div className="sidebar-bottom">{bottomItems.map(renderItem)}</div>
+          <div className="sidebar-bottom">{bottomItems.map(renderItem)}</div>
+        </div>
       </aside>
     </>
   );
