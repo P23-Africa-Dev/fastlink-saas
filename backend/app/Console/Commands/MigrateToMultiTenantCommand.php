@@ -130,11 +130,18 @@ class MigrateToMultiTenantCommand extends Command
             }
 
             // Remap existing role pivots that have team_id = 0 to this org
-            DB::table('model_has_roles')
-                ->where('model_type', User::class)
-                ->where('model_id', $user->id)
-                ->where('team_id', 0)
-                ->update(['team_id' => $orgId]);
+            // (requires Spatie teams migration 2026_07_24_100200 to have completed)
+            if (Schema::hasColumn('model_has_roles', 'team_id')) {
+                DB::table('model_has_roles')
+                    ->where('model_type', User::class)
+                    ->where('model_id', $user->id)
+                    ->where('team_id', 0)
+                    ->update(['team_id' => $orgId]);
+            }
+        }
+
+        if (! Schema::hasColumn('model_has_roles', 'team_id')) {
+            $this->warn('model_has_roles.team_id missing — run migrations (enable_spatie_teams) then re-run this command.');
         }
 
         // Mark super admin
