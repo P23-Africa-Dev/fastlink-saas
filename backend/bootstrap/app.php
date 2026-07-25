@@ -25,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission'              => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission'      => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'company.settings.access' => \App\Http\Middleware\RequireCompanySettingsAccess::class,
+            'organization'            => \App\Http\Middleware\SetCurrentOrganization::class,
+            'super_admin'             => \App\Http\Middleware\EnsureSuperAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -1,0 +1,326 @@
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true                                                                                            0.02s  
+PHP Warning:  The use statement with non-compound name 'Mockery' has no effect in C:\xampp\htdocs\fastlink-saas\backend\tests\Feature\Api\GoogleCalendarConnectionTest.php on line 4
+
+   PASS  Tests\Feature\Api\AttendanceFlowTest
+  ✓ it allows staff to sign in and sign out with nullable notes                                                  3.86s  
+  ✓ it prevents duplicate sign in on the same day                                                                0.09s  
+  ✓ it requires sign in before sign out and prevents duplicate sign out                                          0.09s  
+  ✓ it preserves sign in note when sign out note is omitted                                                      0.08s  
+  ✓ it automatically clocks out open attendance by 6pm                                                           0.08s  
+  ✓ it includes leave and task dates in attendance calendar payload                                              0.27s  
+
+   PASS  Tests\Feature\Api\AttendanceLeaveFlowTest
+  ✓ it supports attendance and leave workflows with supervisor decisions                                         0.14s  
+  ✓ it notifies all admins and only the targeted supervisor through leave workflow steps                         0.20s  
+
+   PASS  Tests\Feature\Api\AuthTest
+  ✓ it logs in and returns a bearer token                                                                        0.08s  
+  ✓ it rejects invalid credentials                                                                               0.09s  
+  ✓ it returns current user profile for authenticated token                                                      0.08s  
+
+   PASS  Tests\Feature\Api\CompanySettingTest
+  ✓ it returns company settings for all roles with ('admin')                                                     0.08s  
+  ✓ it returns company settings for all roles with ('supervisor')                                                0.07s  
+  ✓ it returns company settings for all roles with ('staff')                                                     0.07s  
+  ✓ it rejects unauthenticated company settings requests                                                         0.04s  
+  ✓ it allows admin to update company settings without any extra headers                                         0.07s  
+  ✓ it rejects company settings update from staff                                                                0.07s  
+  ✓ it validates closing_time is after opening_time                                                              0.08s  
+  ✓ it rejects invalid working_days values                                                                       0.07s  
+  ✓ it rejects empty working_days array                                                                          0.07s  
+  ✓ it blocks supervisor from updating company settings without a token                                          0.07s  
+  ✓ it allows supervisor to update company settings with a valid session token                                   0.11s  
+  ✓ it allows supervisor to use a device token for repeated access without re-entering passcode                  0.11s  
+  ✓ it returns 403 when supervisor sends invalid session token                                                   0.07s  
+
+   FAIL  Tests\Feature\Api\CrmLeadFlowTest
+  ⨯ it supports lead CRUD, activity tracking, and import flow                                                    0.16s  
+  ✓ it returns canonical industry list endpoint                                                                  0.07s  
+  ✓ it enforces strict industry values on manual lead creation but allows empty                                  0.10s  
+  ⨯ it normalizes and safely defaults industry during import                                                     0.08s  
+
+   PASS  Tests\Feature\Api\DashboardDailyTasksTest
+  ✓ it returns daily tasks for admin with default today date filter                                              0.08s  
+  ✓ it returns all daily tasks for supervisor                                                                    0.12s  
+  ✓ it limits staff visibility to tasks assigned to them or created by them                                      0.11s  
+  ✓ it supports explicit date and status filters                                                                 0.07s  
+  ✓ it includes tasks spanning multiple days and tasks starting or ending on the selected date                   0.07s  
+  ✓ it returns empty task list when no tasks match the selected day                                              0.07s  
+  ✓ it returns 422 for invalid date input                                                                        0.07s  
+  ✓ it includes tasks without assignees                                                                          0.08s  
+
+   FAIL  Tests\Feature\Api\DashboardPipelineStatsTest
+  ⨯ it returns default pipeline stats without filters                                                            0.16s  
+  ✓ it filters pipeline stats by state only                                                                      0.16s  
+  ⨯ it filters pipeline stats by status only                                                                     0.16s  
+  ⨯ it supports combined pipeline stats filters                                                                  0.16s  
+  ✓ it returns validation error for invalid state filter and handles unknown status gracefully                   0.16s  
+
+   PASS  Tests\Feature\Api\DashboardStatsTest
+  ✓ it returns aggregated dashboard statistics payload                                                           0.09s  
+
+   PASS  Tests\Feature\Api\GoogleCalendarConnectionTest
+  ✓ it returns google calendar connection status for the authenticated user                                      0.09s  
+  ✓ it returns an authorization url for google calendar connection                                               0.08s  
+  ✓ it returns a success popup page after successful google calendar callback                                    0.07s  
+  ✓ it disconnects the authenticated user from google calendar                                                   0.07s  
+
+   PASS  Tests\Feature\Api\HealthTest
+  ✓ GET /api/v1/health → it returns 200 with ok status when database is reachable                                0.03s  
+  ✓ GET /api/v1/health → it returns the correct app name in health response                                      0.03s  
+  ✓ GET /api/v1/health → it returns a valid ISO 8601 timestamp                                                   0.03s  
+  ✓ GET /api/v1/health → it returns correct content-type header                                                  0.03s  
+  ✓ GET /api/v1/health → it returns 503 when database is unreachable                                             0.03s  
+
+   FAIL  Tests\Feature\Api\LeadAnalyticsTest
+  ✓ it restricts lead analytics endpoints to admin and supervisor                                                3.10s  
+  ⨯ it returns filtered user lead analytics with manual and import attribution                                   0.15s  
+  ✓ it supports user and upload type filters including legacy imports                                            0.12s  
+  ✓ it returns timeline entries and pagination for activity feed                                                 0.10s  
+  ✓ it returns top uploaders and daily aggregate metric                                                          0.12s  
+  ✓ it returns zeroed stats when requested user has no uploads                                                   0.13s  
+
+   PASS  Tests\Feature\Api\LeadFollowupFlowTest
+  ✓ it creates followup and supports timeline with multiple followups                                            0.10s  
+  ✓ it updates followup directly when approval is not required (same creator)                                    0.08s  
+  ✓ it submits pending update request when approval is required and sends email plus in-app/device notification… 0.11s  
+  ✓ it approves a pending followup update and applies proposed changes                                           0.13s  
+  ✓ it rejects a pending followup update and preserves original data                                             0.13s  
+  ✓ it prevents unauthorized approval and duplicate/concurrent pending updates                                   0.15s  
+  ✓ it validates schema and supports attachment upload with authenticated download                               0.13s  
+  ✓ it creates followup with multiple multipart attachments and returns urls for preview and download            0.11s  
+  ✓ it rejects malformed attachment payload and invalid mime types                                               0.09s  
+  ✓ it stores new attachments on followup edit when multipart uses method override                               0.09s  
+  ✓ it updates followup attachments by removing existing ones and adding new files in the same request           0.12s  
+
+   FAIL  Tests\Feature\Api\LocationFlowTest
+  ⨯ it returns canonical states list without duplicate names                                                     0.20s  
+  ⨯ it returns LGAs for duplicate state ids and accepts camelCase stateId                                        0.16s  
+
+   PASS  Tests\Feature\Api\MeetingFlowTest
+  ✓ it creates a meeting and generates meet link with guests                                                     0.11s  
+  ✓ it updates and cancels a meeting with google sync                                                            0.10s  
+  ✓ it enforces meeting visibility and management access rules                                                   0.18s  
+  ✓ it shows meetings in calendar events feed for invited users                                                  0.16s  
+  ✓ it blocks users without allowed role from creating meetings                                                  0.07s  
+
+   PASS  Tests\Feature\Api\MultiTenantTest
+  ✓ it isolates drives and leads between organizations                                                           0.11s  
+  ✓ it allows the same user different roles across organizations                                                 0.08s  
+  ✓ it switches organization context via API                                                                     0.09s  
+  ✓ it restricts platform org creation to super admins                                                           0.13s  
+  ✓ it accepts invitations for new users                                                                         0.19s  
+
+   PASS  Tests\Feature\Api\NotificationSystemTest
+  ✓ it creates admin in-app notification when a new lead is created                                              0.12s  
+  ✓ it notifies admin and assigned user when lead is assigned                                                    0.15s  
+  ✓ it notifies admins when supervisor creates a user                                                            0.14s  
+  ✓ it notifies admin on valuable project creation                                                               0.11s  
+  ✓ it notifies admins and supervisors on clock in and clock out                                                 0.14s  
+  ✓ it notifies admins and supervisors for new leave request and requester on status update                      0.21s  
+  ✓ it supports notification APIs for polling and read lifecycle                                                 0.09s  
+  ✓ it creates tag creation notification for admins and supervisors and assignment notification for staff only   0.14s  
+
+   PASS  Tests\Feature\Api\PipelinePrivacyTest
+  ✓ it allows staff to create private pipelines and hides them from other staff                                  0.20s  
+  ✓ it hides supervisor-private pipelines from other supervisors and staff                                       0.18s  
+  ✓ it hides admin-private pipelines from staff and supervisors                                                  0.14s  
+  ✓ it scopes leads by pipeline privacy                                                                          0.13s  
+  ✓ it forces staff pipelines private when open creation is disabled                                             0.09s  
+  ✓ it updates company pipeline privacy settings                                                                 0.14s  
+  ✓ it rejects private pipelines as company default                                                              0.10s  
+
+   PASS  Tests\Feature\Api\ProfileSettingsTest
+  ✓ it returns the authenticated user profile for any role with ('admin')                                        0.08s  
+  ✓ it returns the authenticated user profile for any role with ('supervisor')                                   0.08s  
+  ✓ it returns the authenticated user profile for any role with ('staff')                                        0.08s  
+  ✓ it rejects unauthenticated profile requests                                                                  0.04s  
+  ✓ it allows any role to update their name with ('admin')                                                       0.08s  
+  ✓ it allows any role to update their name with ('supervisor')                                                  0.07s  
+  ✓ it allows any role to update their name with ('staff')                                                       0.08s  
+  ✓ it allows any role to update their email when unique                                                         0.08s  
+  ✓ it rejects email update when email is taken by another user                                                  0.10s  
+  ✓ it allows password change when current password is correct                                                   0.08s  
+  ✓ it rejects password change when current password is wrong                                                    0.07s  
+  ✓ it rejects password change when confirmation does not match                                                  0.08s  
+  ✓ it allows any role to update appearance preference with ('admin')                                            0.09s  
+  ✓ it allows any role to update appearance preference with ('supervisor')                                       0.08s  
+  ✓ it allows any role to update appearance preference with ('staff')                                            0.08s  
+  ✓ it rejects invalid appearance value                                                                          0.07s  
+  ✓ it includes appearance field in user profile response                                                        0.08s  
+
+   PASS  Tests\Feature\Api\ProjectTaskFlowTest
+  ✓ it supports project, task, kanban, gantt, assignee, and comment flows                                        0.14s  
+
+   PASS  Tests\Feature\Api\SpreadsheetFlowTest
+  ✓ it supports spreadsheet upload, update, download, and deletion                                               0.10s  
+
+   PASS  Tests\Feature\Api\SupervisorPasscodeTest
+  ✓ it admin can generate a passcode for a supervisor                                                            0.11s  
+  ✓ it admin can generate a passcode with a future expiry date                                                   0.10s  
+  ✓ it generating a new passcode revokes any existing active passcode for that supervisor                        0.10s  
+  ✓ it rejects passcode generation for a non-supervisor user                                                     0.10s  
+  ✓ it rejects passcode generation for a past expiry date                                                        0.10s  
+  ✓ it blocks supervisor and staff from generating passcodes with ('supervisor')                                 0.08s  
+  ✓ it blocks supervisor and staff from generating passcodes with ('staff')                                      0.07s  
+  ✓ it admin can list all supervisor passcodes                                                                   0.10s  
+  ✓ it admin can filter passcodes by supervisor_id                                                               0.13s  
+  ✓ it admin can revoke a passcode                                                                               0.11s  
+  ✓ it supervisor can verify a correct passcode and receive session token                                        0.12s  
+  ✓ it supervisor receives null device_token when remember_device is false                                       0.12s  
+  ✓ it supervisor gets 403 when providing a wrong passcode                                                       0.11s  
+  ✓ it supervisor gets 403 when no active passcode exists for them                                               0.08s  
+  ✓ it blocks admin from calling verify-passcode endpoint (supervisor-only)                                      0.08s  
+  ✓ it supervisor can validate a valid device token                                                              0.11s  
+  ✓ it returns 403 when device token is invalid or does not exist                                                0.08s  
+  ✓ it revoked passcode invalidates the associated device token                                                  0.13s  
+
+   PASS  Tests\Feature\Api\UserManagementTest
+  ✓ it allows admin to create and manage users with roles                                                        0.10s  
+  ✓ it blocks staff from user management endpoints                                                               0.08s  
+  ✓ it allows staff to view users list but not modify users                                                      0.11s  
+  ✓ it allows supervisor to create staff users and sends account email                                           0.09s  
+  ✓ it blocks supervisor from creating admin users                                                               0.08s  
+  ✓ it allows supervisor to create supervisor users                                                              0.12s  
+  ✓ it blocks supervisor from editing or deleting admin accounts                                                 0.14s  
+  ✓ it allows supervisor to edit, suspend, and delete staff accounts                                             0.12s  
+  ✓ it allows staff to fetch supervisors list for leave forms                                                    0.13s  
+  ✓ it allows supervisor to fetch approvers list while excluding self                                            0.14s  
+  ✓ it restores a soft-deleted user when creating with the same email                                            0.13s  
+  ✓ it marks newly created users as pending until first login                                                    0.13s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response                                                                0.04s  
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\CrmLeadFlowTest > it supports lead CRUD, activity tracking, and import flow                
+  Failed asserting that 0 is identical to 2.
+
+  at tests\Feature\Api\CrmLeadFlowTest.php:63
+     59▕         'status_id' => $status['id'],
+     60▕     ]);
+     61▕ 
+     62▕     $importResponse->assertOk()
+  ➜  63▕         ->assertJsonPath('data.imported', 2)
+     64▕         ->assertJsonPath('success', true);
+     65▕ 
+     66▕     expect(Lead::count())->toBeGreaterThanOrEqual(3);
+     67▕
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\CrmLeadFlowTest > it normalizes and safely defaults industry during import                 
+  Failed asserting that 0 is identical to 3.
+
+  at tests\Feature\Api\CrmLeadFlowTest.php:135
+    131▕     $response = $this->postJson('/api/v1/crm/leads/import', [
+    132▕         'file' => UploadedFile::fake()->createWithContent('industry-import.csv', $csv),
+    133▕     ]);
+    134▕ 
+  ➜ 135▕     $response->assertOk()->assertJsonPath('data.imported', 3);
+    136▕ 
+    137▕     expect(Lead::query()->where('email', 'industry.alice@lead.test')->value('industry'))
+    138▕         ->toBe(Industry::TECHNOLOGY_SOFTWARE->value);
+    139▕
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\DashboardPipelineStatsTest > it returns default pipeline stats without filters             
+  Failed to assert that the response count matched the expected 2
+Failed asserting that actual size 0 matches expected size 2.
+
+  at tests\Feature\Api\DashboardPipelineStatsTest.php:38
+     34▕ 
+     35▕     $response->assertOk()
+     36▕         ->assertJsonPath('success', true)
+     37▕         ->assertJsonPath('data.total_leads', 6)
+  ➜  38▕         ->assertJsonCount(2, 'data.top_states');
+     39▕ });
+     40▕ 
+     41▕ it('filters pipeline stats by state only', function () {
+     42▕     $this->seed([WorkflowDefaultsSeeder::class, LocationSeeder::class]);
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\DashboardPipelineStatsTest > it filters pipeline stats by status only                      
+  Failed asserting that 0 is identical to 4.
+
+  at tests\Feature\Api\DashboardPipelineStatsTest.php:75
+     71▕     $response = $this->getJson('/api/v1/dashboard/pipeline-stats?status=Qualified');
+     72▕ 
+     73▕     $response->assertOk()
+     74▕         ->assertJsonPath('success', true)
+  ➜  75▕         ->assertJsonPath('data.total_leads', 4)
+     76▕         ->assertJsonPath('data.filters.status', 'Qualified');
+     77▕ });
+     78▕ 
+     79▕ it('supports combined pipeline stats filters', function () {
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\DashboardPipelineStatsTest > it supports combined pipeline stats filters                   
+  Failed asserting that 0 is identical to 2.
+
+  at tests\Feature\Api\DashboardPipelineStatsTest.php:96
+     92▕     $response = $this->getJson('/api/v1/dashboard/pipeline-stats?state_id=' . $lagos->id . '&status=New');
+     93▕ 
+     94▕     $response->assertOk()
+     95▕         ->assertJsonPath('success', true)
+  ➜  96▕         ->assertJsonPath('data.total_leads', 2)
+     97▕         ->assertJsonPath('data.filters.state_id', $lagos->id)
+     98▕         ->assertJsonPath('data.filters.status', 'New');
+     99▕ });
+    100▕
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\LeadAnalyticsTest > it returns filtered user lead analytics with manual and import attr…   
+  Failed asserting that 2 is identical to 1.
+
+  at tests\Feature\Api\LeadAnalyticsTest.php:143
+    139▕     $response = $this->getJson('/api/v1/crm/lead-analytics?type=both&period=custom&start_date=2026-05-01&end_date=2026-05-31&drive_id=' . $inbound->id . '&country_id=' . $country->id . '&state_id=' . $state->id . '&lga_id=' . $lga->id);
+    140▕ 
+    141▕     $response->assertOk()
+    142▕         ->assertJsonPath('success', true)
+  ➜ 143▕         ->assertJsonPath('data.summary.manual_leads', 1)
+    144▕         ->assertJsonPath('data.summary.imported_leads', 2)
+    145▕         ->assertJsonPath('data.summary.total_leads', 3)
+    146▕         ->assertJsonPath('data.summary.unattributed.imported', 1)
+    147▕         ->assertJsonPath('data.filters.drive_id', $inbound->id)
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\LocationFlowTest > it returns canonical states list…  UniqueConstraintViolationException   
+  SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: states.country_id, states.name (Connection: sqlite, Database: database/testing.sqlite, SQL: insert into "states" ("country_id", "name", "updated_at", "created_at") values (1, Lagos, 2026-05-08 12:00:00, 2026-05-08 12:00:00))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+    583▕             $this->bindValues($statement, $this->prepareBindings($bindings));
+    584▕ 
+    585▕             $this->recordsHaveBeenModified();
+    586▕ 
+  ➜ 587▕             return $statement->execute();
+    588▕         });
+    589▕     }
+    590▕ 
+    591▕     /**
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:830
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\Api\LocationFlowTest > it returns LGAs for duplicate st…  UniqueConstraintViolationException   
+  SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: states.country_id, states.name (Connection: sqlite, Database: database/testing.sqlite, SQL: insert into "states" ("country_id", "name", "updated_at", "created_at") values (1, Lagos, 2026-05-08 12:00:00, 2026-05-08 12:00:00))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+    583▕             $this->bindValues($statement, $this->prepareBindings($bindings));
+    584▕ 
+    585▕             $this->recordsHaveBeenModified();
+    586▕ 
+  ➜ 587▕             return $statement->execute();
+    588▕         });
+    589▕     }
+    590▕ 
+    591▕     /**
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:830
+
+
+  Tests:    8 failed, 138 passed (650 assertions)
+  Duration: 22.25s
+

@@ -29,15 +29,24 @@ function createAnalyticsLead(array $overrides = []): Lead
     static $n = 0;
     $n++;
 
-    return Lead::create(array_merge([
+    $createdAt = $overrides['created_at'] ?? Carbon::now();
+    $updatedAt = $overrides['updated_at'] ?? $createdAt;
+    unset($overrides['created_at'], $overrides['updated_at']);
+
+    $lead = Lead::create(array_merge([
         'first_name' => 'Lead',
         'last_name' => 'User ' . $n,
         'email' => "lead.analytics.{$n}@example.test",
         'source' => 'manual',
         'source_type' => 'manual',
-        'created_at' => Carbon::now(),
-        'updated_at' => Carbon::now(),
     ], $overrides));
+
+    $lead->forceFill([
+        'created_at' => $createdAt,
+        'updated_at' => $updatedAt,
+    ])->saveQuietly();
+
+    return $lead->fresh();
 }
 
 it('restricts lead analytics endpoints to admin and supervisor', function () {

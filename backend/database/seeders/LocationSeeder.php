@@ -49,12 +49,12 @@ class LocationSeeder extends Seeder
                 'updated_at' => now(),
             ], $countryData['states']);
 
-            // Upsert on (country_id, name) — no duplicates
+            // Upsert on (country_id, name) — no duplicates.
+            // Prefer updateOrInsert so SQLite works even before unique indexes exist.
             foreach ($stateRows as $row) {
-                DB::table('states')->upsert(
-                    [$row],
-                    ['country_id', 'name'],
-                    ['updated_at']
+                DB::table('states')->updateOrInsert(
+                    ['country_id' => $row['country_id'], 'name' => $row['name']],
+                    ['updated_at' => $row['updated_at'], 'created_at' => $row['created_at']]
                 );
             }
         }
@@ -89,10 +89,9 @@ class LocationSeeder extends Seeder
             ], $lgas);
 
             foreach ($rows as $row) {
-                DB::table('lgas')->upsert(
-                    [$row],
-                    ['state_id', 'name'],
-                    ['updated_at']
+                DB::table('lgas')->updateOrInsert(
+                    ['state_id' => $row['state_id'], 'name' => $row['name']],
+                    ['updated_at' => $row['updated_at'], 'created_at' => $row['created_at']]
                 );
             }
         }

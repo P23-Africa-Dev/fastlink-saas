@@ -10,9 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Central pipeline (lead drive) visibility rules.
  *
- * Future multi-tenant seam: wrap callers with organization scoping
- * (e.g. where organization_id = …) around these same visibility filters
- * rather than scattering access checks across controllers.
+ * Runs inside the current organization context (OrganizationScope).
+ * Visibility filters apply within a single organization only.
  */
 class LeadDriveVisibility
 {

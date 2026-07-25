@@ -25,6 +25,8 @@ use App\Http\Controllers\Api\V1\SpreadsheetController;
 use App\Http\Controllers\Api\V1\SubtaskController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\OrganizationInvitationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -36,12 +38,35 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])
         ->middleware('throttle:6,1')
         ->name('api.auth.reset-password');
+    Route::get('/invitations/preview', [OrganizationInvitationController::class, 'showPublic'])
+        ->middleware('throttle:20,1')
+        ->name('api.invitations.preview');
+    Route::post('/invitations/accept', [OrganizationInvitationController::class, 'accept'])
+        ->middleware('throttle:10,1')
+        ->name('api.invitations.accept');
     Route::get('/google/calendar/callback', [\App\Http\Controllers\Api\V1\GoogleCalendarConnectionController::class, 'callback'])
         ->name('api.google.calendar.callback');
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'organization'])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+        Route::post('/auth/organizations/{organization}/switch', [AuthController::class, 'switchOrganization'])
+            ->name('api.auth.switch-organization');
+
+        Route::middleware('super_admin')->prefix('platform')->group(function () {
+            Route::get('/organizations', [PlatformOrganizationController::class, 'index']);
+            Route::post('/organizations', [PlatformOrganizationController::class, 'store']);
+            Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show']);
+            Route::patch('/organizations/{organization}', [PlatformOrganizationController::class, 'update']);
+            Route::get('/organizations/{organization}/members', [PlatformOrganizationController::class, 'members']);
+        });
+
+        Route::get('/organizations/invitations', [OrganizationInvitationController::class, 'index'])
+            ->middleware('role:admin');
+        Route::post('/organizations/invitations', [OrganizationInvitationController::class, 'store'])
+            ->middleware('role:admin');
+        Route::delete('/organizations/invitations/{invitation}', [OrganizationInvitationController::class, 'destroy'])
+            ->middleware('role:admin');
 
         Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
             ->middleware('role:admin|supervisor|staff')
@@ -317,7 +342,7 @@ Route::prefix('v1')->group(function () {
 });
 
 // Non-versioned aliases for meeting integration requirements.
-Route::middleware(['auth:sanctum', 'role:admin|supervisor|staff'])->group(function () {
+Route::middleware(['auth:sanctum', 'organization', 'role:admin|supervisor|staff'])->group(function () {
     Route::post('/meetings', [MeetingController::class, 'store']);
     Route::put('/meetings/{meeting}', [MeetingController::class, 'update']);
     Route::delete('/meetings/{meeting}', [MeetingController::class, 'destroy']);

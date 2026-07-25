@@ -44,6 +44,7 @@ it('creates a meeting and generates meet link with guests', function () {
 
     $organizer = apiUser('admin', ['email' => 'organizer@fastlink.test']);
     $internalGuest = apiUser('staff', ['email' => 'staff.guest@fastlink.test']);
+    connectTestGoogleCalendar($organizer);
     Sanctum::actingAs($organizer);
 
     $response = $this->postJson('/api/v1/meetings', [
@@ -81,6 +82,7 @@ it('updates and cancels a meeting with google sync', function () {
     app()->instance(GoogleCalendarClient::class, $fakeGoogle);
 
     $organizer = apiUser('supervisor', ['email' => 'supervisor@fastlink.test']);
+    connectTestGoogleCalendar($organizer);
     Sanctum::actingAs($organizer);
 
     $create = $this->postJson('/api/v1/meetings', [
@@ -114,6 +116,7 @@ it('enforces meeting visibility and management access rules', function () {
     $organizer = apiUser('staff', ['email' => 'owner@fastlink.test']);
     $guest = apiUser('staff', ['email' => 'guest@fastlink.test']);
     $other = apiUser('staff', ['email' => 'other@fastlink.test']);
+    connectTestGoogleCalendar($organizer);
 
     Sanctum::actingAs($organizer);
     $create = $this->postJson('/api/v1/meetings', [
@@ -140,6 +143,7 @@ it('shows meetings in calendar events feed for invited users', function () {
 
     $organizer = apiUser('admin');
     $guest = apiUser('staff');
+    connectTestGoogleCalendar($organizer);
 
     Sanctum::actingAs($organizer);
     $this->postJson('/api/v1/meetings', [

@@ -8,10 +8,15 @@ use Laravel\Sanctum\Sanctum;
 
 function createLeadsForStateAndStatus(int $count, int $stateId, string $status, int $userId): void
 {
+    $state = State::query()->findOrFail($stateId);
+    $statusRow = \App\Models\LeadStatus::query()->where('slug', $status)->first();
+
     for ($i = 0; $i < $count; $i++) {
         Lead::create([
             'first_name' => 'Lead ' . $status . ' ' . $stateId . ' ' . $i,
             'status' => $status,
+            'status_id' => $statusRow?->id,
+            'country_id' => $state->country_id,
             'state_id' => $stateId,
             'created_by' => $userId,
         ]);

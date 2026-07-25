@@ -13,9 +13,13 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
+  const { token, currentOrganizationId } = useAuthStore.getState();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (currentOrganizationId) {
+    config.headers["X-Organization-Id"] = String(currentOrganizationId);
   }
 
   // Let the browser set multipart boundaries for FormData requests.

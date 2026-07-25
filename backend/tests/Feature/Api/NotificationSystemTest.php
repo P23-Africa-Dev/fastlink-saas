@@ -9,6 +9,7 @@ use Laravel\Sanctum\Sanctum;
 it('creates admin in-app notification when a new lead is created', function () {
     $admin = apiUser('admin', ['email' => 'notif-admin-lead@test.test']);
     $staff = apiUser('staff', ['email' => 'notif-staff-lead@test.test']);
+    $location = testLocationIds();
 
     Sanctum::actingAs($staff);
 
@@ -16,6 +17,7 @@ it('creates admin in-app notification when a new lead is created', function () {
         'first_name' => 'Liam',
         'last_name' => 'Lead',
         'email' => 'liam.lead@test.test',
+        ...$location,
     ])->assertCreated();
 
     expect(Notification::query()->where('user_id', $admin->id)->where('type', 'crm.lead_created')->exists())
@@ -26,6 +28,7 @@ it('notifies admin and assigned user when lead is assigned', function () {
     $admin = apiUser('admin', ['email' => 'notif-admin-assign@test.test']);
     $supervisor = apiUser('supervisor', ['email' => 'notif-supervisor-assign@test.test']);
     $staff = apiUser('staff', ['email' => 'notif-target-staff@test.test']);
+    $location = testLocationIds();
 
     Sanctum::actingAs($supervisor);
 
@@ -33,6 +36,7 @@ it('notifies admin and assigned user when lead is assigned', function () {
         'first_name' => 'Assigned',
         'last_name' => 'Lead',
         'assigned_to' => $staff->id,
+        ...$location,
     ]);
 
     $response->assertCreated();

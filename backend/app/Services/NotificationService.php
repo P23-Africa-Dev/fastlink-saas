@@ -34,8 +34,11 @@ class NotificationService
         }
 
         $now = now();
-        $rows = $ids->map(function (int $userId) use ($type, $title, $message, $metadata, $priority, $dedupeKey, $now) {
+        $orgId = app(\App\Support\OrganizationContext::class)->id();
+
+        $rows = $ids->map(function (int $userId) use ($type, $title, $message, $metadata, $priority, $dedupeKey, $now, $orgId) {
             return [
+                'organization_id' => $orgId ?? User::query()->whereKey($userId)->value('current_organization_id'),
                 'user_id' => $userId,
                 'type' => $type,
                 'title' => $title,
@@ -102,8 +105,16 @@ class NotificationService
      */
     public function roleUserIds(string ...$roles): Collection
     {
-        return User::query()
-            ->role($roles)
-            ->pluck('id');
+        $orgId = app(\App\Support\OrganizationContext::class)->id();
+
+        $query = User::query()->role($roles);
+
+        if ($orgId) {
+            $query->whereHas('organizationMemberships', function ($builder) use ($orgId) {
+                $builder->where('organization_id', $orgId)->where('status', 'active');
+            });
+        }
+
+        return $query->pluck('id');
     }
 }

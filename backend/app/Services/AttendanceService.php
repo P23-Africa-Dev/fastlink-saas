@@ -24,17 +24,19 @@ class AttendanceService
         $today = $now->toDateString();
         $updated = 0;
 
-        // Load the company closing time once for the whole batch.
-        $closingTime = $this->resolveClosingTime();
+        // Closing time is per organization; cache one lookup per org.
+        $closingTimes = [];
 
         Attendance::query()
             ->whereNotNull('signed_in_at')
             ->whereNull('signed_out_at')
             ->whereDate('date', '<=', $today)
             ->orderBy('id')
-            ->chunkById(200, function ($rows) use (&$updated, $now, $closingTime) {
+            ->chunkById(200, function ($rows) use (&$updated, &$closingTimes, $now) {
                 foreach ($rows as $attendance) {
-                    [$closeHour, $closeMin] = $closingTime;
+                    $orgKey = (int) ($attendance->organization_id ?? 0);
+                    $closingTimes[$orgKey] ??= $this->resolveClosingTime($attendance->organization_id);
+                    [$closeHour, $closeMin] = $closingTimes[$orgKey];
 
                     $cutoff = Carbon::parse($attendance->date->toDateString(), config('app.timezone'))
                         ->setTime($closeHour, $closeMin, 0);
@@ -61,16 +63,14 @@ class AttendanceService
      *
      * @return array{0: int, 1: int}
      */
-    public function resolveClosingTime(): array
+    public function resolveClosingTime(?int $organizationId = null): array
     {
-        $setting = CompanySetting::first();
-
-        if (! $setting) {
-            return [18, 0];
-        }
+        $setting = $organizationId !== null
+            ? CompanySetting::forOrganization($organizationId)
+            : CompanySetting::forCurrentOrganization();
 
         // closing_time is stored as HH:MM:SS string (MySQL TIME column)
-        $parts = explode(':', $setting->closing_time);
+        $parts = explode(':', (string) ($setting->closing_time ?? '18:00:00'));
 
         return [(int) ($parts[0] ?? 18), (int) ($parts[1] ?? 0)];
     }
@@ -81,13 +81,11 @@ class AttendanceService
      *
      * @return list<string>
      */
-    public function resolveWorkingDays(): array
+    public function resolveWorkingDays(?int $organizationId = null): array
     {
-        $setting = CompanySetting::first();
-
-        if (! $setting) {
-            return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-        }
+        $setting = $organizationId !== null
+            ? CompanySetting::forOrganization($organizationId)
+            : CompanySetting::forCurrentOrganization();
 
         return $setting->working_days ?? ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     }

@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Models\OrganizationUser;
 use App\Models\User;
 use App\Notifications\UserAccountCreatedNotification;
 use App\Services\ActivityLogService;
 use App\Services\NotificationService;
+use App\Services\OrganizationProvisioner;
+use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,14 +23,19 @@ class UserController extends Controller
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly ActivityLogService $activityLogService,
+        private readonly OrganizationContext $organizationContext,
+        private readonly OrganizationProvisioner $organizationProvisioner,
     ) {}
 
     public function supervisors(Request $request): JsonResponse
     {
+        $orgId = $this->organizationContext->id();
+
         $query = User::query()
             ->select(['id', 'name', 'email'])
             ->with('roles:id,name')
             ->whereNull('suspended_at')
+            ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')))
             ->whereHas('roles', function ($builder) {
                 $builder->whereIn('name', ['admin', 'supervisor']);
             })
@@ -42,10 +50,13 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $orgId = $this->organizationContext->id();
+
         if ($request->boolean('assignable')) {
             $users = User::query()
                 ->select(['id', 'name', 'email'])
                 ->whereNull('suspended_at')
+                ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')))
                 ->orderBy('name')
                 ->get();
 
@@ -54,6 +65,7 @@ class UserController extends Controller
 
         $query = User::query()
             ->with('roles:id,name')
+            ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')))
             ->when($request->string('q')->toString(), function ($builder, $q) {
                 $builder->where(function ($inner) use ($q) {
                     $inner->where('name', 'like', "%{$q}%")
@@ -73,6 +85,7 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): JsonResponse
     {
         $payload = $request->validated();
+        $org = $this->organizationContext->check();
 
         if ($request->user()?->hasRole('supervisor') && $payload['role'] === 'admin') {
             return $this->error('Supervisors cannot create admin accounts.', 403);
@@ -81,19 +94,25 @@ class UserController extends Controller
         $temporaryPassword = Str::password(12, letters: true, numbers: true, symbols: false);
 
         /** @var User $user */
-        $user = DB::transaction(function () use ($payload, $temporaryPassword) {
+        $user = DB::transaction(function () use ($payload, $temporaryPassword, $org, $request) {
             $existing = User::withTrashed()->where('email', $payload['email'])->first();
 
             if ($existing && $existing->trashed()) {
                 $existing->restore();
                 $existing->update([
                     'name' => $payload['name'],
-                    // Plain password — User model's `hashed` cast hashes once.
                     'password' => $temporaryPassword,
                     'suspended_at' => null,
                 ]);
 
-                $existing->syncRoles([$payload['role']]);
+                $this->organizationProvisioner->addMembership($org, $existing, $payload['role'], $request->user());
+
+                return $existing;
+            }
+
+            if ($existing) {
+                // Existing global user — attach to this org
+                $this->organizationProvisioner->addMembership($org, $existing, $payload['role'], $request->user());
 
                 return $existing;
             }
@@ -101,24 +120,27 @@ class UserController extends Controller
             $created = User::create([
                 'name' => $payload['name'],
                 'email' => $payload['email'],
-                // Plain password — User model's `hashed` cast hashes once.
                 'password' => $temporaryPassword,
+                'current_organization_id' => $org->id,
             ]);
 
-            $created->syncRoles([$payload['role']]);
+            $this->organizationProvisioner->addMembership($org, $created, $payload['role'], $request->user());
 
             return $created;
         });
 
         try {
-            $user->notify(new UserAccountCreatedNotification($temporaryPassword));
+            // Only email credentials when we generated a new password for a new/restored user
+            if ($temporaryPassword) {
+                $user->notify(new UserAccountCreatedNotification($temporaryPassword));
+            }
         } catch (Throwable $e) {
             report($e);
         }
 
         if ($request->user()->hasRole('supervisor')) {
             $adminIds = $this->notificationService->roleUserIds('admin')
-                ->filter(fn($id) => (int) $id !== (int) $request->user()->id);
+                ->filter(fn ($id) => (int) $id !== (int) $request->user()->id);
 
             $this->notificationService->notifyUsers(
                 $adminIds,
@@ -143,11 +165,28 @@ class UserController extends Controller
 
     public function show(User $user): JsonResponse
     {
+        $orgId = $this->organizationContext->id();
+        if ($orgId && ! OrganizationUser::query()
+            ->where('organization_id', $orgId)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists()) {
+            return $this->error('User not found.', 404);
+        }
+
         return $this->success($user->load('roles:id,name'), 'User fetched.');
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
+        $orgId = $this->organizationContext->id();
+        if ($orgId && ! OrganizationUser::query()
+            ->where('organization_id', $orgId)
+            ->where('user_id', $user->id)
+            ->exists()) {
+            return $this->error('User not found.', 404);
+        }
+
         if ($request->user()?->hasRole('supervisor')) {
             if ($user->hasRole('admin')) {
                 return $this->error('Supervisors cannot manage admin accounts.', 403);
@@ -160,8 +199,6 @@ class UserController extends Controller
             return $this->error('Supervisors cannot assign the admin role.', 403);
         }
 
-        // Password (if present) is assigned plain — the `hashed` cast hashes it.
-
         if (array_key_exists('suspended', $payload)) {
             $payload['suspended_at'] = $payload['suspended'] ? now() : null;
             unset($payload['suspended']);
@@ -172,7 +209,8 @@ class UserController extends Controller
 
         $user->update($payload);
 
-        if ($role) {
+        if ($role && $orgId) {
+            setPermissionsTeamId($orgId);
             $user->syncRoles([$role]);
         }
 
@@ -185,28 +223,41 @@ class UserController extends Controller
             return $this->error('You cannot delete your own account.', 422);
         }
 
+        $org = $this->organizationContext->check();
+
         if ($request->user()?->hasRole('supervisor') && $user->hasRole('admin')) {
             return $this->error('Supervisors cannot delete admin accounts.', 403);
         }
 
-        $user->tokens()->delete();
-        $user->delete();
+        // Remove from current org only (don't soft-delete global identity if multi-org)
+        OrganizationUser::query()
+            ->where('organization_id', $org->id)
+            ->where('user_id', $user->id)
+            ->delete();
 
-        return $this->success(null, 'User deleted.');
+        setPermissionsTeamId($org->id);
+        $user->syncRoles([]);
+
+        $remaining = OrganizationUser::query()->where('user_id', $user->id)->where('status', 'active')->exists();
+        if (! $remaining) {
+            $user->tokens()->delete();
+            $user->delete();
+        } elseif ((int) $user->current_organization_id === (int) $org->id) {
+            $next = OrganizationUser::query()->where('user_id', $user->id)->where('status', 'active')->value('organization_id');
+            $user->forceFill(['current_organization_id' => $next])->save();
+        }
+
+        return $this->success(null, 'User removed from organization.');
     }
 
-    /**
-     * Get all active users available for task assignment.
-     * Returns minimal user data (id, name, email) for dropdown/assignment selection.
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function assignable(Request $request): JsonResponse
     {
+        $orgId = $this->organizationContext->id();
+
         $users = User::query()
             ->select(['id', 'name', 'email'])
             ->whereNull('suspended_at')
+            ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')))
             ->orderBy('name')
             ->get();
 

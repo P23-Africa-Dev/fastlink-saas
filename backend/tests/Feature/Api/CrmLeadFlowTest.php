@@ -11,6 +11,7 @@ it('supports lead CRUD, activity tracking, and import flow', function () {
 
     $admin = apiUser('admin');
     Sanctum::actingAs($admin);
+    $location = testLocationIds();
 
     $drive = $this->postJson('/api/v1/crm/drives', [
         'name' => 'Enterprise',
@@ -35,6 +36,7 @@ it('supports lead CRUD, activity tracking, and import flow', function () {
         'priority' => 'high',
         'drive_id' => $drive['id'],
         'status_id' => $status['id'],
+        ...$location,
     ]);
 
     $leadResponse->assertCreated()->assertJsonPath('success', true);
@@ -49,7 +51,7 @@ it('supports lead CRUD, activity tracking, and import flow', function () {
 
     $activity->assertCreated()->assertJsonPath('success', true);
 
-    $csv = "first_name,last_name,email,company,status,priority\nAlice,Smith,alice@lead.test,Globex,new,medium\nBob,Lee,bob@lead.test,Initech,contacted,high\n";
+    $csv = "first_name,last_name,email,company,status,priority,country,state\nAlice,Smith,alice@lead.test,Globex,new,medium,Nigeria,Lagos\nBob,Lee,bob@lead.test,Initech,contacted,high,Nigeria,Lagos\n";
 
     $importResponse = $this->postJson('/api/v1/crm/leads/import', [
         'file' => UploadedFile::fake()->createWithContent('leads.csv', $csv),
@@ -85,11 +87,13 @@ it('enforces strict industry values on manual lead creation but allows empty', f
 
     $admin = apiUser('admin');
     Sanctum::actingAs($admin);
+    $location = testLocationIds();
 
     $valid = $this->postJson('/api/v1/crm/leads', [
         'first_name' => 'Industry',
         'email' => 'industry.valid@lead.test',
         'industry' => 'technology / software',
+        ...$location,
     ]);
 
     $valid->assertCreated()
@@ -98,6 +102,7 @@ it('enforces strict industry values on manual lead creation but allows empty', f
     $empty = $this->postJson('/api/v1/crm/leads', [
         'first_name' => 'NoIndustry',
         'email' => 'industry.empty@lead.test',
+        ...$location,
     ]);
 
     $empty->assertCreated()->assertJsonPath('data.industry', null);
@@ -106,6 +111,7 @@ it('enforces strict industry values on manual lead creation but allows empty', f
         'first_name' => 'BadIndustry',
         'email' => 'industry.invalid@lead.test',
         'industry' => 'Space Mining',
+        ...$location,
     ]);
 
     $invalid->assertStatus(422)->assertJsonPath('success', false);
@@ -116,11 +122,12 @@ it('normalizes and safely defaults industry during import', function () {
 
     $admin = apiUser('admin');
     Sanctum::actingAs($admin);
+    testLocationIds();
 
-    $csv = "first_name,last_name,email,company,industry\n"
-        . "Alice,Smith,industry.alice@lead.test,Globex, technology / software \n"
-        . "Bob,Lee,industry.bob@lead.test,Initech,Unknown Vertical\n"
-        . "Cara,Jones,industry.cara@lead.test,Initrode,\n";
+    $csv = "first_name,last_name,email,company,industry,country,state\n"
+        . "Alice,Smith,industry.alice@lead.test,Globex, technology / software ,Nigeria,Lagos\n"
+        . "Bob,Lee,industry.bob@lead.test,Initech,Unknown Vertical,Nigeria,Lagos\n"
+        . "Cara,Jones,industry.cara@lead.test,Initrode,,Nigeria,Lagos\n";
 
     $response = $this->postJson('/api/v1/crm/leads/import', [
         'file' => UploadedFile::fake()->createWithContent('industry-import.csv', $csv),

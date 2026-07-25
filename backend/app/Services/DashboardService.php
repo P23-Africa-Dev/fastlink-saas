@@ -21,8 +21,13 @@ class DashboardService
         $monthStart = Carbon::now()->startOfMonth();
         $monthEnd = Carbon::now()->endOfMonth();
 
-        $usersTotal = User::count();
-        $usersActive = User::active()->count();
+        $orgId = app(\App\Support\OrganizationContext::class)->id();
+
+        $usersQuery = User::query()
+            ->when($orgId, fn ($q) => $q->whereHas('organizationMemberships', fn ($m) => $m->where('organization_id', $orgId)->where('status', 'active')));
+
+        $usersTotal = (clone $usersQuery)->count();
+        $usersActive = (clone $usersQuery)->active()->count();
 
         $leadsTotal = $this->leadMetricsService->total($viewer);
         $leadsThisWeek = $this->leadMetricsService->createdThisWeek($viewer);

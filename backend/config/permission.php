@@ -26,7 +26,7 @@ return [
 
     'events_enabled' => false,
 
-    'teams' => false,
+    'teams' => true,
     'team_resolver' => Spatie\Permission\DefaultTeamResolver::class,
 
     'use_passport_client_credentials' => false,

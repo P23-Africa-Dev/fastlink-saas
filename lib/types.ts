@@ -3,11 +3,23 @@ export interface UserRole {
   name: string;
 }
 
+export interface OrganizationSummary {
+  id: number;
+  name: string;
+  slug: string;
+  role: string | null;
+  status: string;
+}
+
 export interface CurrentUser {
   id: number;
   name: string;
   email: string;
   roles: UserRole[];
+  organizations?: OrganizationSummary[];
+  current_organization_id?: number | null;
+  current_organization?: OrganizationSummary | null;
+  is_super_admin?: boolean;
 }
 
 export interface User {

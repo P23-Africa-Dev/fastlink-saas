@@ -43,9 +43,7 @@ it('returns an authorization url for google calendar connection', function () {
         ->assertJsonPath('data.authorization_url', 'https://accounts.google.com/o/oauth2/v2/auth?state=test');
 });
 
-it('redirects to the configured frontend url after successful callback', function () {
-    config()->set('google.oauth.success_redirect', 'https://frontend.example.com/settings/google');
-
+it('returns a success popup page after successful google calendar callback', function () {
     $user = apiUser('admin');
     $account = new \App\Models\GoogleCalendarAccount([
         'user_id' => $user->id,
@@ -62,7 +60,9 @@ it('redirects to the configured frontend url after successful callback', functio
     app()->instance(\App\Services\GoogleOAuthService::class, $mock);
 
     $this->get('/api/v1/google/calendar/callback?state=state-123&code=code-456')
-        ->assertRedirect('https://frontend.example.com/settings/google?provider=google_calendar&status=connected&email=organizer%40gmail.com');
+        ->assertOk()
+        ->assertSee('Google Calendar connected', false)
+        ->assertSee('organizer@gmail.com', false);
 });
 
 it('disconnects the authenticated user from google calendar', function () {

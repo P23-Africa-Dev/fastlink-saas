@@ -6,6 +6,7 @@ use Database\Seeders\WorkflowDefaultsSeeder;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
+    ensureTestOrganization();
     $this->seed(WorkflowDefaultsSeeder::class);
     CompanySetting::singleton()->update([
         'pipeline_privacy' => CompanySetting::defaultPipelinePrivacy(),
@@ -17,9 +18,10 @@ it('allows staff to create private pipelines and hides them from other staff', f
     $staffB = apiUser('staff', ['email' => 'staff-b-privacy@test.test']);
     $supervisor = apiUser('supervisor', ['email' => 'sup-privacy@test.test']);
     $admin = apiUser('admin', ['email' => 'admin-privacy@test.test']);
+    $orgId = (string) $staffA->current_organization_id;
 
     Sanctum::actingAs($staffA);
-    $drive = $this->postJson('/api/v1/crm/drives', [
+    $drive = $this->withHeader('X-Organization-Id', $orgId)->postJson('/api/v1/crm/drives', [
         'name' => 'Staff Private',
         'slug' => 'staff-private-' . uniqid(),
         'is_private' => true,
@@ -30,19 +32,19 @@ it('allows staff to create private pipelines and hides them from other staff', f
         ->and($drive['created_by'])->toBe($staffA->id);
 
     Sanctum::actingAs($staffA);
-    $this->getJson('/api/v1/crm/drives')->assertOk()
+    $this->withHeader('X-Organization-Id', $orgId)->getJson('/api/v1/crm/drives')->assertOk()
         ->assertJsonFragment(['id' => $drive['id']]);
 
     Sanctum::actingAs($staffB);
-    $ids = collect($this->getJson('/api/v1/crm/drives')->assertOk()->json('data'))->pluck('id');
+    $ids = collect($this->withHeader('X-Organization-Id', $orgId)->getJson('/api/v1/crm/drives')->assertOk()->json('data'))->pluck('id');
     expect($ids)->not->toContain($drive['id']);
 
     Sanctum::actingAs($supervisor);
-    $this->getJson('/api/v1/crm/drives')->assertOk()
+    $this->withHeader('X-Organization-Id', $orgId)->getJson('/api/v1/crm/drives')->assertOk()
         ->assertJsonFragment(['id' => $drive['id']]);
 
     Sanctum::actingAs($admin);
-    $this->getJson('/api/v1/crm/drives')->assertOk()
+    $this->withHeader('X-Organization-Id', $orgId)->getJson('/api/v1/crm/drives')->assertOk()
         ->assertJsonFragment(['id' => $drive['id']]);
 });
 

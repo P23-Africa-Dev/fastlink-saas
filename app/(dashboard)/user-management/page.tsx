@@ -15,6 +15,7 @@ import { UserDetailDrawer } from "./components/UserDetailDrawer";
 import { CreateUserModal } from "./components/CreateUserModal";
 import { EditUserModal } from "./components/EditUserModal";
 import { DeleteUserModal } from "./components/DeleteUserModal";
+import { InvitationsPanel } from "./components/InvitationsPanel";
 
 import {
   User, UserRole, ROLE_CONFIG, USER_ROLES,
@@ -238,6 +239,8 @@ export default function UserManagementPage() {
           </div>
         ))}
       </div>
+
+      {isAdmin && <InvitationsPanel />}
 
       {/* ── Search + filters + layout toggle ─────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between shrink-0" style={{ gap: "10px" }}>

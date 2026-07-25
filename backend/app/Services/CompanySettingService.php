@@ -12,14 +12,7 @@ class CompanySettingService
      */
     public function get(): CompanySetting
     {
-        $settings = CompanySetting::singleton();
-
-        if (! is_array($settings->pipeline_privacy)) {
-            $settings->pipeline_privacy = CompanySetting::defaultPipelinePrivacy();
-            $settings->save();
-        }
-
-        return $settings;
+        return CompanySetting::forCurrentOrganization();
     }
 
     /**

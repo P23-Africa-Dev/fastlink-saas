@@ -2,16 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
+use App\Support\OrganizationContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Singleton model — there is always exactly one row (id = 1).
- * Use CompanySetting::sole() or CompanySetting::first() to retrieve it.
+ * Per-organization company settings (one row per organization).
  */
 class CompanySetting extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'company_name',
         'opening_time',
         'closing_time',
@@ -27,6 +31,24 @@ class CompanySetting extends Model
             'working_days' => 'array',
             'pipeline_privacy' => 'array',
         ];
+    }
+
+    public function getOpeningTimeAttribute($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        return strlen((string) $value) === 5 ? $value . ':00' : (string) $value;
+    }
+
+    public function getClosingTimeAttribute($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        return strlen((string) $value) === 5 ? $value . ':00' : (string) $value;
     }
 
     /**
@@ -55,16 +77,36 @@ class CompanySetting extends Model
     }
 
     /**
-     * Return the singleton row, creating a default one if somehow absent.
+     * Return settings for the current organization context.
+     */
+    public static function forCurrentOrganization(): self
+    {
+        return static::forOrganization(app(OrganizationContext::class)->id());
+    }
+
+    /**
+     * Return (or create) the settings row for a specific organization.
+     * A null organization id keeps the pre-tenancy fallback row usable.
+     */
+    public static function forOrganization(?int $organizationId): self
+    {
+        return static::withoutOrganizationScope()->firstOrCreate(
+            ['organization_id' => $organizationId],
+            [
+                'opening_time' => '09:00:00',
+                'closing_time' => '18:00:00',
+                'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                'timezone' => config('app.timezone', 'UTC'),
+                'pipeline_privacy' => static::defaultPipelinePrivacy(),
+            ]
+        );
+    }
+
+    /**
+     * @deprecated Use forCurrentOrganization()
      */
     public static function singleton(): self
     {
-        return static::firstOrCreate([], [
-            'opening_time' => '09:00:00',
-            'closing_time' => '18:00:00',
-            'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-            'timezone'     => config('app.timezone', 'UTC'),
-            'pipeline_privacy' => static::defaultPipelinePrivacy(),
-        ]);
+        return static::forCurrentOrganization();
     }
 }

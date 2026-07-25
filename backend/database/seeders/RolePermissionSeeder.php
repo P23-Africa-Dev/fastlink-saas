@@ -13,6 +13,8 @@ class RolePermissionSeeder extends Seeder
      */
     public function run(): void
     {
+        setPermissionsTeamId(null);
+
         $permissions = [
             'dashboard.view',
             'users.manage',

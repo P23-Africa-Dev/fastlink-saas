@@ -17,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'suspended_at', 'first_logged_in_at', 'appearance'])]
+#[Fillable(['name', 'email', 'password', 'suspended_at', 'first_logged_in_at', 'appearance', 'is_super_admin', 'current_organization_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -38,6 +38,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'suspended_at' => 'datetime',
             'first_logged_in_at' => 'datetime',
+            'is_super_admin' => 'boolean',
         ];
     }
 
@@ -49,6 +50,64 @@ class User extends Authenticatable
     public function isSuspended(): bool
     {
         return $this->suspended_at !== null;
+    }
+
+    public function currentOrganization(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'current_organization_id');
+    }
+
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_user')
+            ->withPivot(['status', 'invited_by', 'joined_at'])
+            ->withTimestamps();
+    }
+
+    public function organizationMemberships(): HasMany
+    {
+        return $this->hasMany(OrganizationUser::class);
+    }
+
+    /**
+     * Organizations the user can actively use, with role for each.
+     *
+     * @return list<array{id: int, name: string, slug: string, role: string|null, status: string}>
+     */
+    public function organizationSummaries(): array
+    {
+        $memberships = OrganizationUser::query()
+            ->with('organization:id,name,slug,status')
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->get();
+
+        $items = [];
+
+        foreach ($memberships as $membership) {
+            $org = $membership->organization;
+            if (! $org || $org->isSuspended()) {
+                continue;
+            }
+
+            setPermissionsTeamId($org->id);
+            $this->unsetRelation('roles');
+
+            $items[] = [
+                'id' => $org->id,
+                'name' => $org->name,
+                'slug' => $org->slug,
+                'role' => $this->getRoleNames()->first(),
+                'status' => $org->status,
+            ];
+        }
+
+        if ($this->current_organization_id) {
+            setPermissionsTeamId($this->current_organization_id);
+            $this->unsetRelation('roles');
+        }
+
+        return $items;
     }
 
     /**
