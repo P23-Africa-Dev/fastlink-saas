@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Api\V1\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Models\Lead;
+use App\Models\Meeting;
 use App\Models\Organization;
 use App\Models\OrganizationUser;
+use App\Models\Project;
+use App\Models\Task;
 use App\Notifications\UserAccountCreatedNotification;
 use App\Services\OrganizationProvisioner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class PlatformOrganizationController extends Controller
@@ -63,8 +66,33 @@ class PlatformOrganizationController extends Controller
     public function show(Organization $organization): JsonResponse
     {
         $organization->loadCount('memberships');
+        $organization->load('creator:id,name,email');
 
-        return $this->success($organization, 'Organization fetched.');
+        $orgId = $organization->id;
+
+        return $this->success([
+            'organization' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'slug' => $organization->slug,
+                'status' => $organization->status,
+                'timezone' => $organization->timezone,
+                'created_at' => $organization->created_at?->toISOString(),
+                'memberships_count' => $organization->memberships_count,
+            ],
+            'creator' => $organization->creator ? [
+                'id' => $organization->creator->id,
+                'name' => $organization->creator->name,
+                'email' => $organization->creator->email,
+            ] : null,
+            'stats' => [
+                'members' => (int) $organization->memberships_count,
+                'leads' => Lead::withoutOrganizationScope()->where('organization_id', $orgId)->count(),
+                'projects' => Project::withoutOrganizationScope()->where('organization_id', $orgId)->count(),
+                'tasks' => Task::withoutOrganizationScope()->where('organization_id', $orgId)->count(),
+                'meetings' => Meeting::withoutOrganizationScope()->where('organization_id', $orgId)->count(),
+            ],
+        ], 'Organization fetched.');
     }
 
     public function update(Request $request, Organization $organization): JsonResponse
@@ -79,6 +107,17 @@ class PlatformOrganizationController extends Controller
         $organization->update($data);
 
         return $this->success($organization->fresh()->loadCount('memberships'), 'Organization updated.');
+    }
+
+    public function destroy(Request $request, Organization $organization): JsonResponse
+    {
+        $data = $request->validate([
+            'confirm_slug' => ['required', 'string', 'max:255'],
+        ]);
+
+        $this->provisioner->deleteOrganization($organization, $data['confirm_slug']);
+
+        return $this->success(null, 'Organization deleted.');
     }
 
     public function members(Organization $organization): JsonResponse

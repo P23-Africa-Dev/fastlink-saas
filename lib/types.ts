@@ -427,3 +427,48 @@ export interface LeaveRequest {
   modified_end_date?: string | null;
   sender_response_note?: string | null;
 }
+
+// ─── Platform (super-admin) ───────────────────────────────────────────────────
+
+export interface PlatformOrganization {
+  id: number;
+  name: string;
+  slug: string;
+  status: string;
+  timezone?: string | null;
+  memberships_count?: number;
+  created_at?: string;
+}
+
+export interface PlatformOrganizationCreator {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface PlatformOrganizationStats {
+  members: number;
+  leads: number;
+  projects: number;
+  tasks: number;
+  meetings: number;
+}
+
+export interface PlatformOrganizationDetail {
+  organization: PlatformOrganization;
+  creator: PlatformOrganizationCreator | null;
+  stats: PlatformOrganizationStats;
+}
+
+export interface PlatformOrganizationMember {
+  id: number;
+  status: string;
+  joined_at: string | null;
+  role: string | null;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    suspended_at?: string | null;
+  } | null;
+}

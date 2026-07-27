@@ -8,17 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { useAuthStore } from "@/lib/stores/authStore";
-import type { ApiResponse } from "@/lib/types";
-
-interface PlatformOrg {
-  id: number;
-  name: string;
-  slug: string;
-  status: string;
-  timezone?: string | null;
-  memberships_count?: number;
-  created_at?: string;
-}
+import type { ApiResponse, PlatformOrganization } from "@/lib/types";
 
 export default function PlatformPage() {
   const router = useRouter();
@@ -34,7 +24,7 @@ export default function PlatformPage() {
   const { data: orgs, isLoading } = useQuery({
     queryKey: ["platform", "organizations"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<PlatformOrg[]>>("/platform/organizations", {
+      const res = await api.get<ApiResponse<PlatformOrganization[]>>("/platform/organizations", {
         params: { per_page: 100 },
       });
       return res.data.data;
@@ -44,7 +34,7 @@ export default function PlatformPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.post<ApiResponse<{ organization: PlatformOrg }>>("/platform/organizations", {
+      const res = await api.post<ApiResponse<{ organization: PlatformOrganization }>>("/platform/organizations", {
         name,
         slug: slug || undefined,
         admin_name: adminName || undefined,
@@ -66,7 +56,7 @@ export default function PlatformPage() {
 
   const suspendMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const res = await api.patch<ApiResponse<PlatformOrg>>(`/platform/organizations/${id}`, { status });
+      const res = await api.patch<ApiResponse<PlatformOrganization>>(`/platform/organizations/${id}`, { status });
       return res.data.data;
     },
     onSuccess: () => {
@@ -181,17 +171,25 @@ export default function PlatformPage() {
                     </span>
                   </td>
                   <td style={{ padding: "14px 16px" }} className="text-right">
-                    <button
-                      onClick={() =>
-                        suspendMutation.mutate({
-                          id: org.id,
-                          status: org.status === "active" ? "suspended" : "active",
-                        })
-                      }
-                      className="text-[12px] font-bold text-[#33084E]"
-                    >
-                      {org.status === "active" ? "Suspend" : "Activate"}
-                    </button>
+                    <div className="flex items-center justify-end" style={{ gap: 12 }}>
+                      <button
+                        onClick={() => router.push(`/platform/${org.id}`)}
+                        className="text-[12px] font-bold text-[#33084E]"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() =>
+                          suspendMutation.mutate({
+                            id: org.id,
+                            status: org.status === "active" ? "suspended" : "active",
+                          })
+                        }
+                        className="text-[12px] font-bold text-[#33084E]"
+                      >
+                        {org.status === "active" ? "Suspend" : "Activate"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

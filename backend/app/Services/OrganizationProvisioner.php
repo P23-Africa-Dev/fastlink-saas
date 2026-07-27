@@ -10,7 +10,9 @@ use App\Models\OrganizationUser;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -175,6 +177,61 @@ class OrganizationProvisioner
         $user->syncRoles([$role]);
 
         return $membership;
+    }
+
+    /**
+     * Permanently delete an organization and all tenant data (DB cascade).
+     *
+     * @throws ValidationException
+     */
+    public function deleteOrganization(Organization $organization, string $confirmSlug): void
+    {
+        $confirmSlug = Str::lower(trim($confirmSlug));
+
+        if ($organization->slug === 'fastlink') {
+            throw ValidationException::withMessages([
+                'organization' => ['The primary FastLink organization cannot be deleted.'],
+            ]);
+        }
+
+        if ($confirmSlug !== Str::lower($organization->slug)) {
+            throw ValidationException::withMessages([
+                'confirm_slug' => ['Confirmation slug does not match this organization.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($organization) {
+            $orgId = $organization->id;
+
+            if (Schema::hasColumn('model_has_roles', 'team_id')) {
+                DB::table('model_has_roles')->where('team_id', $orgId)->delete();
+            }
+
+            if (Schema::hasColumn('model_has_permissions', 'team_id')) {
+                DB::table('model_has_permissions')->where('team_id', $orgId)->delete();
+            }
+
+            $affectedUserIds = User::query()
+                ->where('current_organization_id', $orgId)
+                ->pluck('id');
+
+            foreach ($affectedUserIds as $userId) {
+                $fallbackOrgId = OrganizationUser::query()
+                    ->where('user_id', $userId)
+                    ->where('organization_id', '!=', $orgId)
+                    ->where('status', 'active')
+                    ->orderByDesc('joined_at')
+                    ->value('organization_id');
+
+                User::query()->whereKey($userId)->update([
+                    'current_organization_id' => $fallbackOrgId,
+                ]);
+            }
+
+            $organization->delete();
+
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        });
     }
 
     private function uniqueSlug(string $base): string

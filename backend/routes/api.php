@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/organizations', [PlatformOrganizationController::class, 'store']);
             Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show']);
             Route::patch('/organizations/{organization}', [PlatformOrganizationController::class, 'update']);
+            Route::delete('/organizations/{organization}', [PlatformOrganizationController::class, 'destroy']);
             Route::get('/organizations/{organization}/members', [PlatformOrganizationController::class, 'members']);
         });
 
