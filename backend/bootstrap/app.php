@@ -28,6 +28,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'organization'            => \App\Http\Middleware\SetCurrentOrganization::class,
             'super_admin'             => \App\Http\Middleware\EnsureSuperAdmin::class,
         ]);
+
+        // Organization context must be set BEFORE route model binding. Otherwise
+        // OrganizationScope sees a null org and applies whereRaw('1 = 0'), causing
+        // 404s on every {lead}/{drive}/{followup}/… binding while create/list still work.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SetCurrentOrganization::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Always return JSON payloads for API routes.
@@ -76,6 +84,19 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
+            return response()->json([
+                'success' => false,
+                'message' => 'Resource not found.',
+                'errors' => (object) [],
+            ], 404);
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if (!$request->is('api/*')) {
+                return null;
+            }
+
+            // Route model binding wraps ModelNotFoundException; never leak Eloquent text.
             return response()->json([
                 'success' => false,
                 'message' => 'Resource not found.',

@@ -174,39 +174,6 @@ const mapActivity = (raw: BackendActivity): Activity => ({
   is_completed: raw.is_completed,
 });
 
-// ── Mock Data ────────────────────────────────────────────────────────────────
-
-const initialDrives: DriveItem[] = [
-  { id: 1, name: "Enterprise Sales", slug: "enterprise", description: "Large account pipeline", color: "#33084E", position: 1, is_default: true },
-  { id: 2, name: "SMB Outreach", slug: "smb", description: "Small business leads", color: "#AF580B", position: 2, is_default: false },
-];
-
-const initialStatuses: StatusItem[] = [
-  { id: 1, name: "New Lead", slug: "new", color: "#33084E", position: 1, is_default: true, is_won: false, is_lost: false },
-  { id: 2, name: "Qualified", slug: "qualified", color: "#AF580B", position: 2, is_default: false, is_won: false, is_lost: false },
-  { id: 3, name: "Proposal", slug: "proposal", color: "#1d4ed8", position: 3, is_default: false, is_won: false, is_lost: false },
-  { id: 4, name: "Negotiation", slug: "negotiation", color: "#be185d", position: 4, is_default: false, is_won: false, is_lost: false },
-  { id: 5, name: "Closed Won", slug: "won", color: "#074616", position: 5, is_default: false, is_won: true, is_lost: false },
-];
-
-const initialLeads: Lead[] = [
-  { id: 101, first_name: "Alice", last_name: "Smith", company: "Globex Corp", email: "alice@globex.com", phone: "+1 555 0101", estimated_value: 15000, currency: "USD", priority: "high", status_id: 1, drive_id: 1, date: "2026-04-30", notes: "Warm lead from referral." },
-  { id: 102, first_name: "Bob", last_name: "Johnson", company: "Acme Inc", email: "bob@acme.com", phone: "+1 555 0102", estimated_value: 8500, currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-28" },
-  { id: 103, first_name: "Charlie", last_name: "Davis", company: "Initech", email: "cdavis@initech.com", phone: "+1 555 0103", estimated_value: 22000, currency: "USD", priority: "high", status_id: 3, drive_id: 1, date: "2026-04-25" },
-  { id: 104, first_name: "Diana", last_name: "Prince", company: "Themyscira", email: "diana@amazon.com", estimated_value: 50000, currency: "USD", priority: "high", status_id: 4, drive_id: 1, date: "2026-04-20" },
-  { id: 105, first_name: "Evan", last_name: "Wright", company: "Stark Ind", email: "evan@stark.com", estimated_value: 12000, currency: "USD", priority: "normal", status_id: 5, drive_id: 1, date: "2026-04-15" },
-  { id: 106, first_name: "Fiona", last_name: "Gallagher", company: "Southside", email: "fiona@south.com", estimated_value: 5000, currency: "USD", priority: "low", status_id: 1, drive_id: 1, date: "2026-04-30" },
-  { id: 107, first_name: "George", last_name: "Costanza", company: "Vandelay", email: "art@vandelay.com", estimated_value: 1500, currency: "USD", priority: "normal", status_id: 2, drive_id: 1, date: "2026-04-29" },
-];
-
-const mockActivities: Record<number, Activity[]> = {
-  101: [
-    { id: 1, type: "call", title: "Discovery Call", description: "Discussed requirements and budget.", scheduled_at: "2026-04-28T10:00:00", is_completed: true },
-    { id: 2, type: "email", title: "Sent proposal deck", description: "Attached pricing breakdown.", scheduled_at: "2026-04-29T09:00:00", is_completed: true },
-    { id: 3, type: "meeting", title: "Follow-up meeting", scheduled_at: "2026-05-05T14:00:00", is_completed: false },
-  ],
-};
-
 const formatCurrency = (val: number, currency = "USD") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(val);
 

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Lead;
 
 use App\Enums\Industry;
+use App\Support\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,6 +31,8 @@ class UpdateLeadRequest extends FormRequest
      */
     public function rules(): array
     {
+        $orgId = app(OrganizationContext::class)->id();
+
         return [
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
@@ -59,8 +62,22 @@ class UpdateLeadRequest extends FormRequest
             'requirements' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
             'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
-            'drive_id' => ['nullable', 'integer', 'exists:lead_drives,id'],
-            'status_id' => ['nullable', 'integer', 'exists:lead_statuses,id'],
+            'drive_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lead_drives', 'id')->when(
+                    $orgId !== null,
+                    fn ($rule) => $rule->where('organization_id', $orgId)
+                ),
+            ],
+            'status_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lead_statuses', 'id')->when(
+                    $orgId !== null,
+                    fn ($rule) => $rule->where('organization_id', $orgId)
+                ),
+            ],
             'next_follow_up' => ['nullable', 'date'],
             'lost_reason' => ['nullable', 'string', 'max:255'],
             'source_type' => ['nullable', 'string', 'max:255'],

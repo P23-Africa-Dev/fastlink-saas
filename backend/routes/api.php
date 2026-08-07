@@ -153,7 +153,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/crm/lead-analytics/top-uploaders', [LeadAnalyticsController::class, 'topUploaders'])
             ->middleware('role:admin|supervisor');
 
+        // Staff need status columns for the CRM board; mutations stay elevated.
+        Route::get('crm/statuses', [LeadStatusController::class, 'index'])
+            ->middleware('role:admin|supervisor|staff');
         Route::apiResource('crm/statuses', LeadStatusController::class)
+            ->except(['index'])
             ->parameters(['statuses' => 'status'])
             ->middleware('role:admin|supervisor');
 

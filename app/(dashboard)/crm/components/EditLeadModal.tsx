@@ -6,6 +6,7 @@ import { ModalButton } from "./ModalButton";
 import { Lead } from "./LeadDetailDrawer";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { useCountries, useStates } from "../hooks/useCrm";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 interface Status { id: number; name: string; }
 interface Drive { id: number; name: string; }
@@ -33,6 +34,7 @@ const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px]
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function EditLeadModal({ lead, statuses, drives, industries, onClose, onSave }: EditLeadModalProps) {
+  const { data: currentUser } = useCurrentUser();
   const [firstName, setFirstName] = useState(lead.first_name);
   const [lastName, setLastName] = useState(lead.last_name);
   const [email, setEmail] = useState(lead.email);
@@ -60,7 +62,12 @@ export function EditLeadModal({ lead, statuses, drives, industries, onClose, onS
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
-  const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
+  const assigneeOptions = [
+    { value: "", label: "Unassigned" },
+    ...(currentUser?.id
+      ? [{ value: currentUser.id.toString(), label: "Me" }]
+      : []),
+  ];
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
   const countryOptions = countries.map((country) => ({ value: country.id.toString(), label: country.name }));
   const stateOptions = states.map((state) => ({ value: state.id.toString(), label: state.name }));

@@ -10,6 +10,7 @@ use App\Http\Requests\Lead\UpdateLeadRequest;
 use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\LeadDrive;
+use App\Models\LeadStatus;
 use App\Services\ActivityLogService;
 use App\Services\Crm\LeadDriveVisibility;
 use App\Services\Crm\LeadImportService;
@@ -43,6 +44,7 @@ class LeadController extends Controller
                 });
             })
             ->when($request->filled('status'), fn($builder) => $builder->where('status', $request->string('status')))
+            ->when($request->filled('status_id'), fn($builder) => $builder->where('status_id', (int) $request->input('status_id')))
             ->when($request->filled('drive_id'), fn($builder) => $builder->where('drive_id', (int) $request->input('drive_id')))
             ->when($request->filled('assigned_to'), fn($builder) => $builder->where('assigned_to', (int) $request->input('assigned_to')))
             ->when($request->filled('priority'), fn($builder) => $builder->where('priority', $request->string('priority')))
@@ -72,6 +74,7 @@ class LeadController extends Controller
         $payload['created_by'] = $request->user()->id;
         $payload['imported_by'] = null;
         $payload['source_type'] = 'manual';
+        $payload = $this->syncLeadStatusFields($payload);
 
         $lead = Lead::create($payload);
 
@@ -155,17 +158,25 @@ class LeadController extends Controller
             return $this->error('You cannot move leads to this pipeline.', 403);
         }
 
+        $payload = $this->syncLeadStatusFields($payload);
+
         $oldStatus = $lead->status;
+        $oldStatusId = (int) ($lead->status_id ?? 0);
         $oldAssignedTo = (int) ($lead->assigned_to ?? 0);
         $lead->update($payload);
 
-        if (array_key_exists('status', $payload) && $payload['status'] !== $oldStatus) {
+        $newStatus = (string) ($lead->status ?? '');
+        $newStatusId = (int) ($lead->status_id ?? 0);
+        $statusChanged = (array_key_exists('status', $payload) && $payload['status'] !== $oldStatus)
+            || (array_key_exists('status_id', $payload) && $newStatusId !== $oldStatusId);
+
+        if ($statusChanged) {
             $lead->activities()->create([
                 'user_id' => $request->user()->id,
                 'type' => 'status_change',
                 'title' => 'Lead status updated',
                 'old_value' => (string) $oldStatus,
-                'new_value' => (string) $payload['status'],
+                'new_value' => $newStatus !== '' ? $newStatus : (string) $newStatusId,
                 'is_completed' => true,
             ]);
         }
@@ -320,5 +331,32 @@ class LeadController extends Controller
         }
 
         return $this->driveVisibility->canView($request->user(), $drive);
+    }
+
+    /**
+     * Keep legacy string `status` and FK `status_id` aligned when either changes.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function syncLeadStatusFields(array $payload): array
+    {
+        $allowed = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
+
+        if (array_key_exists('status_id', $payload) && $payload['status_id'] !== null && ! array_key_exists('status', $payload)) {
+            $slug = LeadStatus::query()->whereKey((int) $payload['status_id'])->value('slug');
+            if (is_string($slug) && in_array($slug, $allowed, true)) {
+                $payload['status'] = $slug;
+            }
+        }
+
+        if (array_key_exists('status', $payload) && is_string($payload['status']) && ! array_key_exists('status_id', $payload)) {
+            $statusId = LeadStatus::query()->where('slug', $payload['status'])->value('id');
+            if ($statusId) {
+                $payload['status_id'] = (int) $statusId;
+            }
+        }
+
+        return $payload;
     }
 }

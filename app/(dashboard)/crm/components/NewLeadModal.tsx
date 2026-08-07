@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { ModalButton } from "./ModalButton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { useCountries, useStates } from "../hooks/useCrm";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 interface Status { id: number; name: string; }
 interface Drive { id: number; name: string; }
@@ -47,6 +48,7 @@ const inputCls = "w-full rounded-xl border border-[#f0f0f5] bg-white text-[13px]
 const labelCls = "text-[13px] font-bold text-(--text-primary)";
 
 export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: NewLeadModalProps) {
+  const { data: currentUser } = useCurrentUser();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -74,7 +76,12 @@ export function NewLeadModal({ statuses, drives, industries, onClose, onSave }: 
 
   const driveOptions = drives.map(d => ({ value: d.id.toString(), label: d.name }));
   const statusOptions = statuses.map(s => ({ value: s.id.toString(), label: s.name }));
-  const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "1", label: "Me" }];
+  const assigneeOptions = [
+    { value: "", label: "Unassigned" },
+    ...(currentUser?.id
+      ? [{ value: currentUser.id.toString(), label: "Me" }]
+      : []),
+  ];
   const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
   const countryOptions = countries.map((country) => ({
     value: country.id.toString(),
